@@ -38,6 +38,7 @@ code{font:12px var(--mono);background:var(--card2);border:1px solid var(--line2)
 input[type=number],input[type=text].plain{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--fg)}
 button{font:inherit;font-weight:600;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;-webkit-tap-highlight-color:transparent}
 button:disabled{opacity:.45;cursor:not-allowed} button.sm{padding:6px 10px;font-size:13px;border-radius:9px}
+#swNets button.on{border-color:var(--c3);background:var(--c3s);color:var(--c3)}
 .gbtn{border:0;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 4px 14px var(--gl)}
 .gblue{background:linear-gradient(180deg,#3f78ff,#154afa);--gl:rgba(21,74,250,.4)} .gviolet{background:linear-gradient(180deg,#8b6dff,#5a3be0);--gl:rgba(107,76,246,.45)} .ggreen{background:linear-gradient(180deg,#2fd08f,#0f9f6b);--gl:rgba(15,159,107,.38)}
 .hint{font-size:12.5px;color:var(--mut2);margin:0 0 12px}
@@ -174,12 +175,14 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
     </div>
     <details style="margin-top:8px"><summary class="small mut" style="cursor:pointer">Extra token addresses</summary>
       <input id="extra" type="text" class="plain" style="width:100%;margin-top:6px" placeholder="0x…, 0x… (optional)"></details>
+    <div id="swNets"></div>
     <div id="toks" style="margin-top:6px"></div>
+    <div id="swGas"></div>
     <div id="swTot" class="tiles" style="display:none"></div>
     <details id="swPlanWrap" style="display:none;margin-top:8px"><summary class="small mut" style="cursor:pointer">What you will sign</summary><div id="swPlan" style="margin-top:6px"></div></details>
     <div class="sign" id="swSign" style="display:none"><button type="button" id="btnDry">Dry run</button><button type="button" id="btnSend" class="gbtn ggreen" disabled>Sign and sweep</button></div>
     <div id="swOut"></div>
-    <p class="small mut2" style="margin:10px 0 0">Claim your rewards in the Aero app first, then sweep them here into USDC in one signature (plus an exact-amount approval per new token). <a href="docs.html#sweep">How the sweep works</a></p>
+    <p class="small mut2" style="margin:10px 0 0">Claim your rewards in the Aero app first, then sweep them here into USDC in one signature (plus an exact-amount approval per new token). Votes on other networks pay out on that network, so the scan checks all of them; each network sweeps on its own and needs a little gas there. <a href="docs.html#sweep">How the sweep works</a> · <a href="docs.html#gas">Gas on each network</a></p>
   </div>
 </details>
 
@@ -217,6 +220,7 @@ window.onerror = function (msg, src, line) { try { var h = document.getElementBy
 <script src="allocate-lib.js"></script>
 <script src="planner.js"></script>
 <script src="sweep-routes.js"></script>
+<script src="sweep-nets.js"></script>
 <script src="crowd.js"></script>
 <script>
 (() => {
@@ -386,18 +390,34 @@ function matchPreset(v) { for (const [k, q] of Object.entries(PRESETS)) if (q.n 
 function setDial(v) { S.dial = { ...v, preset: matchPreset(v) }; store.set("dial", JSON.stringify(S.dial)); replan(); render(); }
 const dialOpts = () => ({ n: S.dial.n || null, memory: S.dial.memory, trust: S.dial.trust, caution: S.dial.caution, streams: S.dial.streams, baseOnly: !!S.dial.baseOnly });
 const perLock = () => S.dial.n === 1 && S.locks.length > 1;
-/* Backtest calibration (data/backtest.json): replayed on past scans, the planner's expected dollars ran high, so every
-   expected / low / high figure is scaled by the measured realized / expected for the preset (Custom uses Balanced's).
-   Refit every 3 hours; never above 1. A pool on another network keeps its full cost: (gross x f) minus cost. */
-function calF() { const c = S.BT && S.BT.calibration; if (!c) return 1; const k = S.dial && c[S.dial.preset] != null ? S.dial.preset : "balanced"; const f = Number(c[k]); return f > 0 && f < 1 ? f : 1; }
+/* Backtest calibration (data/backtest.json, 11/5/2026). Replayed on past scans, forecasts barely predicted payouts, so
+   each setting's expected dollars are pulled toward what that setting typically paid: per 1k AERO,
+   shown = rm + b x (forecast - fm), where fm / rm are the setting's typical forecast and payout and b how far its
+   forecasts tracked payouts (0 = not at all). Never above the forecast. Presets use their own measurements; Custom
+   uses the nearest tested dial setting. A pool on another network keeps its full cost: the model runs on gross dollars. */
+function gridKey(A, d) {
+  const near = (xs, v) => xs.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a);
+  return [near(A.m, d.memory), d.trust ? 1 : 0, near(A.c, d.caution), near(A.s, d.streams), d.n === 1 ? "1" : "a"].join(",");
+}
+function calModel() {
+  const B = S.BT, M = B && B.calmodel; if (!M || !S.dial) return null;
+  const p = S.dial.preset;
+  if (p !== "custom" && M.presets && M.presets[p]) return M.presets[p];
+  if (M.grid && B.calgrid && B.calgrid.axes) { const m = M.grid[gridKey(B.calgrid.axes, S.dial)]; if (m) return m; }
+  return (M.presets || {}).balanced || null;
+}
 function calib(pl) {
-  const f = calF(); if (!pl || f >= 1) return pl;
+  const m = calModel(); if (!pl || !m || !pl.legs.length) return pl;
+  const [fm, rm, b] = m;
+  const aero = pl.legs.reduce((a, l) => a + l.aero, 0), gross = pl.legs.reduce((a, l) => a + l.expect_usd + (l.cost || 0), 0);
+  if (!(aero > 0 && gross > 0)) return pl;
+  const per = gross / aero * 1000, f = Math.max(0.2, Math.min(1, (rm + b * (per - fm)) / per));
   const ex0 = pl.expect_usd;
   for (const l of pl.legs) { const c = l.cost || 0; for (const k of ["expect_usd", "expect_low_usd", "expect_high_usd"]) l[k] = (l[k] + c) * f - c; if (l.gross_usd != null) l.gross_usd *= f; }
-  if (pl.legs.length) for (const k of ["expect_usd", "expect_low_usd", "expect_high_usd"]) pl[k] = pl.legs.reduce((a, l) => a + l[k], 0);
+  for (const k of ["expect_usd", "expect_low_usd", "expect_high_usd"]) pl[k] = pl.legs.reduce((a, l) => a + l[k], 0);
   pl.apr = ex0 ? pl.apr * pl.expect_usd / ex0 : pl.apr; pl.cal = f;
   return pl;
-}      // Aggressive with several locks: each lock to a different top pool
+}
 function replan() {
   if (!S.dial) S.dial = loadDial();
   for (const L of S.locks) { L.dry = null; L.call = null; L.plan = null; if (!L.sent) L.status = ""; }
@@ -405,14 +425,16 @@ function replan() {
   if (!S.locks.length || totalAero() <= 0) return;
   const now = Date.now() / 1000;
   if (perLock()) {
-    const taken = {}, legs = [], warnings = new Set(); let usd = 0, lo = 0, hi = 0, placed = 100;
+    const taken = {}, legs = [], warnings = new Set(); let usd = 0, lo = 0, hi = 0, placed = 100, g0 = 0, g1 = 0;
     for (const L of S.locks.slice().sort((a, b) => lockAero(b) - lockAero(a))) {    // biggest lock picks first
-      const pl = calib(P.plan(S.D, lockAero(L), Math.max(now, L.next || now), 1, S.live, { ...dialOpts(), taken: { ...taken } }));
+      const raw = P.plan(S.D, lockAero(L), Math.max(now, L.next || now), 1, S.live, { ...dialOpts(), taken: { ...taken } });
+      for (const l of raw.legs) g0 += l.expect_usd + (l.cost || 0);
+      const pl = calib(raw); for (const l of pl.legs) g1 += l.expect_usd + (l.cost || 0);
       L.plan = pl; for (const l of pl.legs) { taken[l.row.gid] = (taken[l.row.gid] || 0) + l.aero; legs.push({ ...l, lock: L.id }); }
       usd += pl.expect_usd; lo += pl.expect_low_usd; hi += pl.expect_high_usd; placed = Math.min(placed, pl.placed); pl.warnings.forEach(w => warnings.add(w));
     }
     const aero = totalAero(), apr = aero && S.D.px ? usd / (aero * S.D.px) * 365 / (S.D.consts.H47 / 86400) * 100 : 0;
-    S.plan = { legs, start: openTs(), expect_usd: usd, expect_low_usd: lo, expect_high_usd: hi, apr, warnings: [...warnings], placed, perLock: true, cal: calF() };
+    S.plan = { legs, start: openTs(), expect_usd: usd, expect_low_usd: lo, expect_high_usd: hi, apr, warnings: [...warnings], placed, perLock: true, cal: g0 > 0 ? g1 / g0 : 1 };
   } else {
     S.plan = calib(P.plan(S.D, totalAero(), openTs(), null, S.live, dialOpts()));
     for (const L of S.locks) L.plan = S.plan;
@@ -549,7 +571,7 @@ function renderHero() {
   if (S.D && Date.now() / 1000 - S.D.scan_ts > 3 * 3600) pills.push(`<span class="tag warn">Pool data ${esc(ago(S.D.scan_ts))}</span>`);
   h.innerHTML = `<div class="hrow">${ring(first, true)}<div class="hmain"><div class="hk">This window · ${esc(short(S.addr))}</div>
     <div class="hv num">${p ? money(p.expect_usd) : "-"}</div>
-    <div class="hs num">${p && p.cal && p.cal < 1 ? `<a href="docs.html#tested" title="Expected dollars x ${p.cal.toFixed(2)}: on past data the planner ran high">calibrated</a> · ` : ""}${p ? p.apr.toFixed(0) + "% APR · " : ""}${S.locks.length}${S.total > LOCK_MAX ? ` of ${S.total}` : ""} lock${S.locks.length === 1 ? "" : "s"} · ${fmtA(aero)} AERO</div></div></div>
+    <div class="hs num">${p && p.cal && p.cal < 1 ? `<a href="docs.html#tested" title="Forecast x ${p.cal.toFixed(2)}: pulled toward what this setting typically paid in the backtest">calibrated</a> · ` : ""}${p ? p.apr.toFixed(0) + "% APR · " : ""}${S.locks.length}${S.total > LOCK_MAX ? ` of ${S.total}` : ""} lock${S.locks.length === 1 ? "" : "s"} · ${fmtA(aero)} AERO</div></div></div>
     <div class="pills">${pills.join("")}</div>`;
 }
 function poolRow(l) {
@@ -815,12 +837,12 @@ function renderTested() {
   const N = (B.networks || {})[S.btSize] || {};
   const nets = Object.entries(N).filter(([, v]) => v && v.n).map(([c, v]) => `${BT_NET[c] || c} ${Math.round(v.share * 100)}%`).join(" · ");
   const thin = Object.entries(B.cadence || {}).filter(([, h]) => h && h > 6).map(([c]) => BT_NET[c] || c);
-  const cal = B.calibration || {}, fmtF = k => cal[k] != null ? "x" + Number(cal[k]).toFixed(2) : "none";
+  const M = B.calmodel || {}, P0 = M.presets || {}, typ = m => m ? "$" + m[1].toFixed(2) : "-", cm = calModel();
   el.innerHTML = `<h2>How each strategy did <span>${B.n_starts} past starts · about ${B.independent_windows.toFixed(1)} separate windows</span></h2><div class="body">
     <div class="seg" id="btsize">${BT_SIZES.filter(x => B.rows[x[0]]).map(([k, t]) => `<button type="button" data-s="${k}" class="${S.btSize === k ? "on" : ""}">${t} AERO</button>`).join("")}</div>
     <p class="small mut" style="margin:0 0 8px">Each strategy planned with only what was known at the time, every 3 hours from ${esc(new Date(B.first * 1000).toLocaleDateString([], { month: "short", day: "numeric" }))} to ${esc(new Date(B.last * 1000).toLocaleDateString([], { month: "short", day: "numeric" }))}, then paid from what the pools really paid over the next 47 hours (real pile-ons in). Dollars per 1,000 AERO per window.</p>
     <div class="tw"><table><tr><th>Strategy</th><th class="num">Median<br><small>middle half</small></th><th class="num">Worst to best</th><th class="num">Beat Balanced</th></tr>${rows}</table></div>
-    <p class="small mut2" style="margin:8px 0 0">"Beat Balanced" counts separate 2-day stretches. ${nets ? `Best single pool on another network beat Base's best after costs: ${esc(nets)} of the time.` : ""}${thin.length ? ` ${esc(thin.join(", "))} were scanned once a day until Nov 5, so their figures are rough.` : ""} Expected dollars on this page are scaled to match: Balanced ${fmtF("balanced")}, Steady ${fmtF("steady")}, Aggressive ${fmtF("aggressive")}. A small sample, refreshed every 3 hours. <a href="docs.html#tested">How it's tested</a></p></div>`;
+    <p class="small mut2" style="margin:8px 0 0">"Beat Balanced" counts separate 2-day stretches. ${nets ? `Best single pool on another network beat Base's best after costs: ${esc(nets)} of the time.` : ""}${thin.length ? ` ${esc(thin.join(", "))} were scanned once a day until Nov 5, so their figures are rough.` : ""} Forecasts barely predicted payouts here, so expected dollars on this page are pulled toward what each setting typically paid per 1k AERO: Balanced ${typ(P0.balanced)}, Steady ${typ(P0.steady)}, Aggressive ${typ(P0.aggressive)}${S.dial && S.dial.preset === "custom" ? `, your Custom dials ${typ(cm)}` : ", Custom by the nearest tested dial setting"}. A small sample, refreshed every 3 hours. <a href="docs.html#tested">How it's tested</a></p></div>`;
   el.querySelectorAll("#btsize button").forEach(b => b.addEventListener("click", () => { S.btSize = b.dataset.s; renderTested(); }));
 }
 function renderCrowd() {
@@ -945,7 +967,7 @@ async function connect() {
   await ensureChain();
   if (!S.hooked && eth.on) {
     S.hooked = true;
-    eth.on("accountsChanged", a => { S.account = a[0] ? ethers.getAddress(a[0]) : null; renderPill(); log(S.account ? `Account changed to ${S.account}` : "Wallet disconnected."); SW.rows = []; SW.plan = null; SW.dry = null; renderSweep(); if (S.account) lookup(S.account); else render(); });
+    eth.on("accountsChanged", a => { S.account = a[0] ? ethers.getAddress(a[0]) : null; renderPill(); log(S.account ? `Account changed to ${S.account}` : "Wallet disconnected."); SW.rows = []; SW.byNet = {}; SW.gas = {}; SW.cid = null; SW.plan = null; SW.dry = null; renderSweep(); if (S.account) lookup(S.account); else render(); });
     eth.on("chainChanged", id => log(`Wallet network changed to chain ${parseInt(id, 16)}.`, parseInt(id, 16) === C.CHAIN_ID ? "" : "warn"));
   }
   renderPill(); log(`Connected ${S.account}`);
@@ -974,7 +996,13 @@ if (!store.get("safety")) showSafety(false);
    Metarouter.execute, with exact-amount approvals to the Metarouter only (ported from the
    private page, 11/5/2026; no server, no logging).
    ====================================================================================== */
-const MR = M.metarouter ? ethers.getAddress(M.metarouter) : null, MQ = M.metaquoter ? ethers.getAddress(M.metaquoter) : null, USDC = M.usdc ? ethers.getAddress(M.usdc) : null;
+/* Every Aero network (11/5/2026): the scan reads all of them (sweep-nets.js), the chips pick one, and the rest of this
+   section works on SWN exactly as it used to on Base. MR / MQ / USDC follow SWN (the Metarouter and Metaquoter share one
+   address everywhere; "USDC" is the network's stable, USDG on Robinhood). */
+const SN = window.SweepNets;
+let SWN = SN ? (SN.byId(8453) || SN.NETS[0]) : null;
+let MR = SWN ? SWN.mr : null, MQ = SWN ? SWN.mq : null, USDC = SWN ? SWN.stableAddr : null;
+function useNet(n) { SWN = n; MR = n.mr; MQ = n.mq; USDC = n.stableAddr; }
 const CMD_CL = 0x00, CMD_V2 = 0x08, FLAG_ALLOW_REVERT = 0x80, DUST_ALLOW_REVERT_USD = 0.25;
 const coder = ethers.AbiCoder.defaultAbiCoder();
 const APPROVE_SEL = I.erc20.getFunction("approve").selector, EXEC_SEL = I.mr.getFunction("execute").selector;
@@ -988,11 +1016,9 @@ function callIsAllowed(c, rows) {
   const row = rows.find(r => r.address.toLowerCase() === to);
   return spender.toLowerCase() === MR.toLowerCase() && amount === row.balance;
 }
-const UNIVERSE = Object.entries(R.universe || {}).map(([a, m]) => ({ sym: m.symbol || a.slice(0, 8), address: ethers.getAddress(a), decimals: m.decimals ?? 18 }));
-const KNOWN = Object.fromEntries(Object.values(R.tokens || {}).map(t => [t.address.toLowerCase(), t]));
 const EXTRA_KEY = "fp:sweep:extraTokens";
 function extraTokens() { try { return (localStorage.getItem(EXTRA_KEY) || "").split(/[\s,]+/).filter(x => /^0x[0-9a-fA-F]{40}$/.test(x)).map(ethers.getAddress); } catch (e) { return []; } }
-let SW = { rows: [], plan: null, dry: null, floor: 0.5, busy: false, done: null };
+let SW = { rows: [], plan: null, dry: null, floor: 0.5, busy: false, done: null, byNet: {}, gas: {}, cid: null };
 try { $("extra").value = localStorage.getItem(EXTRA_KEY) || ""; } catch (e) {}
 
 async function explorerTokens(owner) {
@@ -1011,102 +1037,68 @@ async function explorerTokens(owner) {
   } catch (e) { log("Block explorer lookup unavailable (" + (e.message || e) + "); scanning the Aero token universe + your extra addresses only.", "warn"); }
   return out;
 }
-const I_F = new ethers.Interface(["function getPool(address,address,int24) view returns (address)", "function getPool(address,address) view returns (address)"]);
-const ZERO = "0x0000000000000000000000000000000000000000";
-let MID_POOLS = null;
-async function poolsBetween(pairs) {
-  const calls = [], idx = [];
-  for (const [a, b] of pairs) {
-    for (const s of M.spacings) { calls.push({ target: M.clFactory, callData: I_F.encodeFunctionData("getPool(address,address,int24)", [a, b, s]) }); idx.push([a, b, "cl", `CL${s}`]); }
-    calls.push({ target: M.volatileFactory, callData: I_F.encodeFunctionData("getPool(address,address)", [a, b]) }); idx.push([a, b, "v2", "vAMM"]);
-    calls.push({ target: M.stableFactory, callData: I_F.encodeFunctionData("getPool(address,address)", [a, b]) }); idx.push([a, b, "v2", "sAMM"]);
-  }
-  const res = await multicall(calls); const out = {};
-  res.forEach((r, i) => {
-    if (!r.success || r.returnData.length < 66) return;
-    const pool = ethers.getAddress("0x" + r.returnData.slice(26)); if (pool === ZERO) return;
-    const [a, b, kind, label] = idx[i]; (out[`${a}|${b}`] ||= []).push({ pool, kind, label });
-  });
-  return out;
-}
-async function discoverRoutes(tokens) {
-  if (!tokens.length) return {};
-  const WETH = ethers.getAddress(M.weth), CBBTC = ethers.getAddress(M.cbbtc);
-  if (!MID_POOLS) MID_POOLS = await poolsBetween([[WETH, USDC], [CBBTC, USDC]]);
-  const pairs = tokens.flatMap(t => [[t, USDC], [t, WETH], [t, CBBTC]].filter(([a, b]) => a.toLowerCase() !== b.toLowerCase()));
-  const found = await poolsBetween(pairs); const out = {};
-  for (const t of tokens) {
-    const routes = [];
-    for (const p of found[`${t}|${USDC}`] || []) routes.push({ pools: [p.pool], kinds: [p.kind], via: p.label });
-    for (const [mid, name] of [[WETH, "WETH"], [CBBTC, "cbBTC"]]) {
-      if (t.toLowerCase() === mid.toLowerCase()) continue;
-      for (const p1 of found[`${t}|${mid}`] || []) for (const p2 of MID_POOLS[`${mid}|${USDC}`] || []) if (p1.kind === p2.kind) routes.push({ pools: [p1.pool, p2.pool], kinds: [p1.kind, p2.kind], via: `${p1.label} → ${name} → ${p2.label}` });
-    }
-    out[t.toLowerCase()] = routes;
-  }
-  return out;
-}
 async function swScan() {
   const owner = viewer();
-  if (!MR) { renderSweep("The sweep routes file did not load."); return; }
+  if (!SN || !SN.NETS.length) { renderSweep("The sweep routes file did not load."); return; }
   if (!owner) { renderSweep("Paste an address or connect a wallet first."); return; }
   if (SW.busy) return; SW.busy = true; $("swk").textContent = "scanning…";
   try {
     const floor = SW.floor, slip = Math.min(5, Math.max(0.1, Number($("slip").value) || 1)) / 100;
-    const discovered = await explorerTokens(owner);
-    const seen = new Set(); const toks = [];
-    for (const t of [...Object.entries(R.tokens || {}).map(([k, t]) => ({ sym: k, address: ethers.getAddress(t.address), decimals: t.decimals })), ...UNIVERSE, ...extraTokens().map(a => ({ sym: null, address: a, decimals: null })), ...discovered]) {
-      const k = t.address.toLowerCase(); if (k === USDC.toLowerCase() || seen.has(k)) continue; seen.add(k); toks.push(t);
-    }
-    log(`Reading ${toks.length} token balances for ${short(owner)}…`);
-    const bal = await multicall(toks.flatMap(t => [
-      { target: t.address, callData: I.erc20.encodeFunctionData("balanceOf", [owner]) },
-      { target: t.address, callData: I.erc20.encodeFunctionData("allowance", [owner, MR]) }]));
-    let rows = [];
-    toks.forEach((t, k) => {
-      const b = bal[2 * k].success && bal[2 * k].returnData.length >= 66 ? BigInt(bal[2 * k].returnData) : 0n;
-      const al = bal[2 * k + 1].success && bal[2 * k + 1].returnData.length >= 66 ? BigInt(bal[2 * k + 1].returnData) : 0n;
-      if (b > 0n) rows.push({ sym: t.sym, decimals: t.decimals, balance: b, allowance: al, address: t.address, known: KNOWN[t.address.toLowerCase()] || null });
+    const discovered = await explorerTokens(owner);   // Base only (the other networks use the loop's token list)
+    log(`Scanning ${SN.NETS.length} networks for reward tokens in ${short(owner)}…`);
+    const res = await Promise.allSettled(SN.NETS.map(n => SN.scan(n, owner, { floor, slip, extra: extraTokens(), discovered: n.isBase ? discovered : [], log })));
+    SW.byNet = {}; SW.gas = {};
+    res.forEach((r, i) => {
+      const n = SN.NETS[i];
+      if (r.status !== "fulfilled") { log(`${n.name}: scan failed (${(r.reason && r.reason.message) || r.reason}); skipped.`, "warn"); return; }
+      const { rows, noRoute } = r.value;
+      if (noRoute.length) log(`${n.name}: ${noRoute.length} token${noRoute.length === 1 ? "" : "s"} with no Aero route to ${n.stable}, skipped: ${noRoute.slice(0, 12).map(x => x.sym).join(", ")}${noRoute.length > 12 ? ", …" : ""}`);
+      if (rows.length) SW.byNet[n.chainId] = rows;
     });
-    if (!rows.length) { SW.rows = []; SW.plan = null; renderSweep("Nothing to sweep: no reward tokens in this wallet. Claim in the Aero app first, then re-scan."); log("No sellable tokens found.", "warn"); return; }
-    const need = rows.filter(r => r.sym == null || r.decimals == null);
-    if (need.length) {
-      const md = await multicall(need.flatMap(r => [{ target: r.address, callData: "0x95d89b41" }, { target: r.address, callData: "0x313ce567" }]));
-      need.forEach((r, k) => {
-        try { r.sym = r.sym || coder.decode(["string"], md[2 * k].returnData)[0]; } catch (e) { r.sym = r.sym || short(r.address); }
-        try { r.decimals = r.decimals ?? Number(BigInt(md[2 * k + 1].returnData)); } catch (e) { r.decimals = r.decimals ?? 18; }
-      });
-    }
-    log(`${rows.length} tokens hold a balance. Finding routes through new Aero pools…`);
-    const mids = await discoverRoutes(rows.filter(r => !r.known).map(r => r.address));
-    for (const r of rows) r.routes = r.known ? r.known.routes : (mids[r.address.toLowerCase()] || []);
-    const noRoute = rows.filter(r => !r.routes.length);
-    rows = rows.filter(r => r.routes.length);
-    if (noRoute.length) log(`${noRoute.length} token${noRoute.length === 1 ? "" : "s"} with no new-Aero route to USDC, skipped: ${noRoute.slice(0, 12).map(r => r.sym).join(", ")}${noRoute.length > 12 ? ", …" : ""}`);
-    if (!rows.length) { SW.rows = []; SW.plan = null; renderSweep("Nothing here has a route to USDC through the new Aero pools."); return; }
-    log(`Quoting ${rows.reduce((n, r) => n + r.routes.length, 0)} candidate routes through the Metaquoter…`);
-    const qcalls = [], qidx = [];
-    rows.forEach((r, ri) => r.routes.forEach((rt, qi) => { qcalls.push({ target: MQ, callData: I.mq.encodeFunctionData("quoteExactInput", [rt.pools, r.address, r.balance]) }); qidx.push([ri, qi]); }));
-    const q = await multicall(qcalls);
-    rows.forEach(r => { r.quotes = []; });
-    q.forEach((res, i) => { const [ri, qi] = qidx[i]; if (res.success && res.returnData.length >= 66) rows[ri].quotes.push({ route: rows[ri].routes[qi], out: BigInt(I.mq.decodeFunctionResult("quoteExactInput", res.returnData)[0]) }); });
-    for (const r of rows) {
-      r.quotes.sort((a, b) => (b.out > a.out ? 1 : b.out < a.out ? -1 : 0));
-      r.best = r.quotes[0] || null;
-      r.usd = r.best ? Number(r.best.out) / 1e6 : 0;
-      r.minOut = r.best ? (r.best.out * BigInt(Math.round((1 - slip) * 1e6)) / 1000000n) : 0n;
-      r.sell = !!r.best && r.usd >= floor;
-      r.allowRevert = r.usd < DUST_ALLOW_REVERT_USD;
-      r.needsApproval = r.allowance < r.balance;
-      r.note = !r.best ? "no quote" : r.usd < floor ? `under $${floor}` : r.allowRevert ? "dust, may revert" : "";
-    }
-    rows.sort((a, b) => b.usd - a.usd);
-    SW.rows = rows; SW.plan = null; SW.dry = null; SW.done = null;
-    renderSweep(); swBuildPlan(owner);
+    const has = SN.NETS.filter(n => SW.byNet[n.chainId]);
+    await Promise.all(has.map(n => swGasRead(n, owner).catch(e => log(`${n.name}: gas read failed (${e.message})`, "warn"))));
+    const val = n => (SW.byNet[n.chainId] || []).filter(r => r.sell).reduce((t, r) => t + r.usd, 0);
+    const keep = SW.cid && SW.byNet[SW.cid] ? SN.byId(SW.cid) : has.slice().sort((x, y) => val(y) - val(x))[0];
+    if (!keep) { SW.rows = []; SW.plan = null; SW.cid = null; renderSweep(`Nothing to sweep on any of the ${SN.NETS.length} Aero networks. Claim in the Aero app first, then re-scan.`); log("No sellable tokens found on any network.", "warn"); return; }
+    if (has.length > 1) log(`Rewards found on ${has.length} networks: ${has.map(n => `${n.name} $${fmt(val(n), 2)}`).join(" · ")}. Each sweeps on its own.`);
+    swPick(keep.chainId);
   } finally { SW.busy = false; if ($("swk").textContent === "scanning…") $("swk").textContent = ""; }
 }
+// gas on one network for its selected rows (before the dry run: a guess; after it: the dry run's real gas)
+async function swGasRead(n, owner, units) {
+  const rows = (SW.byNet[n.chainId] || []).filter(r => r.sell && r.best);
+  units = units || SN.gasGuess(rows.filter(r => r.needsApproval).length, rows.length);
+  SW.gas[n.chainId] = await SN.gasCheck(n, owner, units);
+  return SW.gas[n.chainId];
+}
+function swPick(cid) {
+  useNet(SN.byId(cid)); SW.cid = SWN.chainId;
+  SW.rows = SW.byNet[SWN.chainId] || []; SW.plan = null; SW.dry = null; SW.done = null; $("swOut").innerHTML = "";
+  renderSweep(); swBuildPlan(viewer());
+}
+function renderNets() {
+  const box = $("swNets"); const has = SN.NETS.filter(n => SW.byNet[n.chainId]);
+  if (!has.length || (has.length === 1 && has[0].isBase)) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="small mut" style="margin:8px 0 4px">Rewards found on ${has.length} network${has.length === 1 ? "" : "s"}. Each one is its own sweep, signed on that network:</div><div class="row" style="gap:6px;flex-wrap:wrap">` + has.map(n => {
+    const v = SW.byNet[n.chainId].filter(r => r.sell).reduce((t, r) => t + r.usd, 0), g = SW.gas[n.chainId];
+    return `<button class="sm${n.chainId === SWN.chainId ? " on" : ""}" data-cid="${n.chainId}" aria-pressed="${n.chainId === SWN.chainId}">${esc(n.name)} $${fmt(v, 2)}${g && !g.ok ? ` · needs gas` : ""}</button>`;
+  }).join("") + `</div>`;
+  box.querySelectorAll("button[data-cid]").forEach(b => b.addEventListener("click", () => swPick(Number(b.dataset.cid))));
+}
+// "To swap X on Arbitrum you need about 0.00003 ETH there": above the totals, refreshed after the dry run
+function renderGas() {
+  const g = SW.gas[SWN.chainId], el = $("swGas"); const sel = SW.rows.filter(r => r.sell && r.best);
+  if (!g || g.ok || !sel.length) { el.innerHTML = ""; return; }
+  const names = sel.slice(0, 3).map(r => r.sym).join(", ") + (sel.length > 3 ? ` and ${sel.length - 3} more` : "");
+  const usd = SN.gasUsd(SWN, g.need);
+  el.innerHTML = `<div class="banner warn small" style="margin-top:8px"><b>Gas needed on ${esc(SWN.name)}.</b> To swap ${esc(names)} you need about <b>${SN.gasAmt(g.need)} ${SWN.gas}</b>${usd != null ? ` (~$${fmt(Math.max(usd, 0.01), 2)})` : ""} for gas on ${esc(SWN.name)}. This wallet has ${SN.gasAmt(g.bal)} ${SWN.gas} there.
+    Send ${SN.suggest(SWN)} to this same address on ${esc(SWN.name)} (for example with <a href="${SN.relayUrl(SWN)}" target="_blank" rel="noopener">Relay</a>, from ETH on Base), then re-scan. <a href="docs.html#gas">How</a></div>`;
+}
+const gasOk = () => { const g = SW.gas[SWN.chainId]; return !g || g.ok; };
+const gasCostTxt = gas => { const g = SW.gas[SWN.chainId]; if (!g) return ""; const w = BigInt(gas) * g.price, usd = SN.gasUsd(SWN, w); return `≈ ${SN.gasAmt(w)} ${SWN.gas}${usd != null ? ` ($${fmt(usd, 3)})` : ""}`; };
 function renderSweep(emptyMsg) {
   const box = $("toks"); box.innerHTML = "";
+  renderNets(); renderGas();
   if (!SW.rows.length) {
     box.innerHTML = emptyMsg ? `<div class="banner warn small">${esc(emptyMsg)}</div>` : "";
     $("swTot").style.display = "none"; $("swPlanWrap").style.display = "none"; $("swSign").style.display = "none"; $("swk").textContent = emptyMsg ? "nothing to sweep" : (viewer() ? "open to scan" : "paste or connect to scan");
@@ -1126,7 +1118,7 @@ function renderSweep(emptyMsg) {
     const r = SW.rows.find(x => x.address === e.target.dataset.addr); r.sell = e.target.checked; renderSweep(); swBuildPlan(viewer());
   }));
   const appr = SW.rows.filter(r => r.sell && r.needsApproval).length;
-  $("swTot").style.display = ""; $("swTot").innerHTML = `<div class="tile"><div class="k">Expected</div><div class="v num">$${fmt(tot, 2)} <small>USDC</small></div></div>
+  $("swTot").style.display = ""; $("swTot").innerHTML = `<div class="tile"><div class="k">Expected</div><div class="v num">$${fmt(tot, 2)} <small>${SWN.stable}${SWN.isBase ? "" : " on " + esc(SWN.name)}</small></div></div>
     <div class="tile"><div class="k">Tokens</div><div class="v num">${n} <small>of ${SW.rows.length}</small></div></div>
     <div class="tile"><div class="k">Signatures</div><div class="v num">${n ? appr + 1 : 0} <small>${appr} approval${appr === 1 ? "" : "s"} + 1 swap</small></div></div>`;
   $("swk").textContent = `${n} to sell · $${fmt(tot, 2)}`;
@@ -1152,26 +1144,62 @@ function swBuildPlan(ownerIn) {
       [[r.best.route.pools, r.address, [0, r.balance], true, r.minOut, owner]]));
   }
   const deadline = Math.floor(Date.now() / 1000) + 20 * 60;
-  const exec = { to: MR, data: I.mr.encodeFunctionData("execute", [ethers.hexlify(new Uint8Array(cmds)), inputs, deadline]), desc: `ONE swap: ${sel.length} swap${sel.length === 1 ? "" : "s"} through the Metarouter, USDC lands in ${short(owner)}` };
+  const exec = { to: MR, data: I.mr.encodeFunctionData("execute", [ethers.hexlify(new Uint8Array(cmds)), inputs, deadline]), desc: `ONE swap: ${sel.length} swap${sel.length === 1 ? "" : "s"} through the Metarouter, ${SWN.stable} lands in ${short(owner)} on ${SWN.name}` };
   for (const c of [...approvals, exec]) if (!callIsAllowed(c, sel)) throw new Error("internal guard: unexpected call to " + c.to);
   SW.plan = { owner, approvals, exec, deadline, sel }; SW.dry = null;
   const bytes = (exec.data.length - 2) / 2;
   $("swPlan").innerHTML = `<ol class="steplist">${approvals.map(a => `<li><b>Approve ${esc(a.sym)}</b> · To <code>${a.to}</code> (the ${esc(a.sym)} token) · spender <code>${MR}</code> (Metarouter) · amount <b>${esc(a.amount)}</b> · 0 ETH</li>`).join("")}
-    <li><b>Swap</b> · To <code>${MR}</code> (Aero Metarouter) · method <b>execute</b> <code>${exec.data.slice(0, 10)}</code> · ${bytes.toLocaleString()} bytes · <b>0 ETH</b> · USDC paid to <code>${owner}</code> (you)<br><span class="mut">A hardware wallet shows this as raw data. Check the To address and 0 ETH on the device; the content is what the dry run returns and what your wallet's simulation shows (minus the reward tokens, plus USDC).</span>${sel.length > 1 ? `<br><span class="mut">Your wallet may flag this swap in red as a loss or "slippage": it compares one token with the whole total. The balance change is what counts.</span>` : ""}</li></ol>
-    <p class="small mut">Network <b>Base</b> on every screen. Reject anything naming sAERO <code>0xbf7977e1…</code>, "setApprovalForAll", "transfer", or an amount larger than the row. Deadline ${new Date(deadline * 1000).toLocaleTimeString()}.</p>`;
+    <li><b>Swap</b> · To <code>${MR}</code> (Aero Metarouter) · method <b>execute</b> <code>${exec.data.slice(0, 10)}</code> · ${bytes.toLocaleString()} bytes · <b>0 ETH</b> · USDC paid to <code>${owner}</code> (you)<br><span class="mut">A hardware wallet shows this as raw data. Check the To address and 0 ETH on the device; the content is what the dry run returns and what your wallet's simulation shows (minus the reward tokens, plus ${SWN.stable}).</span>${sel.length > 1 ? `<br><span class="mut">Your wallet may flag this swap in red as a loss or "slippage": it compares one token with the whole total. The balance change is what counts.</span>` : ""}</li></ol>
+    <p class="small mut">Network <b>${esc(SWN.name)}</b> on every screen. Reject anything naming sAERO <code>0xbf7977e1…</code>, "setApprovalForAll", "transfer", or an amount larger than the row. Deadline ${new Date(deadline * 1000).toLocaleTimeString()}.</p>`;
   $("swPlanWrap").style.display = ""; $("swSign").style.display = ""; $("btnSend").disabled = true; $("swOut").innerHTML = "";
 }
+/* Two tokens routed through the same pool (e.g. WETH and kBTC both ending in WETH/USDC): the first swap moves that pool,
+   so the second gets less than its own quote and its minimum reverts the whole sweep (seen on Ink 11/5: kBTC quoted
+   $124.6, got $114.0 after the WETH leg). When routes share a pool, simulate the swaps one after another with no minimum
+   to read what each really gets in this order, and lower those tokens' minimums to that x (1 - slippage). Never raises one. */
+async function swSeqMins(p) {
+  const seen = {}, shared = new Set();
+  for (const r of p.sel) for (const pool of r.best.route.pools) { const k = pool.toLowerCase(); if (seen[k] && seen[k] !== r) shared.add(k); seen[k] = r; }
+  if (!shared.size) return null;
+  const slip = Math.min(5, Math.max(0.1, Number($("slip").value) || 1)) / 100;
+  const balData = I.erc20.encodeFunctionData("balanceOf", [p.owner]), G2 = "0x" + (200000).toString(16);
+  const n = p.sel.length, per = Math.floor((await SN.simSwapGas(SWN, p.approvals.length + n + 1)) / n);
+  const one = r => I.mr.encodeFunctionData("execute", [ethers.hexlify(new Uint8Array([r.best.route.kinds[0] === "cl" ? CMD_CL : CMD_V2])),
+    [coder.encode(["tuple(address[] pools,address tokenIn,tuple(uint8 mode,uint256 value) amountIn,bool payerIsUser,uint256 minAmountOut,address recipient)"],
+      [[r.best.route.pools, r.address, [0, r.balance], true, 0n, p.owner]])], p.deadline]);
+  const calls = [{ from: p.owner, to: USDC, data: balData, gas: G2 }, ...p.approvals.map(a => ({ from: p.owner, to: a.to, data: a.data, gas: G2 }))];
+  for (const r of p.sel) calls.push({ from: p.owner, to: MR, data: one(r), gas: "0x" + per.toString(16) }, { from: p.owner, to: USDC, data: balData, gas: G2 });
+  let out;
+  try { out = (await SN.rpc(SWN, "eth_simulateV1", [{ blockStateCalls: [{ calls }], validation: false }, "latest"]))[0].calls; } catch (e) { log("Order check skipped: " + e.message, "warn"); return null; }
+  const base = 1 + p.approvals.length; let prev = out[0].status === "0x1" ? BigInt(out[0].returnData) : null; const moved = [];
+  p.sel.forEach((r, i) => {
+    const sw = out[base + 2 * i], rd = out[base + 2 * i + 1];
+    const now = rd && rd.status === "0x1" ? BigInt(rd.returnData) : null;
+    if (sw && sw.status === "0x1" && prev != null && now != null && r.best.route.pools.some(x => shared.has(x.toLowerCase()))) {
+      const got = now - prev, min = got * BigInt(Math.round((1 - slip) * 1e6)) / 1000000n;
+      if (min < r.minOut) { moved.push(`${r.sym} $${fmt(Number(r.minOut) / 1e6, 2)} → $${fmt(Number(min) / 1e6, 2)}`); r.minOut = min; }
+    }
+    if (now != null) prev = now;
+  });
+  if (!moved.length) return null;
+  log(`Swaps share a pool, so each one moves the price for the next: minimums set from the in-order result (${moved.join(", ")}).`, "warn");
+  swBuildPlan(p.owner);
+  return SW.plan;
+}
 async function swDry() {
-  const p = SW.plan; if (!p) return;
+  let p = SW.plan; if (!p) return;
   log("Sweep dry run: simulating approvals + swap from your address…");
   $("swOut").innerHTML = `<div class="banner small">Simulating…</div>`;
+  p = (await swSeqMins(p)) || p;
+  $("swOut").innerHTML = `<div class="banner small">Simulating…</div>`;
   const balData = I.erc20.encodeFunctionData("balanceOf", [p.owner]);
-  const calls = [{ from: p.owner, to: USDC, data: balData },
-    ...p.approvals.map(a => ({ from: p.owner, to: a.to, data: a.data })),
-    { from: p.owner, to: p.exec.to, data: p.exec.data, gas: "0x" + (30_000_000).toString(16) },
-    { from: p.owner, to: USDC, data: balData }];
+  const G2 = "0x" + (200000).toString(16), swapGas = await SN.simSwapGas(SWN, p.approvals.length + 2);
+  const calls = [{ from: p.owner, to: USDC, data: balData, gas: G2 },
+    ...p.approvals.map(a => ({ from: p.owner, to: a.to, data: a.data, gas: G2 })),
+    { from: p.owner, to: p.exec.to, data: p.exec.data, gas: "0x" + swapGas.toString(16) },
+    { from: p.owner, to: USDC, data: balData, gas: G2 }];
   let res;
-  try { res = await rpc("eth_simulateV1", [{ blockStateCalls: [{ calls }], validation: false }, "latest"]); }
+  try { res = await SN.rpc(SWN, "eth_simulateV1", [{ blockStateCalls: [{ calls }], validation: false }, "latest"]); }
   catch (e) { log("Simulation RPC failed: " + e.message, "bad"); $("swOut").innerHTML = `<div class="banner bad">Simulation failed. Not safe to sign.</div>`; return; }
   const out = res[0].calls;
   const bad = out.findIndex(c => c.status !== "0x1");
@@ -1187,22 +1215,25 @@ async function swDry() {
   const expect = p.sel.reduce((s, r) => s + r.usd, 0);
   SW.dry = { got, gas };
   const mine = S.account && ethers.getAddress(S.account) === p.owner;
-  log(`Sweep simulation OK: +${fmt(got, 4)} USDC (quotes ${fmt(expect, 4)}), gas ${gas.toLocaleString()}`, "ok");
-  $("swOut").innerHTML = `<div class="banner ok"><div class="big num">+$${fmt(got, 2)} USDC</div><span class="small">Dry run OK · quotes said $${fmt(expect, 2)} · gas ${gas.toLocaleString()} ≈ $${fmt(gas * 0.006e-9 * 2400, 3)} · ${p.approvals.length + 1} signature${p.approvals.length ? "s" : ""}${mine ? "" : S.account ? " · connect the wallet that holds these tokens to sign" : " · connect to sign"}</span></div>${walletNote(p.sel.length, got)}`;
-  $("btnSend").disabled = !mine;
+  log(`Sweep simulation OK on ${SWN.name}: +${fmt(got, 4)} ${SWN.stable} (quotes ${fmt(expect, 4)}), gas ${gas.toLocaleString()}`, "ok");
+  $("swOut").innerHTML = `<div class="banner ok"><div class="big num">+$${fmt(got, 2)} ${SWN.stable}</div><span class="small">Dry run OK · quotes said $${fmt(expect, 2)} · gas ${gas.toLocaleString()} ${gasCostTxt(gas)} · ${p.approvals.length + 1} signature${p.approvals.length ? "s" : ""}${mine ? "" : S.account ? " · connect the wallet that holds these tokens to sign" : " · connect to sign"}</span></div>${walletNote(p.sel.length, got)}`;
+  try { await swGasRead(SWN, p.owner, gas); } catch (e) { /* keep the guess */ }
+  renderNets(); renderGas();
+  $("btnSend").disabled = !mine || !gasOk();
 }
 async function swSend() {
   const p = SW.plan; if (!p || !S.account || !SW.dry) return;
   if (ethers.getAddress(S.account) !== p.owner) { log("Connected account differs from the scanned one. Re-scan.", "bad"); return; }
-  await ensureChain();
+  try { const g = await swGasRead(SWN, p.owner, SW.dry.gas); if (!g.ok) { renderNets(); renderGas(); log(`Not enough ${SWN.gas} for gas on ${SWN.name}; nothing sent.`, "bad"); return; } } catch (e) { /* the wallet will refuse if gas is short */ }
+  await SN.ensureNet(S.provider, SWN, log);
   const all = [...p.approvals, p.exec];
   for (const c of all) if (!callIsAllowed(c, p.sel)) { log("Guard tripped: refusing to send to " + c.to, "bad"); return; }
   $("btnSend").disabled = true; $("btnDry").disabled = true;
   const prog = m => { $("swOut").innerHTML = `<div class="banner small">${m}</div>`; };
   let atomic = false;
   try {
-    const caps = await S.provider.request({ method: "wallet_getCapabilities", params: [S.account, [C.CHAIN_HEX]] });
-    const st = caps && caps[C.CHAIN_HEX] && caps[C.CHAIN_HEX].atomic && caps[C.CHAIN_HEX].atomic.status;
+    const caps = await S.provider.request({ method: "wallet_getCapabilities", params: [S.account, [SWN.hex]] });
+    const st = caps && caps[SWN.hex] && caps[SWN.hex].atomic && caps[SWN.hex].atomic.status;
     atomic = st === "supported" || st === "ready";
     log(`Wallet batching capability: ${st || "none"}`);
   } catch (e) { log("Wallet does not expose wallet_getCapabilities; signing one by one."); }
@@ -1210,7 +1241,7 @@ async function swSend() {
   try {
     if (atomic) {
       prog("Waiting for your signature (one batch)…" + walletNote(p.sel.length, SW.dry && SW.dry.got));
-      const id = await S.provider.request({ method: "wallet_sendCalls", params: [{ version: "2.0.0", chainId: C.CHAIN_HEX, from: S.account, atomicRequired: true, calls: all.map(c => ({ to: c.to, data: c.data, value: "0x0" })) }] });
+      const id = await S.provider.request({ method: "wallet_sendCalls", params: [{ version: "2.0.0", chainId: SWN.hex, from: S.account, atomicRequired: true, calls: all.map(c => ({ to: c.to, data: c.data, value: "0x0" })) }] });
       log(`Batch submitted (${all.length} calls in one signature), id ${JSON.stringify(id).slice(0, 80)}. Waiting…`);
       for (let i = 0; i < 90; i++) {
         const s = await S.provider.request({ method: "wallet_getCallsStatus", params: [typeof id === "string" ? id : id.id] });
@@ -1224,15 +1255,15 @@ async function swSend() {
         log(`Signing ${i + 1}/${all.length}: ${c.desc}`);
         const hash = await S.provider.request({ method: "eth_sendTransaction", params: [{ from: S.account, to: c.to, data: c.data, value: "0x0" }] });
         log(`  sent ${hash}, waiting for confirmation…`); txs.push(hash);
-        const rc = await waitReceipt(hash);
+        const rc = await SN.waitReceipt(SWN, hash);
         if (rc.status !== "0x1") throw new Error(`transaction ${hash} reverted on chain`);
         log(`  confirmed in block ${parseInt(rc.blockNumber, 16)}`, "ok");
       }
     }
-    const b = BigInt(await ethCall(USDC, I.erc20.encodeFunctionData("balanceOf", [S.account])));
+    const b = BigInt(await SN.call(SWN, USDC, I.erc20.encodeFunctionData("balanceOf", [S.account])));
     SW.done = { usdc: Number(b) / 1e6, txs };
-    log(`Sweep done. USDC balance now ${fmt(Number(b) / 1e6, 2)}.`, "ok");
-    $("swOut").innerHTML = `<div class="banner ok"><div class="big num">Swept ✓ · ${fmt(Number(b) / 1e6, 2)} USDC in the wallet</div><span class="small">${txs.length ? txs.map(h => `<a href="https://basescan.org/tx/${h}" target="_blank" rel="noopener">${h.slice(0, 10)}…</a>`).join(" · ") : ""} · <a href="#" id="swAgain">re-scan</a> to confirm the reward tokens are gone</span>${tipLine()}</div>`;
+    log(`Sweep done on ${SWN.name}. ${SWN.stable} balance there now ${fmt(Number(b) / 1e6, 2)}.`, "ok");
+    $("swOut").innerHTML = `<div class="banner ok"><div class="big num">Swept ✓ · ${fmt(Number(b) / 1e6, 2)} ${SWN.stable} in the wallet on ${esc(SWN.name)}</div><span class="small">${txs.length ? txs.map(h => `<a href="${SN.txUrl(SWN, h)}" target="_blank" rel="noopener">${h.slice(0, 10)}…</a>`).join(" · ") : ""} · <a href="#" id="swAgain">re-scan</a> to confirm the reward tokens are gone</span>${tipLine()}</div>`;
     const ag = $("swAgain"); if (ag) ag.addEventListener("click", e => { e.preventDefault(); swScan().catch(er => log(er.message, "bad")); });
     $("swk").textContent = "done";
   } catch (e) { log("Stopped: " + (e.message || e), "bad"); $("swOut").innerHTML = `<div class="banner bad">Stopped: ${esc(e.message || e)}. ${txs.length ? "Sent so far: " + txs.map(h => h.slice(0, 10) + "…").join(", ") + ". " : ""}Re-scan before trying again.</div>`; }
@@ -1249,7 +1280,7 @@ async function lookup(raw) {
   let a = String(raw || "").trim();
   if (!/^0x[0-9a-fA-F]{40}$/.test(a)) { toast("that isn't a wallet address"); return; }
   a = ethers.getAddress(a); S.addr = a; S.locks = []; S.total = 0; S.plan = null; S.bracket = null; S.busy = true; S.err = null; $("addr").value = a; render();
-  SW.rows = []; SW.plan = null; SW.dry = null; renderSweep();
+  SW.rows = []; SW.byNet = {}; SW.gas = {}; SW.cid = null; SW.plan = null; SW.dry = null; renderSweep();
   try { history.replaceState(null, "", "?addr=" + a); } catch (e) {}
   try {
     if (!S.D) await loadData();

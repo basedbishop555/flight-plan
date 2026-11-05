@@ -162,6 +162,8 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
     <li><b>Dry run</b> simulates the approvals and the swap from your address and shows the USDC you would get. Nothing is sent.</li>
     <li><b>Sign.</b> An exact-amount <code>approve</code> to the Metarouter for each token that needs one, then <b>one</b> Metarouter <code>execute</code> that sells them all, with the USDC paid to your own wallet. A wallet that supports batching signs it once; otherwise one signature per call.</li>
     <li><b>A red warning on the swap is expected.</b> Wallets like Rabby preview a swap as one token in and one token out. The sweep sells several tokens in one swap, so the preview compares a single token with the whole USDC total and can flag a big "loss" or "slippage" in red. Check the balance change at the bottom of the wallet screen instead: every token you ticked goes out, and the USDC coming in should match the dry run. If the balance change doesn't match, reject it.</li>
+    <li><b>Every network.</b> The scan checks Base, Arbitrum, OP, Ethereum, Robinhood, Ink and Arc at once. When rewards sit on more than one, a button per network shows what each holds, and each one is its own sweep, signed on that network with a little of its gas (<a href="docs.html#gas">gas on each network</a>). Robinhood's pools settle in <b>USDG</b> (Global Dollar, a dollar stablecoin), so a Robinhood sweep pays out USDG.</li>
+    <li><b>Tokens sharing a pool.</b> When two tokens route through the same pool, the first swap moves its price for the second. The dry run rehearses them in order first and sets the later token's minimum from what it really gets, so one tight minimum can't sink the whole sweep.</li>
     <li><b>The guard.</b> Every call is checked against an allowlist before it reaches your wallet: only approve(Metarouter, exactly the balance) on a token the scan found, or execute() on the Metarouter.</li>
   </ol>
 </div></section>
@@ -190,7 +192,30 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
     <li><b>Checked:</b> replaying real locks' votes the same way lands within about 0 to 15% of what the chain says they earned (slightly high).</li>
     <li><b>"Beat Balanced"</b> counts separate 2-day stretches, not hours: starts 3 hours apart share most of their 47 hours, so a week of data is only 3 to 5 separate windows. Treat small differences as noise.</li>
   </ul>
-  <p><b>Calibration.</b> On past data the planner's expected dollars ran high: realized / expected has a median near 0.7. So every expected, low and high figure on the page is multiplied by that measured factor for your preset (Custom uses Balanced's), and the "calibrated" link under the window total says so. A pool on another network keeps its full cost: (gross x factor) minus cost. The factor only ever scales down, needs at least 8 replayed plans, and is refit every 3 hours. "Move or stay" scales both sides the same way, so its verdict doesn't change.</p>
+  <p><b>Calibration.</b> On past data the planner's forecasts ran high, and worse, they barely predicted which windows would pay more: payouts stayed in a narrow band whatever the forecast said, and settings that trust the last 12 hours or fresh spikes forecast the biggest numbers while paying less. So the page pulls every expected, low and high figure toward what your setting typically paid. Per 1,000 AERO: shown = typical payout + slope x (this forecast - typical forecast), where the slope is how far that setting's forecasts actually tracked its payouts (often zero), and never more than the forecast itself. Presets use their own measurements; Custom dials are snapped to the nearest of 200 tested combinations (fee memory 0, 25, 50, 75 or 100%, trust spikes on or off, crowd caution 0 to 2x, streams 0 or 100%, one pool or several). A pool on another network keeps its full cost. Refit every 3 hours; "move or stay" scales both sides the same way. The card lists each setting's typical payout.</p>
+</div></section>
+
+<section class="grp" id="gas"><h2>Gas on each network</h2><div class="body">
+  <p>A vote on another network pays its rewards on that network, so sweeping them is a transaction on that network, paid for with that network's own gas token. Each network sweeps on its own: tap its button above the token list, and your wallet is asked to switch to it (and to add it first if it has never seen it).</p>
+  <div class="tw"><table>
+    <tr><th>Network</th><th>Gas token</th><th>Keep about</th><th>One sweep cost (11/5 dry runs)</th></tr>
+    <tr><td>Base</td><td>ETH</td><td>$1</td><td>a few cents</td></tr>
+    <tr><td>Arbitrum</td><td>ETH</td><td>$1</td><td>about $0.03</td></tr>
+    <tr><td>OP</td><td>ETH</td><td>$1</td><td>under a cent</td></tr>
+    <tr><td>Ink</td><td>ETH</td><td>$1</td><td>under a cent</td></tr>
+    <tr><td>Robinhood</td><td>ETH</td><td>$1</td><td>$0.05 to $0.30 (more tokens, more gas)</td></tr>
+    <tr><td>Ethereum</td><td>ETH</td><td>$5</td><td>about $0.15 on a quiet day; mainnet gas swings a lot</td></tr>
+    <tr><td>Arc</td><td><b>USDC</b></td><td>$1 of USDC</td><td>about a cent</td></tr>
+  </table></div>
+  <h3>Setting up gas</h3>
+  <ol>
+    <li><b>Same address everywhere.</b> All of these networks use the same kind of address, so your wallet's address on Arbitrum or Robinhood is the one you already have. You are sending gas to yourself.</li>
+    <li><b>Bridge a little ETH from Base.</b> A bridge such as <a href="https://relay.link" target="_blank" rel="noopener">Relay</a> moves ETH from Base to any of these networks in one transaction, usually within seconds. Choose Base as "from", the network you need as "to", your own address as the recipient, and about $1 (about $5 for Ethereum). Relay is a separate service, not part of this page; check the address bar says relay.link before you sign anything there.</li>
+    <li><b>Arc is different: its gas is USDC, not ETH.</b> Bridge USDC to Arc (Relay lists Arc too). On Arc the USDC you hold is also your gas, so once you have some, each sweep tops it up.</li>
+    <li><b>Re-scan.</b> The "needs gas" mark on that network's button disappears once there is enough.</li>
+  </ol>
+  <p><b>The page checks before you sign.</b> If the wallet is short on a network, the sweep says so in plain words, for example "To swap ARB on Arbitrum you need about 0.00002 ETH (~$0.05) for gas on Arbitrum. This wallet has 0 ETH there", and Sign stays off. The dry run still works without gas, so you can see what a sweep would pay before funding it.</p>
+  <p class="mut">Aero's Metarouter and Metaquoter have the same address on every network, and each network's sweep goes through the same guard as Base's: exact-amount approvals to the Metarouter, one swap paid to your own address.</p>
 </div></section>
 
 <section class="grp safe" id="safe"><h2>What it signs, and never signs</h2><div class="body">
@@ -198,7 +223,7 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
   <ol>
     <li><b>A vote.</b> One <code>allocate</code> call to the Aero <b>Voter</b> for a lock your wallet owns, <b>0 ETH</b>. The guard checks, before every send: the To address is the Voter; the call is <code>allocate</code>; the lock id is the one shown and your account owns it; the refund address is you; every dispatch is Base-only with zero value and zero gas limit; the gauges are exactly the plan's; the amounts add up to the whole stake. It is rebuilt from the plan and checked again against a fresh chain read (owner, window, booked amount) right before your wallet opens.</li>
     <li><b>A sweep approval.</b> <code>approve</code> on a reward token the scan found in your wallet, spender = Aero's <b>Metarouter</b>, amount = <b>exactly your balance</b>. Never unlimited.</li>
-    <li><b>A sweep swap.</b> One Metarouter <code>execute</code> that sells those tokens for USDC with the minimum you set, <b>paid to your own address</b>.</li>
+    <li><b>A sweep swap.</b> One Metarouter <code>execute</code> that sells those tokens for USDC (USDG on Robinhood) with the minimum you set, <b>paid to your own address</b>, on the network the tokens are on.</li>
   </ol>
   <h3>Never</h3>
   <ul>
@@ -235,7 +260,7 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 
 <section class="grp" id="networks"><h2>Locks voting on other networks</h2><div class="body">
   <p>Aero runs on several networks (OP, Arbitrum, Ethereum, Ink, Robinhood, Arc) and a lock can vote on any of them. With <b>one pool per lock</b> (Aggressive, or Pools = 1), Flight Plan also weighs pools on <b>OP, Arbitrum and Ethereum</b>, after what voting there costs each window, unless the <b>Base only</b> switch is on. Their votes come from the last scan of that network (every 3 hours; a read older than 6 hours is left out), and the row says how old it is. Multi-pool splits stay on Base.</p>
-  <p>Flight Plan <b>signs Base votes only</b>. When a lock's pick is on another network, its card says "Vote this in the Aero app (OP)" with a copy link, and there is no dry run or Allocate for it. If a lock's current votes sit on another network, its card says so too.</p>
+  <p>The <b>sweep</b> works on every one of these networks (<a href="#gas">gas on each network</a>). Votes are different: Flight Plan <b>signs Base votes only</b>. When a lock's pick is on another network, its card says "Vote this in the Aero app (OP)" with a copy link, and there is no dry run or Allocate for it. If a lock's current votes sit on another network, its card says so too.</p>
 </div></section>
 
 <section class="grp" id="fail"><h2>When something fails</h2><div class="body">
