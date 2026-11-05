@@ -197,7 +197,7 @@
     const chase = { stream: D.chase.stream, fee: D.chase.fee, small: D.chase.small, crowd: D.chase.crowd, caution: o.caution };
     let best = null;
     for (const r0 of rowsAt(D, si, live, o)) {
-      if (r0.cut) continue;
+      if (r0.cut || (o.baseOnly && r0.chain !== "base")) continue;     // "Base only": no picks on other networks
       const mine = taken[r0.gid] || 0;
       if (mine + aero > C.SLICE_MAX * r0.alloc) continue;
       const r = mine ? Object.assign({}, r0, { alloc: r0.alloc + mine }) : r0;      // your other locks dilute it too

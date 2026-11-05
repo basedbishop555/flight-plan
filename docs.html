@@ -100,6 +100,7 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
     <li><b>Fee memory.</b> Each pool's fees are read over the last 12 hours, 24 hours, 2 days and 4 days. The knob sets how those reads are weighted: all the way down = the 4-day read only (Aggressive), the middle = the fitted mix the scanner uses (40% / 25% / 10% / 25%), all the way up = the last 12 hours only. <b>Trust spikes</b> (the small switch under the knobs) drops two safety rails: the cap on any one reading at 10x the pool's typical rate, and the rule that a fading pool (last 12 hours under 30% of its longest read) counts only at its 12-hour rate.</li>
     <li><b>Crowd caution.</b> Voters pile into the pools that look best, so each pool's votes are priced at a measured pile-on factor (fitted after every window, higher for crowded pools and small pools). The knob scales that factor: 1.0x = as measured; 0.5x assumes the crowd follows half as much; 1.5x assumes a heavier pile-on.</li>
     <li><b>Streams.</b> How much incentive streams count next to fees, in steps of 25%: 100% = in full, 0% = fees only.</li>
+    <li><b>Base only</b> (the small switch under the knobs) keeps one-pool picks on Base, for anyone who wants to compare or doesn't want to vote on another network. It stays as you set it when you change presets.</li>
   </ul>
   <p class="mut">The caps that protect you never move with the dial: your slice stays at most 10% of any pool, small pools stay capped, a pool whose votes doubled since the last scan stays out, and the dry run and the signing guard are the same for every preset.</p>
 </div></section>
@@ -233,7 +234,7 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 </div></section>
 
 <section class="grp" id="networks"><h2>Locks voting on other networks</h2><div class="body">
-  <p>Aero runs on several networks (OP, Arbitrum, Ethereum, Ink, Robinhood, Arc) and a lock can vote on any of them. With <b>one pool per lock</b> (Aggressive, or Pools = 1), Flight Plan also weighs pools on <b>OP, Arbitrum and Ethereum</b>, after what voting there costs each window. Their votes come from the last scan of that network (every 3 hours; a read older than 6 hours is left out), and the row says how old it is. Multi-pool splits stay on Base.</p>
+  <p>Aero runs on several networks (OP, Arbitrum, Ethereum, Ink, Robinhood, Arc) and a lock can vote on any of them. With <b>one pool per lock</b> (Aggressive, or Pools = 1), Flight Plan also weighs pools on <b>OP, Arbitrum and Ethereum</b>, after what voting there costs each window, unless the <b>Base only</b> switch is on. Their votes come from the last scan of that network (every 3 hours; a read older than 6 hours is left out), and the row says how old it is. Multi-pool splits stay on Base.</p>
   <p>Flight Plan <b>signs Base votes only</b>. When a lock's pick is on another network, its card says "Vote this in the Aero app (OP)" with a copy link, and there is no dry run or Allocate for it. If a lock's current votes sit on another network, its card says so too.</p>
 </div></section>
 

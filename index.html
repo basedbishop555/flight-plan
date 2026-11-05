@@ -378,13 +378,13 @@ const PRESET_NAME = { steady: "Steady", balanced: "Balanced", aggressive: "Aggre
 function loadDial() {
   let d = null; try { d = JSON.parse(store.get("dial", "null")); } catch (e) {}
   if (!d || typeof d !== "object") { d = { ...PRESETS.balanced }; const old = Number(store.get("pools", 0)) || 0; if (old) d.n = old; }
-  const v = { n: Math.max(0, Math.min(10, Math.round(Number(d.n) || 0))), memory: clamp(d.memory, 0, 1, 0.5), trust: !!d.trust, caution: clamp(d.caution, 0, 2, 1), streams: clamp(d.streams, 0, 1, 1) };
+  const v = { n: Math.max(0, Math.min(10, Math.round(Number(d.n) || 0))), memory: clamp(d.memory, 0, 1, 0.5), trust: !!d.trust, caution: clamp(d.caution, 0, 2, 1), streams: clamp(d.streams, 0, 1, 1), baseOnly: !!d.baseOnly };
   v.preset = matchPreset(v); return v;
 }
 function clamp(x, lo, hi, dflt) { x = Number(x); return Number.isFinite(x) ? Math.max(lo, Math.min(hi, x)) : dflt; }
 function matchPreset(v) { for (const [k, q] of Object.entries(PRESETS)) if (q.n === v.n && Math.abs(q.memory - v.memory) < 1e-9 && q.trust === v.trust && Math.abs(q.caution - v.caution) < 1e-9 && Math.abs(q.streams - v.streams) < 1e-9) return k; return "custom"; }
 function setDial(v) { S.dial = { ...v, preset: matchPreset(v) }; store.set("dial", JSON.stringify(S.dial)); replan(); render(); }
-const dialOpts = () => ({ n: S.dial.n || null, memory: S.dial.memory, trust: S.dial.trust, caution: S.dial.caution, streams: S.dial.streams });
+const dialOpts = () => ({ n: S.dial.n || null, memory: S.dial.memory, trust: S.dial.trust, caution: S.dial.caution, streams: S.dial.streams, baseOnly: !!S.dial.baseOnly });
 const perLock = () => S.dial.n === 1 && S.locks.length > 1;
 /* Backtest calibration (data/backtest.json): replayed on past scans, the planner's expected dollars ran high, so every
    expected / low / high figure is scaled by the measured realized / expected for the preset (Custom uses Balanced's).
@@ -597,7 +597,7 @@ function dialHtml() {
   return `<div class="dial"><div class="seglabel">Strategy</div>
     <div class="seg" id="presets">${["steady", "balanced", "aggressive", "custom"].map(k => `<button type="button" data-preset="${k}">${PRESET_NAME[k]}</button>`).join("")}</div>
     <div class="knobs">${KNOBS.map(([k, name, lo, hi, st]) => `<div class="knob"><b id="v-${k}"></b><div class="kd" id="k-${k}" role="slider" tabindex="0" aria-label="${name}" aria-valuemin="${lo}" aria-valuemax="${hi}">${knobSvg()}</div><span>${name}</span><input type="range" class="hidden" id="d-${k}" min="${lo}" max="${hi}" step="${st}" tabindex="-1" aria-hidden="true"></div>`).join("")}</div>
-    <div class="dialfoot"><label class="sw"><input type="checkbox" id="d-trust"> Trust spikes</label><a href="docs.html#dial">What each dial does</a></div></div>`;
+    <div class="dialfoot"><span style="display:inline-flex;gap:12px;flex-wrap:wrap"><label class="sw"><input type="checkbox" id="d-trust"> Trust spikes</label><label class="sw"><input type="checkbox" id="d-base"> Base only</label></span><a href="docs.html#dial">What each dial does</a></div></div>`;
 }
 function wireKnobs() {
   for (const [k, , lo, hi, st] of KNOBS) {
@@ -615,11 +615,11 @@ function wireKnobs() {
   }
 }
 function readSliders() {
-  return { n: Number($("d-n").value), memory: Number($("d-memory").value) / 100, trust: $("d-trust").checked, caution: Number($("d-caution").value) / 100, streams: Number($("d-streams").value) / 100 };
+  return { n: Number($("d-n").value), memory: Number($("d-memory").value) / 100, trust: $("d-trust").checked, caution: Number($("d-caution").value) / 100, streams: Number($("d-streams").value) / 100, baseOnly: $("d-base").checked };
 }
 function updateDial() {
   const d = S.dial;
-  $("d-n").value = d.n; $("d-memory").value = Math.round(d.memory * 100); $("d-trust").checked = d.trust; $("d-caution").value = Math.round(d.caution * 100); $("d-streams").value = Math.round(d.streams * 100);
+  $("d-n").value = d.n; $("d-memory").value = Math.round(d.memory * 100); $("d-trust").checked = d.trust; $("d-base").checked = !!d.baseOnly; $("d-caution").value = Math.round(d.caution * 100); $("d-streams").value = Math.round(d.streams * 100);
   for (const [k] of KNOBS) drawKnob(k);
   document.querySelectorAll("#presets button").forEach(b => { b.classList.toggle("on", b.dataset.preset === d.preset); b.classList.toggle("agg", b.dataset.preset === "aggressive"); });
 }
@@ -630,10 +630,11 @@ function renderPlan() {
   const p = S.plan;
   if (!$("dial")) {
     el.innerHTML = `<h2>Your split <span id="planHead"></span></h2><div class="body"><div id="dial">${dialHtml()}</div><div id="legs"></div></div>`;
-    document.querySelectorAll("#presets button").forEach(b => b.addEventListener("click", () => { if (b.dataset.preset !== "custom") setDial({ ...PRESETS[b.dataset.preset] }); }));
+    document.querySelectorAll("#presets button").forEach(b => b.addEventListener("click", () => { if (b.dataset.preset !== "custom") setDial({ ...PRESETS[b.dataset.preset], baseOnly: !!S.dial.baseOnly }); }));
     for (const id of ["d-n", "d-memory", "d-caution", "d-streams"]) $(id).addEventListener("input", () => setDial(readSliders()));
     wireKnobs();
     $("d-trust").addEventListener("change", () => setDial(readSliders()));
+    $("d-base").addEventListener("change", () => setDial(readSliders()));
   }
   updateDial();
   $("planHead").textContent = `${PRESET_NAME[S.dial.preset]} · ${fmtTs(p.start)} · 47h`;
