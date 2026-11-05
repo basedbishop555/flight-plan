@@ -1,6 +1,6 @@
 window.SWEEP_ROUTES = {
  "meta": {
-  "generated": 1793667548,
+  "generated": 1793916528,
   "chainId": 8453,
   "metarouter": "0x0fEf9e88A7b76BCDBF451780C6774FE32965Ee98",
   "metaquoter": "0x1dDfeC5058180C207F55BB77D95AcDd0d8227868",
@@ -20,7 +20,17 @@ window.SWEEP_ROUTES = {
   "volatileFactory": "0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2",
   "stableFactory": "0x78589E876edcEbdce72ee3436ab3c9AD3a7cEF2D",
   "weth": "0x4200000000000000000000000000000000000006",
-  "cbbtc": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf"
+  "cbbtc": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+  "nets": [
+   8453,
+   42161,
+   10,
+   1,
+   4663,
+   57073,
+   5042
+  ],
+  "eth_usd": 2230.1011791283217
  },
  "tokens": {
   "AERO": {
@@ -28,6 +38,16 @@ window.SWEEP_ROUTES = {
    "decimals": 18,
    "ref_amount": 50,
    "routes": [
+    {
+     "pools": [
+      "0x422df9aa896e883c9cdcbad309c0785b7364a1cf"
+     ],
+     "kinds": [
+      "cl"
+     ],
+     "via": "CL100",
+     "quote_ref_usdc": 30.166001
+    },
     {
      "pools": [
       "0xc85d5cb72d1aad6f152a8decad228ae4a59ac9b3",
@@ -38,7 +58,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 30.087221
+     "quote_ref_usdc": 30.117333
     },
     {
      "pools": [
@@ -50,17 +70,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 30.0788
-    },
-    {
-     "pools": [
-      "0x422df9aa896e883c9cdcbad309c0785b7364a1cf"
-     ],
-     "kinds": [
-      "cl"
-     ],
-     "via": "CL100",
-     "quote_ref_usdc": 30.072939
+     "quote_ref_usdc": 30.113222
     },
     {
      "pools": [
@@ -72,7 +82,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192cbBTC\u2192CL50",
-     "quote_ref_usdc": 30.069885
+     "quote_ref_usdc": 30.08776
     },
     {
      "pools": [
@@ -84,7 +94,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192cbBTC\u2192CL100",
-     "quote_ref_usdc": 30.06903
+     "quote_ref_usdc": 30.070831
     },
     {
      "pools": [
@@ -94,7 +104,7 @@ window.SWEEP_ROUTES = {
       "v2"
      ],
      "via": "vAMM",
-     "quote_ref_usdc": 30.057278
+     "quote_ref_usdc": 30.047663
     }
    ]
   },
@@ -105,16 +115,6 @@ window.SWEEP_ROUTES = {
    "routes": [
     {
      "pools": [
-      "0x4a7af46bc8abc00048c6c7920a1488daf568366c"
-     ],
-     "kinds": [
-      "cl"
-     ],
-     "via": "CL50",
-     "quote_ref_usdc": 9.015304
-    },
-    {
-     "pools": [
       "0xec3c3755b9ded4a2960ef50c9b48c1694ce274c2",
       "0x42609aa1e58c5dd7e5a012dc74118fff975f0eac"
      ],
@@ -123,7 +123,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL1\u2192cbBTC\u2192CL50",
-     "quote_ref_usdc": 9.013579
+     "quote_ref_usdc": 8.931197
     },
     {
      "pools": [
@@ -135,7 +135,17 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL1\u2192cbBTC\u2192CL100",
-     "quote_ref_usdc": 9.013554
+     "quote_ref_usdc": 8.926634
+    },
+    {
+     "pools": [
+      "0x4a7af46bc8abc00048c6c7920a1488daf568366c"
+     ],
+     "kinds": [
+      "cl"
+     ],
+     "via": "CL50",
+     "quote_ref_usdc": 8.924419
     },
     {
      "pools": [
@@ -145,7 +155,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL100",
-     "quote_ref_usdc": 9.012781
+     "quote_ref_usdc": 8.923585
     },
     {
      "pools": [
@@ -157,7 +167,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL10\u2192cbBTC\u2192CL50",
-     "quote_ref_usdc": 9.006655
+     "quote_ref_usdc": 8.919058
     },
     {
      "pools": [
@@ -169,7 +179,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL10\u2192cbBTC\u2192CL100",
-     "quote_ref_usdc": 9.006627
+     "quote_ref_usdc": 8.914498
     }
    ]
   },
@@ -186,7 +196,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL50",
-     "quote_ref_usdc": 7.692511
+     "quote_ref_usdc": 7.584538
     },
     {
      "pools": [
@@ -196,7 +206,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL100",
-     "quote_ref_usdc": 7.692151
+     "quote_ref_usdc": 7.581078
     },
     {
      "pools": [
@@ -208,19 +218,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL1\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 7.691703
-    },
-    {
-     "pools": [
-      "0xbb5507daae822ba89c4da61bbfdf4b49a1666bac",
-      "0x4a7af46bc8abc00048c6c7920a1488daf568366c"
-     ],
-     "kinds": [
-      "cl",
-      "cl"
-     ],
-     "via": "CL10\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 7.690122
+     "quote_ref_usdc": 7.577262
     },
     {
      "pools": [
@@ -232,7 +230,19 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL1\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 7.68955
+     "quote_ref_usdc": 7.576554
+    },
+    {
+     "pools": [
+      "0xbb5507daae822ba89c4da61bbfdf4b49a1666bac",
+      "0x4a7af46bc8abc00048c6c7920a1488daf568366c"
+     ],
+     "kinds": [
+      "cl",
+      "cl"
+     ],
+     "via": "CL10\u2192WETH\u2192CL50",
+     "quote_ref_usdc": 7.572769
     },
     {
      "pools": [
@@ -244,7 +254,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL10\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 7.68797
+     "quote_ref_usdc": 7.572061
     }
    ]
   },
@@ -261,7 +271,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL1",
-     "quote_ref_usdc": 0.998622
+     "quote_ref_usdc": 0.998442
     },
     {
      "pools": [
@@ -273,7 +283,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL100\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 0.998003
+     "quote_ref_usdc": 0.997275
     },
     {
      "pools": [
@@ -285,7 +295,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL100\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 0.997724
+     "quote_ref_usdc": 0.997182
     },
     {
      "pools": [
@@ -297,7 +307,7 @@ window.SWEEP_ROUTES = {
       "v2"
      ],
      "via": "vAMM\u2192WETH\u2192vAMM",
-     "quote_ref_usdc": 0.521596
+     "quote_ref_usdc": 0.501428
     }
    ]
   },
@@ -308,16 +318,6 @@ window.SWEEP_ROUTES = {
    "routes": [
     {
      "pools": [
-      "0xf0b593cc024bd446d11c24570b4866a704c138be"
-     ],
-     "kinds": [
-      "cl"
-     ],
-     "via": "CL200",
-     "quote_ref_usdc": 1.808832
-    },
-    {
-     "pools": [
       "0x2e8b5774887b71e4f806b6d4d9e6eb26cc4d17da",
       "0x4a7af46bc8abc00048c6c7920a1488daf568366c"
      ],
@@ -326,7 +326,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 1.806542
+     "quote_ref_usdc": 1.890854
     },
     {
      "pools": [
@@ -338,7 +338,17 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 1.806036
+     "quote_ref_usdc": 1.89071
+    },
+    {
+     "pools": [
+      "0xf0b593cc024bd446d11c24570b4866a704c138be"
+     ],
+     "kinds": [
+      "cl"
+     ],
+     "via": "CL200",
+     "quote_ref_usdc": 1.890677
     },
     {
      "pools": [
@@ -350,7 +360,7 @@ window.SWEEP_ROUTES = {
       "v2"
      ],
      "via": "vAMM\u2192WETH\u2192vAMM",
-     "quote_ref_usdc": 1.798168
+     "quote_ref_usdc": 1.887016
     }
    ]
   },
@@ -367,7 +377,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200",
-     "quote_ref_usdc": 0.809789
+     "quote_ref_usdc": 0.755217
     }
    ]
   },
@@ -386,7 +396,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 0.539035
+     "quote_ref_usdc": 0.518795
     },
     {
      "pools": [
@@ -398,7 +408,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 0.538881
+     "quote_ref_usdc": 0.518771
     },
     {
      "pools": [
@@ -408,7 +418,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200",
-     "quote_ref_usdc": 0.53734
+     "quote_ref_usdc": 0.516014
     }
    ]
   },
@@ -427,7 +437,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 1.93253
+     "quote_ref_usdc": 1.716974
     },
     {
      "pools": [
@@ -439,7 +449,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 1.931604
+     "quote_ref_usdc": 1.716903
     },
     {
      "pools": [
@@ -466,7 +476,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200",
-     "quote_ref_usdc": 1.468566
+     "quote_ref_usdc": 1.219394
     }
    ]
   },
@@ -485,7 +495,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL100\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 0.202676
+     "quote_ref_usdc": 0.199406
     },
     {
      "pools": [
@@ -497,7 +507,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL100\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 0.202567
+     "quote_ref_usdc": 0.199398
     },
     {
      "pools": [
@@ -509,7 +519,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192cbBTC\u2192CL50",
-     "quote_ref_usdc": 0.201737
+     "quote_ref_usdc": 0.198784
     },
     {
      "pools": [
@@ -521,7 +531,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192cbBTC\u2192CL100",
-     "quote_ref_usdc": 0.20166
+     "quote_ref_usdc": 0.198731
     }
    ]
   },
@@ -538,43 +548,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL50",
-     "quote_ref_usdc": 1.079682
-    },
-    {
-     "pools": [
-      "0xdebaebe5b2729f7d62072b2ea40472d78d2c1626",
-      "0x4a7af46bc8abc00048c6c7920a1488daf568366c"
-     ],
-     "kinds": [
-      "cl",
-      "cl"
-     ],
-     "via": "CL100\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 1.077755
-    },
-    {
-     "pools": [
-      "0xdebaebe5b2729f7d62072b2ea40472d78d2c1626",
-      "0x2a430bebd2082d8e05d56d64dede8944279bbc24"
-     ],
-     "kinds": [
-      "cl",
-      "cl"
-     ],
-     "via": "CL100\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 1.077174
-    },
-    {
-     "pools": [
-      "0xcfc7dc24e9d302976f0b1efb90a4d9b22b54b2a5",
-      "0x800eb395b577b234c5065c8e0ccb0f3a1401b2c2"
-     ],
-     "kinds": [
-      "v2",
-      "v2"
-     ],
-     "via": "vAMM\u2192WETH\u2192vAMM",
-     "quote_ref_usdc": 1.073005
+     "quote_ref_usdc": 1.049646
     },
     {
      "pools": [
@@ -586,7 +560,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 1.068177
+     "quote_ref_usdc": 1.048309
     },
     {
      "pools": [
@@ -598,7 +572,43 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 1.067601
+     "quote_ref_usdc": 1.048266
+    },
+    {
+     "pools": [
+      "0xdebaebe5b2729f7d62072b2ea40472d78d2c1626",
+      "0x4a7af46bc8abc00048c6c7920a1488daf568366c"
+     ],
+     "kinds": [
+      "cl",
+      "cl"
+     ],
+     "via": "CL100\u2192WETH\u2192CL50",
+     "quote_ref_usdc": 1.047969
+    },
+    {
+     "pools": [
+      "0xdebaebe5b2729f7d62072b2ea40472d78d2c1626",
+      "0x2a430bebd2082d8e05d56d64dede8944279bbc24"
+     ],
+     "kinds": [
+      "cl",
+      "cl"
+     ],
+     "via": "CL100\u2192WETH\u2192CL100",
+     "quote_ref_usdc": 1.047926
+    },
+    {
+     "pools": [
+      "0xcfc7dc24e9d302976f0b1efb90a4d9b22b54b2a5",
+      "0x800eb395b577b234c5065c8e0ccb0f3a1401b2c2"
+     ],
+     "kinds": [
+      "v2",
+      "v2"
+     ],
+     "via": "vAMM\u2192WETH\u2192vAMM",
+     "quote_ref_usdc": 1.044015
     }
    ]
   },
@@ -615,7 +625,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL10",
-     "quote_ref_usdc": 0.137256
+     "quote_ref_usdc": 0.123146
     },
     {
      "pools": [
@@ -627,7 +637,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL50\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 0.137018
+     "quote_ref_usdc": 0.122876
     },
     {
      "pools": [
@@ -639,7 +649,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL50\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 0.136944
+     "quote_ref_usdc": 0.122871
     }
    ]
   },
@@ -656,7 +666,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL50",
-     "quote_ref_usdc": 4.268023
+     "quote_ref_usdc": 4.092394
     },
     {
      "pools": [
@@ -666,7 +676,7 @@ window.SWEEP_ROUTES = {
       "v2"
      ],
      "via": "sAMM",
-     "quote_ref_usdc": 4.264432
+     "quote_ref_usdc": 4.091594
     }
    ]
   },
@@ -685,7 +695,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL50\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 3.962063
+     "quote_ref_usdc": 3.827542
     },
     {
      "pools": [
@@ -697,7 +707,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL50\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 3.959758
+     "quote_ref_usdc": 3.827384
     },
     {
      "pools": [
@@ -709,7 +719,7 @@ window.SWEEP_ROUTES = {
       "v2"
      ],
      "via": "sAMM\u2192WETH\u2192vAMM",
-     "quote_ref_usdc": 3.945175
+     "quote_ref_usdc": 3.810759
     }
    ]
   }
@@ -1542,6 +1552,976 @@ window.SWEEP_ROUTES = {
   "0x5e63e9c06c3f2c779ef29a8071f94f5a724eb5e4": {
    "symbol": "CADC",
    "decimals": 6
+  },
+  "0xb200000000000000000000cf36d05963a3e2205c": {
+   "symbol": "AAOIc",
+   "decimals": 8
+  },
+  "0xb20000000000000000000034533ed3961f222cd4": {
+   "symbol": "ADBEc",
+   "decimals": 8
+  },
+  "0xb200000000000000000000a640ec8c1de0efb484": {
+   "symbol": "AXTIc",
+   "decimals": 8
+  },
+  "0xb200000000000000000000535fe96f18204bfd96": {
+   "symbol": "BIRDc",
+   "decimals": 8
+  },
+  "0xb200000000000000000000ea2df44a307cab279c": {
+   "symbol": "BMNRc",
+   "decimals": 8
+  },
+  "0xb200000000000000000000645c1ec509e4261682": {
+   "symbol": "BXc",
+   "decimals": 8
+  },
+  "0xb200000000000000000000a8c925f62e6d194715": {
+   "symbol": "COHRc",
+   "decimals": 8
+  },
+  "0xb20000000000000000000019f6e7c675b73c2e4d": {
+   "symbol": "CRCLc",
+   "decimals": 8
+  },
+  "0xb200000000000000000000a0de75786c9f8fc58c": {
+   "symbol": "CRWDc",
+   "decimals": 8
+  },
+  "0xb2000000000000000000003bf350e420c13e431a": {
+   "symbol": "CVXc",
+   "decimals": 8
+  },
+  "0xb200000000000000000000ffef181db6dc5ed6a3": {
+   "symbol": "KOc",
+   "decimals": 8
+  },
+  "0xb200000000000000000000eda6c2c6f11e0f838f": {
+   "symbol": "LITEc",
+   "decimals": 8
+  },
+  "0xb2000000000000000000004acdc9a922fcfbcc7f": {
+   "symbol": "SNOWc",
+   "decimals": 8
+  },
+  "0xb20000000000000000000054b11fd279a4f7d4ef": {
+   "symbol": "Vc",
+   "decimals": 8
+  },
+  "0xb20000000000000000000079dc24fe2fbd09110f": {
+   "symbol": "VSTc",
+   "decimals": 8
+  }
+ },
+ "nets": {
+  "8453": {
+   "key": "base",
+   "chainId": 8453,
+   "hex": "0x2105",
+   "name": "Base",
+   "gas": "ETH",
+   "native_usd": 2230.1011791283217,
+   "explorer": "https://basescan.org",
+   "rpcs": [
+    "https://base-rpc.publicnode.com",
+    "https://mainnet.base.org",
+    "https://base.drpc.org"
+   ],
+   "relay": "base",
+   "metarouter": "0x0fEf9e88A7b76BCDBF451780C6774FE32965Ee98",
+   "metaquoter": "0x1dDfeC5058180C207F55BB77D95AcDd0d8227868",
+   "mc3": "0xcA11bde05977b3631167028862bE2a173976CA11",
+   "usdc": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "stable": "USDC",
+   "weth": "0x4200000000000000000000000000000000000006",
+   "btc": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+   "btc_sym": "cbBTC",
+   "clFactory": "0x9CB220581b91b0C83223012FE69688b92aD07a76",
+   "volatileFactory": "0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2",
+   "stableFactory": "0x78589E876edcEbdce72ee3436ab3c9AD3a7cEF2D",
+   "spacings": [
+    1,
+    10,
+    50,
+    100,
+    150,
+    200,
+    250
+   ],
+   "universe": {}
+  },
+  "42161": {
+   "key": "arbitrum",
+   "chainId": 42161,
+   "hex": "0xa4b1",
+   "name": "Arbitrum",
+   "gas": "ETH",
+   "native_usd": 2230.1011791283217,
+   "explorer": "https://arbiscan.io",
+   "rpcs": [
+    "https://arbitrum-one-rpc.publicnode.com",
+    "https://arb1.arbitrum.io/rpc",
+    "https://arbitrum.drpc.org"
+   ],
+   "relay": "arbitrum",
+   "metarouter": "0x0fEf9e88A7b76BCDBF451780C6774FE32965Ee98",
+   "metaquoter": "0x1dDfeC5058180C207F55BB77D95AcDd0d8227868",
+   "mc3": "0xcA11bde05977b3631167028862bE2a173976CA11",
+   "usdc": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+   "stable": "USDC",
+   "weth": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+   "btc": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+   "btc_sym": "cbBTC",
+   "clFactory": "0x88a60ee77392577c355C0acb2A8d476D5a4EC03a",
+   "volatileFactory": "0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2",
+   "stableFactory": "0x78589E876edcEbdce72ee3436ab3c9AD3a7cEF2D",
+   "spacings": [
+    1,
+    10,
+    50,
+    100,
+    150,
+    200,
+    250
+   ],
+   "universe": {
+    "0x004b506865409877c9fa29bfb1eba929984b9bbc": {
+     "symbol": "USDG",
+     "decimals": 6
+    },
+    "0x0a1a1a107e45b7ced86833863f482bc5f4ed82ef": {
+     "symbol": "USDai",
+     "decimals": 18
+    },
+    "0x0b2b2b2076d95dda7817e785989fe353fe955ef9": {
+     "symbol": "sUSDai",
+     "decimals": 18
+    },
+    "0x0c1c1c109fe34733fca54b82d7b46b75cfb71f6e": {
+     "symbol": "CHIP",
+     "decimals": 18
+    },
+    "0x0c880f6761f1af8d9aa9c466984b80dab9a8c9e8": {
+     "symbol": "PENDLE",
+     "decimals": 18
+    },
+    "0x11cdb42b0eb46d95f990bedd4695a6e3fa034978": {
+     "symbol": "CRV",
+     "decimals": 18
+    },
+    "0x13ad51ed4f1b7e9dc168d8a00cb3f4ddd85efa60": {
+     "symbol": "LDO",
+     "decimals": 18
+    },
+    "0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f": {
+     "symbol": "WBTC",
+     "decimals": 8
+    },
+    "0x35751007a407ca6feffe80b3cb397736d2cf4dbe": {
+     "symbol": "weETH",
+     "decimals": 18
+    },
+    "0x436a085b2751cb87db270ffa66f8d698f87bec82": {
+     "symbol": "xAERO",
+     "decimals": 18
+    },
+    "0x5979d7b546e38e414f7e9822514be443a4800529": {
+     "symbol": "wstETH",
+     "decimals": 18
+    },
+    "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34": {
+     "symbol": "USDe",
+     "decimals": 18
+    },
+    "0x6985884c4392d348587b19cb9eaaf157f13271cd": {
+     "symbol": "ZRO",
+     "decimals": 18
+    },
+    "0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40": {
+     "symbol": "tBTC",
+     "decimals": 18
+    },
+    "0x7189fb5b6504bbff6a852b13b7b82a3c118fdc27": {
+     "symbol": "ETHFI",
+     "decimals": 18
+    },
+    "0x7dff72693f6a4149b17e7c6314655f6a9f7c8b33": {
+     "symbol": "GHO",
+     "decimals": 18
+    },
+    "0x82af49447d8a07e3bd95bd0d56f35241523fbab1": {
+     "symbol": "WETH",
+     "decimals": 18
+    },
+    "0x912ce59144191c1204e64559fe8253a0e49e6548": {
+     "symbol": "ARB",
+     "decimals": 18
+    },
+    "0xba5ddd1f9d7f570dc94a51479a000e3bce967196": {
+     "symbol": "AAVE",
+     "decimals": 18
+    },
+    "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": {
+     "symbol": "cbBTC",
+     "decimals": 8
+    },
+    "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1": {
+     "symbol": "DAI",
+     "decimals": 18
+    },
+    "0xec70dcb4a1efa46b8f2d97c310c9c4790ba5ffa8": {
+     "symbol": "rETH",
+     "decimals": 18
+    },
+    "0xf97f4df75117a78c1a5a0dbb814af92458539fb4": {
+     "symbol": "LINK",
+     "decimals": 18
+    },
+    "0xfa7f8980b0f1e64a2062791cc3b0871572f1f7f0": {
+     "symbol": "UNI",
+     "decimals": 18
+    },
+    "0xfc5a1a6eb076a2c7ad06ed22c90d7e710e35ad0a": {
+     "symbol": "GMX",
+     "decimals": 18
+    },
+    "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9": {
+     "symbol": "USD\u20ae0",
+     "decimals": 6
+    },
+    "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8": {
+     "symbol": "USDC",
+     "decimals": 6
+    }
+   }
+  },
+  "10": {
+   "key": "optimism",
+   "chainId": 10,
+   "hex": "0xa",
+   "name": "OP",
+   "gas": "ETH",
+   "native_usd": 2231.524059034211,
+   "explorer": "https://optimistic.etherscan.io",
+   "rpcs": [
+    "https://optimism-rpc.publicnode.com",
+    "https://mainnet.optimism.io",
+    "https://optimism.drpc.org"
+   ],
+   "relay": "optimism",
+   "metarouter": "0x0fEf9e88A7b76BCDBF451780C6774FE32965Ee98",
+   "metaquoter": "0x1dDfeC5058180C207F55BB77D95AcDd0d8227868",
+   "mc3": "0xcA11bde05977b3631167028862bE2a173976CA11",
+   "usdc": "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+   "stable": "USDC",
+   "weth": "0x4200000000000000000000000000000000000006",
+   "btc": "0x68f180fcce6836688e9084f035309e29bf0a2095",
+   "btc_sym": "WBTC",
+   "clFactory": "0xfeaB42D90055db3a0616249f76B6002D72266778",
+   "volatileFactory": "0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2",
+   "stableFactory": "0x78589E876edcEbdce72ee3436ab3c9AD3a7cEF2D",
+   "spacings": [
+    1,
+    10,
+    50,
+    100,
+    150,
+    200,
+    250
+   ],
+   "universe": {
+    "0x01bff41798a0bcf287b996046ca68b395dbc1071": {
+     "symbol": "USD\u20ae0",
+     "decimals": 6
+    },
+    "0x03569cc076654f82679c4ba2124d64774781b01d": {
+     "symbol": "BOLD",
+     "decimals": 18
+    },
+    "0x1610e3c85dd44af31ed7f33a63642012dca0c5a5": {
+     "symbol": "msETH",
+     "decimals": 18
+    },
+    "0x1f32b1c2345538c0c6f582fcb022739c4a194ebb": {
+     "symbol": "wstETH",
+     "decimals": 18
+    },
+    "0x3e29d3a9316dab217754d13b28646b76607c5f04": {
+     "symbol": "alETH",
+     "decimals": 18
+    },
+    "0x4200000000000000000000000000000000000006": {
+     "symbol": "WETH",
+     "decimals": 18
+    },
+    "0x4200000000000000000000000000000000000042": {
+     "symbol": "OP",
+     "decimals": 18
+    },
+    "0x5a7facb970d094b6c7ff1df0ea68d99e6e73cbff": {
+     "symbol": "weETH",
+     "decimals": 18
+    },
+    "0x68f180fcce6836688e9084f035309e29bf0a2095": {
+     "symbol": "WBTC",
+     "decimals": 8
+    },
+    "0x6985884c4392d348587b19cb9eaaf157f13271cd": {
+     "symbol": "ZRO",
+     "decimals": 18
+    },
+    "0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40": {
+     "symbol": "tBTC",
+     "decimals": 18
+    },
+    "0x76fb31fb4af56892a25e32cfc43de717950c9278": {
+     "symbol": "AAVE",
+     "decimals": 18
+    },
+    "0x7f5c764cbc14f9669b88837ca1490cca17c31607": {
+     "symbol": "USDC",
+     "decimals": 6
+    },
+    "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58": {
+     "symbol": "USDT",
+     "decimals": 6
+    },
+    "0x9dabae7274d28a45f0b65bf8ed201a5731492ca0": {
+     "symbol": "msUSD",
+     "decimals": 18
+    },
+    "0xc55e93c62874d8100dbd2dfe307edc1036ad5434": {
+     "symbol": "mooBIFI",
+     "decimals": 18
+    },
+    "0xcb8fa9a76b8e203d8c3797bf438d8fb81ea3326a": {
+     "symbol": "alUSD",
+     "decimals": 18
+    },
+    "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1": {
+     "symbol": "DAI",
+     "decimals": 18
+    },
+    "0xdc6ff44d5d932cbd77b52e5612ba0529dc6226f1": {
+     "symbol": "WLD",
+     "decimals": 18
+    },
+    "0xdcb612005417dc906ff72c87df732e5a90d49e11": {
+     "symbol": "EURC",
+     "decimals": 6
+    },
+    "0xe0080d2f853ecddbd81a643dc10da075df26fd3f": {
+     "symbol": "ETHFI",
+     "decimals": 18
+    },
+    "0xe974b9b31dbff4369b94a1bab5e228f35ed44125": {
+     "symbol": "ALCX",
+     "decimals": 18
+    }
+   }
+  },
+  "1": {
+   "key": "ethereum",
+   "chainId": 1,
+   "hex": "0x1",
+   "name": "Ethereum",
+   "gas": "ETH",
+   "native_usd": 2230.1011791283217,
+   "explorer": "https://etherscan.io",
+   "rpcs": [
+    "https://ethereum-rpc.publicnode.com",
+    "https://eth.drpc.org"
+   ],
+   "relay": "ethereum",
+   "metarouter": "0x0fEf9e88A7b76BCDBF451780C6774FE32965Ee98",
+   "metaquoter": "0x1dDfeC5058180C207F55BB77D95AcDd0d8227868",
+   "mc3": "0xcA11bde05977b3631167028862bE2a173976CA11",
+   "usdc": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+   "stable": "USDC",
+   "weth": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+   "btc": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+   "btc_sym": "cbBTC",
+   "clFactory": "0xF4Fd2E6c5B60c5b365cd1B96DD6245E6D60414c2",
+   "volatileFactory": "0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2",
+   "stableFactory": "0x78589E876edcEbdce72ee3436ab3c9AD3a7cEF2D",
+   "spacings": [
+    1,
+    10,
+    50,
+    100,
+    150,
+    200,
+    250
+   ],
+   "universe": {
+    "0x00000000efe302beaa2b3e6e1b18d08d69a9012a": {
+     "symbol": "AUSD",
+     "decimals": 6
+    },
+    "0x0655977feb2f289a4ab78af67bab0d17aab84367": {
+     "symbol": "scrvUSD",
+     "decimals": 18
+    },
+    "0x085780639cc2cacd35e474e71f4d000e2405d8f6": {
+     "symbol": "fxUSD",
+     "decimals": 18
+    },
+    "0x18084fba666a33d37592fa2633fd49a74dd93a88": {
+     "symbol": "tBTC",
+     "decimals": 18
+    },
+    "0x1abaea1f7c830bd89acc67ec4af516284b1bc33c": {
+     "symbol": "EURC",
+     "decimals": 6
+    },
+    "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984": {
+     "symbol": "UNI",
+     "decimals": 18
+    },
+    "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599": {
+     "symbol": "WBTC",
+     "decimals": 8
+    },
+    "0x232ce3bd40fcd6f80f3d55a522d03f25df784ee2": {
+     "symbol": "LIT",
+     "decimals": 18
+    },
+    "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f": {
+     "symbol": "GHO",
+     "decimals": 18
+    },
+    "0x44ff8620b8ca30902395a7bd3f2407e1a091bf73": {
+     "symbol": "VIRTUAL",
+     "decimals": 18
+    },
+    "0x45804880de22913dafe09f4980848ece6ecbaf78": {
+     "symbol": "PAXG",
+     "decimals": 18
+    },
+    "0x4c9edd5852cd905f086c759e8383e09bff1e68b3": {
+     "symbol": "USDe",
+     "decimals": 18
+    },
+    "0x5086bf358635b81d8c47c66d1c8b9e567db70c72": {
+     "symbol": "reUSD",
+     "decimals": 18
+    },
+    "0x514910771af9ca656af840dff83e8264ecf986ca": {
+     "symbol": "LINK",
+     "decimals": 18
+    },
+    "0x56072c95faa701256059aa122697b133aded9279": {
+     "symbol": "SKY",
+     "decimals": 18
+    },
+    "0x57e114b691db790c35207b2e685d4a43181e6061": {
+     "symbol": "ENA",
+     "decimals": 18
+    },
+    "0x58d97b57bb95320f9a05dc918aef65434969c2b2": {
+     "symbol": "MORPHO",
+     "decimals": 18
+    },
+    "0x5a98fcbea516cf06857215779fd812ca3bef1b32": {
+     "symbol": "LDO",
+     "decimals": 18
+    },
+    "0x64351fc9810adad17a690e4e1717df5e7e085160": {
+     "symbol": "msETH",
+     "decimals": 18
+    },
+    "0x6440f144b7e50d6a8439336510312d2f54beb01d": {
+     "symbol": "BOLD",
+     "decimals": 18
+    },
+    "0x68749665ff8d2d112fa859aa293f07a622782f38": {
+     "symbol": "XAUt",
+     "decimals": 6
+    },
+    "0x6982508145454ce325ddbe47a25d4ec3d2311933": {
+     "symbol": "PEPE",
+     "decimals": 18
+    },
+    "0x6985884c4392d348587b19cb9eaaf157f13271cd": {
+     "symbol": "ZRO",
+     "decimals": 18
+    },
+    "0x6b175474e89094c44da98b954eedeac495271d0f": {
+     "symbol": "DAI",
+     "decimals": 18
+    },
+    "0x6c3ea9036406852006290770bedfcaba0e23a0e8": {
+     "symbol": "PYUSD",
+     "decimals": 6
+    },
+    "0x77e06c9eccf2e797fd462a92b6d7642ef85b0a44": {
+     "symbol": "wTAO",
+     "decimals": 9
+    },
+    "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0": {
+     "symbol": "wstETH",
+     "decimals": 18
+    },
+    "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9": {
+     "symbol": "AAVE",
+     "decimals": 18
+    },
+    "0x8236a87084f8b84306f72007f36f2618a5634494": {
+     "symbol": "LBTC",
+     "decimals": 8
+    },
+    "0x8292bb45bf1ee4d140127049757c2e0ff06317ed": {
+     "symbol": "RLUSD",
+     "decimals": 18
+    },
+    "0x853d955acef822db058eb8505911ed77f175b99e": {
+     "symbol": "FRAX",
+     "decimals": 18
+    },
+    "0x865377367054516e17014ccded1e7d814edc9ce4": {
+     "symbol": "DOLA",
+     "decimals": 18
+    },
+    "0x9d39a5de30e57443bff2a8307a4256c8797a3497": {
+     "symbol": "sUSDe",
+     "decimals": 18
+    },
+    "0xa12cc123ba206d4031d1c7f6223d1c2ec249f4f3": {
+     "symbol": "ZAMA",
+     "decimals": 18
+    },
+    "0xa3931d71877c0e7a3148cb7eb4463524fec27fbd": {
+     "symbol": "sUSDS",
+     "decimals": 18
+    },
+    "0xab5eb14c09d416f0ac63661e57edb7aecdb9befa": {
+     "symbol": "msUSD",
+     "decimals": 18
+    },
+    "0xaca92e438df0b2401ff60da7e4337b687a2435da": {
+     "symbol": "mUSD",
+     "decimals": 6
+    },
+    "0xb1d1eae60eea9525032a6dcb4c1ce336a1de71be": {
+     "symbol": "DRV",
+     "decimals": 18
+    },
+    "0xb1f1ee126e9c96231cc3d3fad7c08b4cf873b1f1": {
+     "symbol": "BIFI",
+     "decimals": 18
+    },
+    "0xbe9895146f7af43049ca1c1ae358b0541ea49704": {
+     "symbol": "cbETH",
+     "decimals": 18
+    },
+    "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": {
+     "symbol": "WETH",
+     "decimals": 18
+    },
+    "0xcacd6fd266af91b8aed52accc382b4e165586e29": {
+     "symbol": "frxUSD",
+     "decimals": 18
+    },
+    "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": {
+     "symbol": "cbBTC",
+     "decimals": 8
+    },
+    "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee": {
+     "symbol": "weETH",
+     "decimals": 18
+    },
+    "0xd31a59c85ae9d8edefec411d448f90841571b89c": {
+     "symbol": "SOL",
+     "decimals": 9
+    },
+    "0xdac17f958d2ee523a2206206994597c13d831ec7": {
+     "symbol": "USDT",
+     "decimals": 6
+    },
+    "0xdc035d45d973e3ec169d2276ddab16f1e407384f": {
+     "symbol": "USDS",
+     "decimals": 18
+    },
+    "0xe343167631d89b6ffc58b88d6b7fb0228795491d": {
+     "symbol": "USDG",
+     "decimals": 6
+    },
+    "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e": {
+     "symbol": "crvUSD",
+     "decimals": 18
+    }
+   }
+  },
+  "4663": {
+   "key": "robinhood",
+   "chainId": 4663,
+   "hex": "0x1237",
+   "name": "Robinhood",
+   "gas": "ETH",
+   "native_usd": 2228.27045823984,
+   "explorer": "https://robinhoodchain.blockscout.com",
+   "rpcs": [
+    "https://robinhood-rpc.publicnode.com",
+    "https://rpc.mainnet.chain.robinhood.com",
+    "https://robinhood.drpc.org"
+   ],
+   "relay": "robinhood",
+   "metarouter": "0x0fEf9e88A7b76BCDBF451780C6774FE32965Ee98",
+   "metaquoter": "0x1dDfeC5058180C207F55BB77D95AcDd0d8227868",
+   "mc3": "0xcA11bde05977b3631167028862bE2a173976CA11",
+   "usdc": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+   "stable": "USDG",
+   "weth": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "btc": "0xcec185eb182c47d1ba1efc84e6959e18cd620be4",
+   "btc_sym": "cbBTC",
+   "clFactory": "0xc63d7338c178e805c544B8f897066bD3BBcBE136",
+   "volatileFactory": "0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2",
+   "stableFactory": "0x78589E876edcEbdce72ee3436ab3c9AD3a7cEF2D",
+   "spacings": [
+    1,
+    10,
+    50,
+    100,
+    150,
+    200,
+    250
+   ],
+   "universe": {
+    "0x020bfc650a365f8bb26819deaabf3e21291018b4": {
+     "symbol": "CASHCAT",
+     "decimals": 18
+    },
+    "0x05a3d1cd21d0c88145e82600e62e7e496e0f222b": {
+     "symbol": "AMC",
+     "decimals": 18
+    },
+    "0x05b37fb53a299a1b874a619e1c4c404d52c36f4c": {
+     "symbol": "RDDT",
+     "decimals": 18
+    },
+    "0x0bd7d308f8e1639fab988df18a8011f41eacad73": {
+     "symbol": "WETH",
+     "decimals": 18
+    },
+    "0x0f17206447090e464c277571124dd2688e48aea9": {
+     "symbol": "QCOM",
+     "decimals": 18
+    },
+    "0x116f00968269b7bfbad4109ce591d6e74c0601d4": {
+     "symbol": "NET",
+     "decimals": 18
+    },
+    "0x117cc2133c37b721f49de2a7a74833232b3b4c0c": {
+     "symbol": "SPY",
+     "decimals": 18
+    },
+    "0x12f190a9f9d7d37a250758b26824b97ce941bf54": {
+     "symbol": "AMZN",
+     "decimals": 18
+    },
+    "0x1b0e319c6a659f002271b69db8a7df2f911c153e": {
+     "symbol": "GME",
+     "decimals": 18
+    },
+    "0x1d11f0496982706c5e14a514d4e79f2e6bde4516": {
+     "symbol": "DJT",
+     "decimals": 18
+    },
+    "0x2d427692e928fa156ec22acfabafa0447c5805b7": {
+     "symbol": "GLXY",
+     "decimals": 18
+    },
+    "0x2e0847e8910a9732eb3fb1bb4b70a580adad4fe3": {
+     "symbol": "GOOGL",
+     "decimals": 18
+    },
+    "0x2e8c31162b855a2ffa90f6f8634643ad6f111e18": {
+     "symbol": "AI",
+     "decimals": 18
+    },
+    "0x322f0929c4625ed5bad873c95208d54e1c003b2d": {
+     "symbol": "TSLA",
+     "decimals": 18
+    },
+    "0x39dbed3a2bd333467115de45665cc57f813c4571": {
+     "symbol": "PONS",
+     "decimals": 18
+    },
+    "0x408c14038a04f7bd235329e26d2bf569ee20e250": {
+     "symbol": "NU",
+     "decimals": 18
+    },
+    "0x4a0e65a3eccec6dbe60ae065f2e7bb85fae35eea": {
+     "symbol": "SPCX",
+     "decimals": 18
+    },
+    "0x4d21483a44bf67a86b77e3da301411880797d452": {
+     "symbol": "BA",
+     "decimals": 18
+    },
+    "0x4e62068525ab11fe768e29dfd00ef909b9803016": {
+     "symbol": "LULU",
+     "decimals": 18
+    },
+    "0x56910d4409f3a0c78c64dd8d0545ff0705389870": {
+     "symbol": "Index",
+     "decimals": 18
+    },
+    "0x58ffe4a942d3885baa22d7520691f611ef09e7aa": {
+     "symbol": "TSM",
+     "decimals": 18
+    },
+    "0x59818904ab4ce163b3ce4ffb64f2d6ca02c434b4": {
+     "symbol": "QUBT",
+     "decimals": 18
+    },
+    "0x6330d8c3178a418788df01a47479c0ce7ccf450b": {
+     "symbol": "COIN",
+     "decimals": 18
+    },
+    "0x7066a64c24e4206cd62e83bf198c1e7eb361f51e": {
+     "symbol": "PFE",
+     "decimals": 18
+    },
+    "0x8005d266423c7ea827372c9c864491e5786600ea": {
+     "symbol": "LLY",
+     "decimals": 18
+    },
+    "0x86923f96303d656e4aa86d9d42d1e57ad2023fdc": {
+     "symbol": "AMD",
+     "decimals": 18
+    },
+    "0x894e1ec2d74ffe5aef8dc8a9e84686accb964f2a": {
+     "symbol": "PLTR",
+     "decimals": 18
+    },
+    "0x92fd66527192e3e61d4ddd13322aa222de86f9b5": {
+     "symbol": "SGOV",
+     "decimals": 18
+    },
+    "0x98096d17e191b3da1d5f99a6d7b3584351b11e18": {
+     "symbol": "BONER",
+     "decimals": 18
+    },
+    "0x9e148c5716b5aadcfd3b71ceae9ee7a9e22c29e2": {
+     "symbol": "xAERO",
+     "decimals": 18
+    },
+    "0xa30fa36db767ad9ed3f7a60fc79526fb4d56d344": {
+     "symbol": "USO",
+     "decimals": 18
+    },
+    "0xaa07a0e9209e16ac99708c3ec70159c6ef3128a3": {
+     "symbol": "ORBIO",
+     "decimals": 18
+    },
+    "0xaf3d76f1834a1d425780943c99ea8a608f8a93f9": {
+     "symbol": "AAPL",
+     "decimals": 18
+    },
+    "0xc0d6457c16cc70d6790dd43521c899c87ce02f35": {
+     "symbol": "META",
+     "decimals": 18
+    },
+    "0xc6911796042b15d7fa4f6cde69e245ddcd3d9c31": {
+     "symbol": "VIRTUAL",
+     "decimals": 18
+    },
+    "0xc72b96e0e48ecd4dc75e1e45396e26300bc39681": {
+     "symbol": "INTC",
+     "decimals": 18
+    },
+    "0xc9a981fee1f9dec688bb123ccdecc63d0debfc4e": {
+     "symbol": "GLD",
+     "decimals": 18
+    },
+    "0xccee82fe024c36fa15e1005ede3e9e4787e23d09": {
+     "symbol": "HIMS",
+     "decimals": 18
+    },
+    "0xce24439f2d9c6a2289f741120fe202248b666666": {
+     "symbol": "U",
+     "decimals": 18
+    },
+    "0xcec185eb182c47d1ba1efc84e6959e18cd620be4": {
+     "symbol": "cbBTC",
+     "decimals": 8
+    },
+    "0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec": {
+     "symbol": "NVDA",
+     "decimals": 18
+    },
+    "0xd5f3879160bc7c32ebb4dc785f8a4f505888de68": {
+     "symbol": "QQQ",
+     "decimals": 18
+    },
+    "0xd7321801caae694090694ff55a9323139f043b88": {
+     "symbol": "JUGGERNAUT",
+     "decimals": 18
+    },
+    "0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5": {
+     "symbol": "CRCL",
+     "decimals": 18
+    },
+    "0xe8ffd7e24187f72afb08d75b1bb13088a989a791": {
+     "symbol": "DELTA",
+     "decimals": 18
+    },
+    "0xe93237c50d904957cf27e7b1133b510c669c2e74": {
+     "symbol": "MSFT",
+     "decimals": 18
+    },
+    "0xe934e36a439c94017b64a3fece66af12099abf50": {
+     "symbol": "STONKBROKER",
+     "decimals": 18
+    },
+    "0xec262a75e413fafd0df80480274532c79d42da09": {
+     "symbol": "MSTR",
+     "decimals": 18
+    },
+    "0xf0c4bf4c582cb3836e98394b1d4e7b7281101be8": {
+     "symbol": "RBLX",
+     "decimals": 18
+    },
+    "0xf6589f11bc40b669e584073f428b05562f568733": {
+     "symbol": "SNAP",
+     "decimals": 18
+    },
+    "0xff080c8ce2e5feadaca0da81314ae59d232d4afd": {
+     "symbol": "MU",
+     "decimals": 18
+    }
+   }
+  },
+  "57073": {
+   "key": "ink",
+   "chainId": 57073,
+   "hex": "0xdef1",
+   "name": "Ink",
+   "gas": "ETH",
+   "native_usd": 2231.524059034211,
+   "explorer": "https://explorer.inkonchain.com",
+   "rpcs": [
+    "https://rpc-gel.inkonchain.com",
+    "https://ink.drpc.org"
+   ],
+   "relay": "ink",
+   "metarouter": "0x0fEf9e88A7b76BCDBF451780C6774FE32965Ee98",
+   "metaquoter": "0x1dDfeC5058180C207F55BB77D95AcDd0d8227868",
+   "mc3": "0xcA11bde05977b3631167028862bE2a173976CA11",
+   "usdc": "0x2d270e6886d130d724215a266106e6832161eaed",
+   "stable": "USDC",
+   "weth": "0x4200000000000000000000000000000000000006",
+   "btc": null,
+   "btc_sym": null,
+   "clFactory": "0x7660BF2aDefC687C22906112ca323d60A00358cF",
+   "volatileFactory": "0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2",
+   "stableFactory": "0x78589E876edcEbdce72ee3436ab3c9AD3a7cEF2D",
+   "spacings": [
+    1,
+    10,
+    50,
+    100,
+    150,
+    200,
+    250
+   ],
+   "universe": {
+    "0x0200c29006150606b650577bbe7b6248f58470c1": {
+     "symbol": "USD\u20ae0",
+     "decimals": 6
+    },
+    "0x4200000000000000000000000000000000000006": {
+     "symbol": "WETH",
+     "decimals": 18
+    },
+    "0x73e0c0d45e048d25fc26fa3159b0aa04bfa4db98": {
+     "symbol": "kBTC",
+     "decimals": 8
+    },
+    "0x8a76fe7fa6da27f85a626c5c53730b38d13603d7": {
+     "symbol": "syrupUSDT",
+     "decimals": 6
+    },
+    "0xa3d68b74bf0528fdd07263c60d6488749044914b": {
+     "symbol": "weETH",
+     "decimals": 18
+    },
+    "0xe343167631d89b6ffc58b88d6b7fb0228795491d": {
+     "symbol": "USDG",
+     "decimals": 6
+    },
+    "0xf1815bd50389c46847f0bda824ec8da914045d14": {
+     "symbol": "USDC.e",
+     "decimals": 6
+    },
+    "0xf50258d3c1dd88946c567920b986a12e65b50dac": {
+     "symbol": "XAUt0",
+     "decimals": 6
+    },
+    "0xfc421ad3c883bf9e7c4f42de845c4e4405799e73": {
+     "symbol": "GHO",
+     "decimals": 18
+    }
+   }
+  },
+  "5042": {
+   "key": "arc",
+   "chainId": 5042,
+   "hex": "0x13b2",
+   "name": "Arc",
+   "gas": "USDC",
+   "native_usd": 1.0,
+   "explorer": "https://explorer.arc.io",
+   "rpcs": [
+    "https://arc-rpc.publicnode.com",
+    "https://rpc.mainnet.arc.io",
+    "https://arc.drpc.org"
+   ],
+   "relay": "arc",
+   "metarouter": "0x0fEf9e88A7b76BCDBF451780C6774FE32965Ee98",
+   "metaquoter": "0x1dDfeC5058180C207F55BB77D95AcDd0d8227868",
+   "mc3": "0xcA11bde05977b3631167028862bE2a173976CA11",
+   "usdc": "0x3600000000000000000000000000000000000000",
+   "stable": "USDC",
+   "weth": "0x128cc466b61f542da60c70e3aa11c10e19b84edb",
+   "btc": "0x171a4217b86a807a64eb94757db6849fb4bdbaa0",
+   "btc_sym": "cirBTC",
+   "clFactory": "0x7F83235643181E440433400a027618Cd50879751",
+   "volatileFactory": "0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2",
+   "stableFactory": "0x78589E876edcEbdce72ee3436ab3c9AD3a7cEF2D",
+   "spacings": [
+    1,
+    10,
+    50,
+    100,
+    150,
+    200,
+    250
+   ],
+   "universe": {
+    "0x128cc466b61f542da60c70e3aa11c10e19b84edb": {
+     "symbol": "WETH",
+     "decimals": 18
+    },
+    "0x171a4217b86a807a64eb94757db6849fb4bdbaa0": {
+     "symbol": "cirBTC",
+     "decimals": 8
+    },
+    "0xbbe6aab0ed76e90aea0d1cd978ec231c8adcdf8b": {
+     "symbol": "GBPA",
+     "decimals": 6
+    },
+    "0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1": {
+     "symbol": "EURC",
+     "decimals": 6
+    },
+    "0xf197ffc28c23e0309b5559e7a166f2c6164c80aa": {
+     "symbol": "MXNB",
+     "decimals": 6
+    }
+   }
   }
  }
 };
