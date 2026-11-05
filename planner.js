@@ -10,7 +10,7 @@
   else root.Planner = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
-  const PLAN_V = 2;   // the data/plan.json format this planner reads (the publisher refuses a mismatch)
+  const PLAN_V = 3;   // the data/plan.json format this planner reads (the publisher refuses a mismatch)
 
   function poolRules(C, n) {
     if (!n) return [C.MIN_POOLS, C.MAX_POOLS, C.MAX_PCT, C.TYPE_MAX];
@@ -38,7 +38,7 @@
      streams 0..1  how much incentive streams count (1 = in full, 0 = fees only)
      n       pool count (null = Auto); exclude = a Set of gids to leave out (one pool per lock) */
   const DEFAULTS = { n: null, memory: 0.5, trust: false, caution: 1, streams: 1, exclude: null };
-  const LONG = { "12": 0.05, "24": 0.15, "48": 0.30, "96": 0.50 }, SHORT = { "12": 1, "24": 0, "48": 0, "96": 0 };
+  const LONG = { "12": 0, "24": 0, "48": 0, "96": 1 }, SHORT = { "12": 1, "24": 0, "48": 0, "96": 0 };
   function weightsFor(D, m) {
     const F = D.tun.fee_weights, out = {};
     for (const h of ["12", "24", "48", "96"]) { const f = F[h] || 0; out[h] = m <= 0.5 ? LONG[h] + (f - LONG[h]) * (m / 0.5) : f + (SHORT[h] - f) * ((m - 0.5) / 0.5); }
@@ -150,7 +150,8 @@
       const type = g.stock ? "tokenized-stock" : inc_w > fee_w ? "stream-led" : g.alloc >= C.DEEP ? "deep fee" : "thin-token";
       out.push({ gid: g.gid, gauge: g.gauge, name: g.name, pool: g.pool, kind: g.kind, cut: g.cut, rank48: g.rank48,
                  fading: fd.fading, fee_day: fd.fee, streams: g.streams, alloc: la != null && la > 0 ? la : g.alloc, scanAlloc: g.alloc,
-                 fee_w, inc_w, type, fee_led: fee_w >= inc_w });
+                 fee_w, inc_w, type, fee_led: fee_w >= inc_w, chain: g.chain || "base", chain_name: g.chain_name || "Base",
+                 cost: g.cost || 0, age_h: g.age_h == null ? null : g.age_h });
     }
     return out;
   }
@@ -161,7 +162,8 @@
     const o = Object.assign({}, DEFAULTS, opts || {});
     if (n) o.n = n;
     const C = D.consts, si = startIndex(D, startTs);
-    const rows = rowsAt(D, si, live, o);
+    if (o.n === 1) return onePool(D, aero, si, live, o);
+    const rows = rowsAt(D, si, live, o).filter(r => r.chain === "base");
     const chase = { stream: D.chase.stream, fee: D.chase.fee, small: D.chase.small, crowd: D.chase.crowd, caution: o.caution };
     const { split, placed, relaxed } = optimize(C, rows, aero, chase, D.small_max, o.n || null);
     n = o.n || null;
@@ -185,6 +187,35 @@
     return { legs, start: D.starts[si], expect_usd: tot.expected, expect_low_usd: tot.low, expect_high_usd: tot.high, apr, warnings, placed, opts: o };
   }
 
+  /** One pool for `aero` (Pools = 1, and the Aggressive preset per lock): the single pool, on Base or on OP /
+   *  Arbitrum / Ethereum, that pays the most over the window AFTER the cost of voting there (a pool elsewhere carries
+   *  its per-window network cost). Only one limit, as on saero.org's method plus ours: your AERO in a pool, counting
+   *  your other locks already placed there (`o.taken` {gid: AERO}), stays at most 10% of the pool. Pools whose votes
+   *  doubled since the last scan stay out. */
+  function onePool(D, aero, si, live, o) {
+    const C = D.consts, taken = o.taken || {};
+    const chase = { stream: D.chase.stream, fee: D.chase.fee, small: D.chase.small, crowd: D.chase.crowd, caution: o.caution };
+    let best = null;
+    for (const r0 of rowsAt(D, si, live, o)) {
+      if (r0.cut) continue;
+      const mine = taken[r0.gid] || 0;
+      if (mine + aero > C.SLICE_MAX * r0.alloc) continue;
+      const r = mine ? Object.assign({}, r0, { alloc: r0.alloc + mine }) : r0;      // your other locks dilute it too
+      const f = chaseFor(C, r, chase, o.caution);
+      const ex = value(r, aero, f[1]), net = ex - r.cost;
+      if (!best || net > best.net) best = { r, f, ex, net };
+    }
+    const warnings = [];
+    if (!best) return { legs: [], start: D.starts[si], expect_usd: 0, expect_low_usd: 0, expect_high_usd: 0, apr: 0, placed: 0, opts: o,
+                        warnings: ["No single pool can take this lock: each would hold more than 10% of the pool."] };
+    const { r, f } = best, hi = value(r, aero, f[0]) - r.cost, lo = value(r, aero, f[2]) - r.cost;
+    const leg = { pct: 100, aero, row: r, label: r.name, gauge: r.gauge, pool: r.pool, type: r.type, fee_led: r.fee_led,
+                  chain: r.chain, chain_name: r.chain_name, cost: r.cost, gross_usd: best.ex,
+                  expect_usd: best.net, expect_low_usd: lo, expect_high_usd: hi, small: r.alloc < C.SMALL_POOL, slice: aero / (r.alloc + aero) };
+    const apr = aero && D.px ? best.net / (aero * D.px) * 365 / (C.H47 / 86400) * 100 : 0;
+    return { legs: [leg], start: D.starts[si], expect_usd: best.net, expect_low_usd: lo, expect_high_usd: hi, apr, warnings, placed: 100, opts: o };
+  }
+
   /** What your CURRENT votes are expected to earn over the same window, with the same model and dial (the private
    *  page's compare_now). votes = {gauge address (lowercase): AERO}. When `live` is given its pool sizes already have
    *  your own votes taken out; otherwise they are taken out here. Returns {usd, priced, unpriced} (AERO). */
@@ -192,7 +223,7 @@
     const o = Object.assign({}, DEFAULTS, opts || {}, { exclude: null });
     const si = startIndex(D, startTs), C = D.consts;
     const byG = {};
-    for (const r of rowsAt(D, si, live, o)) if (r.gauge) byG[r.gauge.toLowerCase()] = r;
+    for (const r of rowsAt(D, si, live, o)) if (r.gauge && r.chain === "base") byG[r.gauge.toLowerCase()] = r;
     const chase = { stream: D.chase.stream, fee: D.chase.fee, small: D.chase.small, crowd: D.chase.crowd };
     let usd = 0, priced = 0, unpriced = 0;
     for (const [g, x] of Object.entries(votes || {})) {
@@ -206,5 +237,5 @@
     return { usd, priced, unpriced };
   }
 
-  return { poolRules, chaseFor, value, optimize, rowsAt, startIndex, plan, stay, weightsFor, feeDay, DEFAULTS, PLAN_V };
+  return { poolRules, chaseFor, value, optimize, rowsAt, startIndex, plan, onePool, stay, weightsFor, feeDay, DEFAULTS, PLAN_V };
 });

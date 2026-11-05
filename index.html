@@ -369,7 +369,7 @@ const openTs = () => { const now = Date.now() / 1000, nx = S.locks.map(L => L.ne
 const PRESETS = {
   steady:     { n: 0, memory: 0.25, trust: false, caution: 1.4, streams: 1 },
   balanced:   { n: 0, memory: 0.5,  trust: false, caution: 1,   streams: 1 },
-  aggressive: { n: 1, memory: 1,    trust: true,  caution: 0.5, streams: 0 },
+  aggressive: { n: 1, memory: 0,    trust: false, caution: 1,   streams: 1 },
 };
 const PRESET_NAME = { steady: "Steady", balanced: "Balanced", aggressive: "Aggressive", custom: "Custom" };
 function loadDial() {
@@ -390,10 +390,10 @@ function replan() {
   if (!S.locks.length || totalAero() <= 0) return;
   const now = Date.now() / 1000;
   if (perLock()) {
-    const taken = new Set(), legs = [], warnings = new Set(); let usd = 0, lo = 0, hi = 0, placed = 100;
+    const taken = {}, legs = [], warnings = new Set(); let usd = 0, lo = 0, hi = 0, placed = 100;
     for (const L of S.locks.slice().sort((a, b) => lockAero(b) - lockAero(a))) {    // biggest lock picks first
-      const pl = P.plan(S.D, lockAero(L), Math.max(now, L.next || now), 1, S.live, { ...dialOpts(), exclude: taken });
-      L.plan = pl; for (const l of pl.legs) { taken.add(l.row.gid); legs.push({ ...l, lock: L.id }); }
+      const pl = P.plan(S.D, lockAero(L), Math.max(now, L.next || now), 1, S.live, { ...dialOpts(), taken: { ...taken } });
+      L.plan = pl; for (const l of pl.legs) { taken[l.row.gid] = (taken[l.row.gid] || 0) + l.aero; legs.push({ ...l, lock: L.id }); }
       usd += pl.expect_usd; lo += pl.expect_low_usd; hi += pl.expect_high_usd; placed = Math.min(placed, pl.placed); pl.warnings.forEach(w => warnings.add(w));
     }
     const aero = totalAero(), apr = aero && S.D.px ? usd / (aero * S.D.px) * 365 / (S.D.consts.H47 / 86400) * 100 : 0;
@@ -430,7 +430,8 @@ const planFor = L => (L && L.plan) || S.plan;
 const planSplit = L => planFor(L).legs.map(l => ({ gauge: l.gauge, pct: l.pct, label: l.label, pool: l.pool }));
 const planGauges = L => new Set(planFor(L).legs.map(l => l.gauge.toLowerCase()));
 const isOpen = L => L.next ? L.next <= Date.now() / 1000 : true;
-const canSend = L => owns(L) && !!(L.dry && L.dry.ok) && isOpen(L) && !!planFor(L) && planFor(L).placed === 100 && !L.sent;
+const offPick = L => { const p = planFor(L); return p ? p.legs.find(l => l.chain && l.chain !== "base") || null : null; };
+const canSend = L => owns(L) && !!(L.dry && L.dry.ok) && isOpen(L) && !!planFor(L) && planFor(L).placed === 100 && !L.sent && !offPick(L);
 
 // ---------- rank (every lock / every wallet), computed here from data/rank.json ----------
 function decodeRank(Rk) {
@@ -538,7 +539,8 @@ function renderHero() {
 }
 function poolRow(l) {
   const r = l.row, col = typeColor(r.type);
-  const tags = [TYPE_NAME[r.type] || r.type, r.fee_led ? "fee-led" : "", r.rank48 && r.rank48 <= 5 ? "crowded" : "", r.fading ? "fading" : "", l.small ? "small pool" : ""].filter(Boolean).join(" · ");
+  const where = r.chain && r.chain !== "base" ? `${r.chain_name} · vote in the Aero app · after ${money(r.cost)} costs` : "";
+  const tags = [where, TYPE_NAME[r.type] || r.type, r.fee_led ? "fee-led" : "", r.rank48 && r.rank48 <= 5 ? "crowded" : "", r.fading ? "fading" : "", l.small ? "small pool" : ""].filter(Boolean).join(" · ");
   const apr = l.aero && S.D.px ? l.expect_usd / (l.aero * S.D.px) * (365 * 24 / 47) * 100 : null;
   const st = (r.streams || [])[0];
   return `<details class="pool"><summary><span class="pdot" style="--c:${col}"></span><span class="pname">${esc(r.name)}<small>${esc(tags)}</small><span class="pbar"><i style="--c:${col};width:${Math.min(100, l.pct * 4)}%"></i></span></span><span class="ppct num">${l.pct}<small>%</small><em>${fmtA(l.aero)} AERO</em></span><span class="chev">▶</span></summary>
@@ -547,7 +549,7 @@ function poolRow(l) {
       <div class="tile"><div class="k">APR</div><div class="v num">${apr != null ? apr.toFixed(0) + "%" : "-"}</div></div>
       <div class="tile"><div class="k">Fees · day</div><div class="v num">${money(r.fee_day)} <small>to voters</small></div></div>
       <div class="tile"><div class="k">Streams · 47h</div><div class="v num">${money(r.inc_w)}${st ? ` <small>${esc(st.tok)} to ${esc(fmtTs(st.end))}</small>` : ""}</div></div>
-      <div class="tile"><div class="k">Votes in it now</div><div class="v num">${(r.alloc / 1e6).toFixed(2)}M <small>you'd be ${(l.slice * 100).toFixed(1)}%</small></div></div>
+      <div class="tile"><div class="k">Votes in it ${r.chain && r.chain !== "base" ? (r.age_h != null ? r.age_h + "h ago" : "at the scan") : "now"}</div><div class="v num">${(r.alloc / 1e6).toFixed(2)}M <small>you'd be ${(l.slice * 100).toFixed(1)}%</small></div></div>
     </div>
     <div class="addr">pool <code data-copy="${esc(r.pool)}">${esc(r.pool)}</code></div>
     <div class="addr">gauge <code data-copy="${esc(r.gauge)}">${esc(r.gauge)}</code></div></div></details>`;
@@ -556,7 +558,7 @@ function poolRow(l) {
 const KNOBS = [["n", "Pools", 0, 10, 1], ["memory", "Fee memory", 0, 100, 5], ["caution", "Crowd caution", 0, 200, 10], ["streams", "Streams", 0, 100, 25]];
 function knobVal(k) {
   const d = S.dial;
-  return k === "n" ? (d.n ? String(d.n) : "Auto") : k === "memory" ? Math.round(P.weightsFor(S.D, d.memory)["12"] * 100) + "%"
+  return k === "n" ? (d.n ? String(d.n) : "Auto") : k === "memory" ? (d.memory <= 0 ? "4-day" : d.memory >= 1 ? "12h" : Math.round(P.weightsFor(S.D, d.memory)["12"] * 100) + "%")
     : k === "caution" ? d.caution.toFixed(1) + "x" : Math.round(d.streams * 100) + "%";
 }
 function knobSvg() {   // 270 degree arc from -135 to +135 (0 = straight up): a track, the filled part, a dot at the value
@@ -641,7 +643,7 @@ function renderPlan() {
   el.querySelectorAll("[data-copy]").forEach(c => c.addEventListener("click", () => copy(c.dataset.copy)));
   const c = $("cta"); if (c) c.addEventListener("click", () => c.dataset.act === "dry" ? dryAll() : c.dataset.act === "send" ? sendAll() : copy(splitText()));
 }
-function splitText() { return `Flight Plan split (${PRESET_NAME[S.dial.preset]}), window from ${fmtTs(S.plan.start)}:\n` + (S.plan.perLock ? S.locks.map(L => `#${L.id}: ` + L.plan.legs.map(l => `${l.pct}% ${l.label}`).join(", ")).join("\n") : S.plan.legs.map(l => `${l.pct}% ${l.label}`).join("\n")); }
+function splitText() { return `Flight Plan split (${PRESET_NAME[S.dial.preset]}), window from ${fmtTs(S.plan.start)}:\n` + (S.plan.perLock ? S.locks.map(L => `#${L.id}: ` + L.plan.legs.map(l => `${l.pct}% ${l.label}${l.chain && l.chain !== "base" ? " (" + l.chain_name + ")" : ""}`).join(", ")).join("\n") : S.plan.legs.map(l => `${l.pct}% ${l.label}`).join("\n")); }
 function renderLocks() {
   const el = $("locks");
   if (!S.locks.length) { el.classList.add("hidden"); return; }
@@ -659,6 +661,7 @@ function renderLocks() {
   el.querySelectorAll("[data-dry]").forEach(b => b.addEventListener("click", () => dryRun(S.locks.find(L => L.id === Number(b.dataset.dry)))));
   el.querySelectorAll("[data-send]").forEach(b => b.addEventListener("click", () => send(S.locks.find(L => L.id === Number(b.dataset.send)))));
   el.querySelectorAll("[data-copy]").forEach(c => c.addEventListener("click", () => copy(c.dataset.copy)));
+  el.querySelectorAll("[data-copyoff]").forEach(c => c.addEventListener("click", e => { e.preventDefault(); const L = S.locks.find(x => x.id === Number(c.dataset.copyoff)), o = L && offPick(L); if (o) copy(`Lock #${L.id}: 100% ${o.label} on ${o.chain_name} (vote it in the Aero app)`); }));
 }
 const voteTxt = x => x.vote != null && Math.abs(x.vote - x.apr) >= 0.005 ? `voting ${(x.vote * 100).toFixed(1)}%` : "";
 function rankRows(idxs, thr, compact) {
@@ -796,6 +799,12 @@ function buildCall(L) {
 async function dryRun(L) {
   if (!L || !planFor(L) || L.sent) return;
   const now = Math.floor(Date.now() / 1000);
+  const off = offPick(L);
+  if (off) {
+    L.dry = { ok: false, offbase: true };
+    L.status = `<div class="banner warn"><b>Vote this in the Aero app (${esc(off.chain_name)}):</b> #${L.id} → 100% ${esc(off.label)}. Flight Plan signs Base votes only, so it can't rehearse or send this one. Expected ${money(off.expect_usd)} after about ${money(off.cost)} in ${esc(off.chain_name)} network costs; pool votes read ${off.row.age_h == null ? "at the last scan" : off.row.age_h + "h ago"}. <a href="#" data-copyoff="${L.id}">Copy it</a> · <a href="docs.html#networks">Why</a></div>`;
+    return render();
+  }
   if (L.booked === 0n && L.elsewhere.length) {
     L.dry = { ok: false };
     L.status = `<div class="banner warn">#${L.id} votes on ${esc(L.elsewhere.map(c => NET[c] || "chain " + c).join(" + "))}. Flight Plan rehearses and signs Base votes only; use the percentages in the Aero app for this lock. <a href="docs.html#networks">Why</a></div>`;

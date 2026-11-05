@@ -89,14 +89,15 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
   <h3>The presets</h3>
   <div class="tw"><table><tr><th></th><th>Steady</th><th>Balanced</th><th>Aggressive</th></tr>
   <tr><td>Pools</td><td>Auto (6 to 10)</td><td>Auto (6 to 10)</td><td>1 per lock</td></tr>
-  <tr><td>Fee memory</td><td>longer (about 20% last 12h)</td><td>the fitted mix (40% last 12h)</td><td>last 12h only, spikes trusted</td></tr>
-  <tr><td>Crowd caution</td><td>1.4x</td><td>1.0x (as measured)</td><td>0.5x</td></tr>
-  <tr><td>Streams</td><td>in full</td><td>in full</td><td>fees only</td></tr></table></div>
-  <p><b>Balanced</b> is the scanner's own model, the same split its auto plan uses. <b>Aggressive</b> is the fee-chaser's method: one pool per lock, the pool with the biggest fee rate over the last 12 hours, incentives ignored. With several locks each lock takes the next best pool, biggest lock first, so a wallet isn't all in one bet. Its expected number is usually higher and so are the swings: a pool whose fees spiked today can fade tomorrow, and the model's own low case shows that.</p>
+  <tr><td>Fee memory</td><td>longer (about 20% last 12h)</td><td>the fitted mix (40% last 12h)</td><td>the 4-day read only, spikes capped</td></tr>
+  <tr><td>Crowd caution</td><td>1.4x</td><td>1.0x (as measured)</td><td>1.0x (as measured)</td></tr>
+  <tr><td>Streams</td><td>in full</td><td>in full</td><td>in full</td></tr>
+  <tr><td>Networks</td><td>Base</td><td>Base</td><td>Base, OP, Arbitrum, Ethereum (after costs)</td></tr></table></div>
+  <p><b>Balanced</b> is the scanner's own model, the same split its auto plan uses. <b>Aggressive</b> follows the method behind saero.org's picks: <b>one pool per lock</b>, chosen on each pool's <b>4-day fee read</b> (every reading capped at 10x the pool's typical rate) <b>plus its incentives in full</b>, across <b>Base, OP, Arbitrum and Ethereum</b>. A pool on another network is weighed after what it costs to vote there each window (the cross-network message, the claim and the trip back, about $1.50 on Arbitrum, $2.20 on OP, $5 on Ethereum). Locks may share a pool; each one counts the others' AERO as competition, and together they stay at or under 10% of the pool. The only other rule: a pool whose votes doubled since the last scan is skipped. Expect bigger swings than Balanced: one pool per lock means no spread.</p>
   <h3>The dials</h3>
   <ul>
-    <li><b>Pools.</b> Auto (6 to 10 pools, at most 25% in one), or exactly 1 to 10, each pool then taking up to 100 ÷ N percent (see <a href="#pools">how many pools</a>). With several locks and 1 pool, each lock takes the next best pool, biggest lock first.</li>
-    <li><b>Fee memory.</b> Each pool's fees are read over the last 12 hours, 24 hours, 2 days and 4 days. The knob sets how those reads are weighted: all the way down = long memory (about 5% on the last 12 hours, 50% on 4 days), the middle = the fitted mix the scanner uses (40% / 25% / 10% / 25%), all the way up = the last 12 hours only. <b>Trust spikes</b> (the small switch under the knobs) drops two safety rails: the cap on any one reading at 10x the pool's typical rate, and the rule that a fading pool (last 12 hours under 30% of its longest read) counts only at its 12-hour rate.</li>
+    <li><b>Pools.</b> Auto (6 to 10 pools, at most 25% in one), or exactly 1 to 10, each pool then taking up to 100 ÷ N percent (see <a href="#pools">how many pools</a>). <b>1</b> means one pool per lock, chosen across Base and the other networks after costs, with only the 10%-of-a-pool limit; with several locks, the biggest lock picks first and the rest may share its pool.</li>
+    <li><b>Fee memory.</b> Each pool's fees are read over the last 12 hours, 24 hours, 2 days and 4 days. The knob sets how those reads are weighted: all the way down = the 4-day read only (Aggressive), the middle = the fitted mix the scanner uses (40% / 25% / 10% / 25%), all the way up = the last 12 hours only. <b>Trust spikes</b> (the small switch under the knobs) drops two safety rails: the cap on any one reading at 10x the pool's typical rate, and the rule that a fading pool (last 12 hours under 30% of its longest read) counts only at its 12-hour rate.</li>
     <li><b>Crowd caution.</b> Voters pile into the pools that look best, so each pool's votes are priced at a measured pile-on factor (fitted after every window, higher for crowded pools and small pools). The knob scales that factor: 1.0x = as measured; 0.5x assumes the crowd follows half as much; 1.5x assumes a heavier pile-on.</li>
     <li><b>Streams.</b> How much incentive streams count next to fees, in steps of 25%: 100% = in full, 0% = fees only.</li>
   </ul>
@@ -221,7 +222,8 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 </div></section>
 
 <section class="grp" id="networks"><h2>Locks voting on other networks</h2><div class="body">
-  <p>Aero runs on several networks (OP, Arbitrum, Ethereum, Ink, Robinhood, Arc) and a lock can vote on any of them. Flight Plan plans, rehearses and signs <b>Base</b> votes only. If a lock's votes sit on another network, its card says so and the dry run and Allocate are skipped; you can still use the suggested percentages for it in the Aero app.</p>
+  <p>Aero runs on several networks (OP, Arbitrum, Ethereum, Ink, Robinhood, Arc) and a lock can vote on any of them. With <b>one pool per lock</b> (Aggressive, or Pools = 1), Flight Plan also weighs pools on <b>OP, Arbitrum and Ethereum</b>, after what voting there costs each window. Their votes come from the last scan of that network (every 3 hours; a read older than 6 hours is left out), and the row says how old it is. Multi-pool splits stay on Base.</p>
+  <p>Flight Plan <b>signs Base votes only</b>. When a lock's pick is on another network, its card says "Vote this in the Aero app (OP)" with a copy link, and there is no dry run or Allocate for it. If a lock's current votes sit on another network, its card says so too.</p>
 </div></section>
 
 <section class="grp" id="fail"><h2>When something fails</h2><div class="body">
