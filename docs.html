@@ -46,7 +46,7 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
   <span class="sp"></span><a class="back" href="./">← Back to the app</a>
 </header>
 <p class="lede">Flight Plan is an unofficial, open-source helper for sAERO voters on Aero. It reads the chain, suggests a split sized to your locks, shows how you rank, rehearses every signature for free, and (when you connect the wallet that owns the locks) signs one vote per lock and one sweep of your rewards into USDC. Nothing you enter reaches a server: the page is static files plus public chain reads.</p>
-<nav class="toc"><a href="#use">How to use it</a><a href="#window">Windows</a><a href="#plan">How the split is made</a><a href="#pools">How many pools</a><a href="#dial">The strategy dial</a><a href="#yours">Why yours differs</a><a href="#rank">Rank</a><a href="#history">By week, by day</a><a href="#earn">Earnings</a><a href="#sweep">Sweep</a><a href="#crowd">The crowd chart</a><a href="#wins">What actually wins</a><a href="#safe">What it signs and never signs</a><a href="#blind">Never sign blind</a><a href="#hardware">Hardware wallets</a><a href="#anchors">Addresses</a><a href="#networks">Other networks</a><a href="#fail">When something fails</a><a href="#data">Data</a><a href="#tip">Tips</a></nav>
+<nav class="toc"><a href="#use">How to use it</a><a href="#window">Windows</a><a href="#plan">How the split is made</a><a href="#pools">How many pools</a><a href="#dial">The strategy dial</a><a href="#stay">Move or stay</a><a href="#yours">Why yours differs</a><a href="#rank">Rank</a><a href="#history">By week, by day</a><a href="#earn">Earnings</a><a href="#sweep">Sweep</a><a href="#crowd">The crowd chart</a><a href="#wins">What actually wins</a><a href="#safe">What it signs and never signs</a><a href="#blind">Never sign blind</a><a href="#hardware">Hardware wallets</a><a href="#anchors">Addresses</a><a href="#networks">Other networks</a><a href="#fail">When something fails</a><a href="#data">Data</a><a href="#tip">Tips</a></nav>
 
 <section class="grp" id="use"><h2>How to use it</h2><div class="body">
   <ol>
@@ -101,6 +101,16 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
     <li><b>Streams.</b> How much incentive streams count next to fees: in full, part, or not at all (fees only).</li>
   </ul>
   <p class="mut">The caps that protect you never move with the dial: your slice stays at most 10% of any pool, small pools stay capped, a pool whose votes doubled since the last scan stays out, and the dry run and the signing guard are the same for every preset.</p>
+</div></section>
+
+<section class="grp" id="stay"><h2>Move or stay</h2><div class="body">
+  <p>A vote keeps earning until you change it, so moving only makes sense when the new split is clearly better. Flight Plan values your <b>current votes</b> for the same window with the same model and the same dials as the suggested split (your own votes are taken out of each pool first, so both see the pools as they would be without you), then compares:</p>
+  <ul>
+    <li><b>Worth moving</b> when the split beats staying by at least <b>3%</b> and at least <b>$0.25 a day</b> (about $0.49 over a 47-hour window), after about <b>$0.05 in network fees per lock</b>.</li>
+    <li><b>Staying is about as good</b> otherwise. You can still move; the page just tells you it barely pays.</li>
+    <li><b>Can't compare</b> when more than a quarter of your Base votes sit in pools the page doesn't price (a pool no longer in the scan). Locks that vote on another network are left out of both sides.</li>
+  </ul>
+  <p class="mut">AERO that isn't voting at all earns nothing, so any split beats it; the box says how much of yours is idle.</p>
 </div></section>
 
 <section class="grp" id="yours"><h2>Why your split differs from someone else's</h2><div class="body">

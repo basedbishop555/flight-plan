@@ -185,5 +185,26 @@
     return { legs, start: D.starts[si], expect_usd: tot.expected, expect_low_usd: tot.low, expect_high_usd: tot.high, apr, warnings, placed, opts: o };
   }
 
-  return { poolRules, chaseFor, value, optimize, rowsAt, startIndex, plan, weightsFor, feeDay, DEFAULTS, PLAN_V };
+  /** What your CURRENT votes are expected to earn over the same window, with the same model and dial (the private
+   *  page's compare_now). votes = {gauge address (lowercase): AERO}. When `live` is given its pool sizes already have
+   *  your own votes taken out; otherwise they are taken out here. Returns {usd, priced, unpriced} (AERO). */
+  function stay(D, votes, startTs, live, opts) {
+    const o = Object.assign({}, DEFAULTS, opts || {}, { exclude: null });
+    const si = startIndex(D, startTs), C = D.consts;
+    const byG = {};
+    for (const r of rowsAt(D, si, live, o)) if (r.gauge) byG[r.gauge.toLowerCase()] = r;
+    const chase = { stream: D.chase.stream, fee: D.chase.fee, small: D.chase.small, crowd: D.chase.crowd };
+    let usd = 0, priced = 0, unpriced = 0;
+    for (const [g, x] of Object.entries(votes || {})) {
+      if (!(x > 0)) continue;
+      const r = byG[g];
+      if (!r) { unpriced += x; continue; }
+      const row = live ? r : Object.assign({}, r, { alloc: Math.max(1, r.alloc - x) });
+      usd += value(row, x, chaseFor(C, row, chase, o.caution)[1]);
+      priced += x;
+    }
+    return { usd, priced, unpriced };
+  }
+
+  return { poolRules, chaseFor, value, optimize, rowsAt, startIndex, plan, stay, weightsFor, feeDay, DEFAULTS, PLAN_V };
 });

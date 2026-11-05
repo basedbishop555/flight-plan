@@ -398,6 +398,29 @@ function replan() {
     for (const L of S.locks) L.plan = S.plan;
   }
 }
+/* ---------- move or stay (11/5/2026, after saero.org): your current votes vs the split, same model, same window.
+   Move only when the split beats staying by 3% AND $0.25 a day, after network fees. ---------- */
+const MOVE_PCT = 3, MOVE_USD_DAY = 0.25, FEE_PER_LOCK = 0.05;
+function stayVerdict() {
+  if (!S.plan || !S.locks.length) return null;
+  const votes = {}; let elsewhere = 0, parked = 0;
+  for (const L of S.locks) {
+    if (L.booked === 0n && L.elsewhere.length) { elsewhere += lockAero(L); continue; }
+    let v = 0;
+    for (const [g, x] of Object.entries(L.current)) { const a = Number(ethers.formatUnits(x, 18)); votes[g] = (votes[g] || 0) + a; v += a; }
+    parked += Math.max(0, lockAero(L) - v);
+  }
+  const st = P.stay(S.D, votes, S.plan.start, S.live, dialOpts());
+  const tot = totalAero(), base = tot - elsewhere;          // locks voting on other networks sit out of both sides
+  if (tot <= 0 || base <= 0 || st.unpriced / base > 0.25) return { unknown: true, share: base > 0 ? st.unpriced / base : 1 };
+  const unknown = st.unpriced;
+  const per = S.D.consts.H47 / 86400;
+  const stayUsd = st.usd, planUsd = S.plan.expect_usd * (tot - elsewhere) / tot;   // compare the Base part only
+  const gain = planUsd - stayUsd, fees = FEE_PER_LOCK * S.locks.filter(L => !(L.booked === 0n && L.elsewhere.length)).length;
+  const pct = stayUsd > 0 ? gain / stayUsd * 100 : Infinity;
+  const move = gain - fees >= MOVE_USD_DAY * per && pct >= MOVE_PCT;
+  return { stayUsd, planUsd, gain, pct, fees, move, parked, unknown: false, unpricedShare: unknown / base, elsewhere };
+}
 const planFor = L => (L && L.plan) || S.plan;
 const planSplit = L => planFor(L).legs.map(l => ({ gauge: l.gauge, pct: l.pct, label: l.label, pool: l.pool }));
 const planGauges = L => new Set(planFor(L).legs.map(l => l.gauge.toLowerCase()));
@@ -495,6 +518,8 @@ function renderHero() {
   pills.push(ot <= now + 60 ? `<span class="tag ok">Window open</span>` : `<span class="tag">Opens ${esc(fmtTs(ot))}</span>`);
   if (S.account) pills.push(S.locks.some(owns) ? `<span class="tag ok">Yours · can sign</span>` : `<span class="tag">Not your locks · read-only</span>`);
   else pills.push(`<span class="tag">Read-only · connect to sign</span>`);
+  const sv = p ? stayVerdict() : null;
+  if (sv && !sv.unknown) pills.push(sv.move ? `<span class="tag ok">Move: +${esc(money(sv.gain))}</span>` : `<span class="tag">Staying is fine</span>`);
   if (p) {
     const crowd = p.legs.filter(l => l.row.rank48 && l.row.rank48 <= 5).length; if (crowd) pills.push(`<span class="tag warn">${crowd} crowded</span>`);
     const fad = p.legs.filter(l => l.row.fading).length; if (fad) pills.push(`<span class="tag warn">${fad} fading</span>`);
@@ -585,11 +610,15 @@ function renderPlan() {
   else if (mine.length && sent.length === mine.length) cta = `<button class="cta gbtn ggreen" disabled>Allocated ✓</button><div class="csub">${sent.length} lock${sent.length === 1 ? "" : "s"} voted this window</div>`;
   else if (mine.length && mine.some(L => L.dry && L.dry.ok && !isOpen(L))) cta = `<button class="cta gbtn gviolet" disabled>Opens ${esc(fmtTs(Math.min(...mine.filter(L => !isOpen(L)).map(L => L.next))))}</button><div class="csub">Dry run OK · the Allocate button unlocks when the window opens</div>`;
   else { const ok = S.locks.filter(L => L.dry && L.dry.ok).length; cta = `<button class="cta gbtn gviolet" id="cta" data-act="copy">Copy the split for the Aero app</button><div class="csub">${ok} of ${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} dry-ran OK · ${S.account ? "connect the wallet that owns these locks to sign here, or" : "connect to sign here, or"} vote these percentages in the Aero app</div>`; }
+  const sv = stayVerdict(), pctTxt2 = x => !isFinite(x) ? "new votes" : (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(0) + "%";
+  const stayBox = !sv ? "" : sv.unknown
+    ? `<div class="banner small" style="margin:0 0 10px"><b>Move or stay:</b> can't compare: ${Math.round(sv.share * 100)}% of your Base votes sit in pools this page doesn't price (retired or off the scan), or every lock votes on another network.</div>`
+    : `<div class="banner ${sv.move ? "ok" : ""} small" style="margin:0 0 10px"><b>${sv.move ? "Worth moving" : "Staying is about as good"}.</b> Your current votes: ${money(sv.stayUsd)} this window · this split: ${money(sv.planUsd)} (<b class="num">${sv.gain >= 0 ? "+" : "−"}${money(Math.abs(sv.gain))}</b>, ${pctTxt2(sv.pct)}).${sv.move ? "" : ` The bar to move is +${MOVE_PCT}% and +${money(MOVE_USD_DAY * S.D.consts.H47 / 86400)} a window after about ${money(sv.fees)} in network fees; a vote keeps earning until you change it, so staying costs nothing.`}${sv.parked > 1 ? ` ${fmtA(sv.parked)} AERO isn't voting at all right now.` : ""}${sv.elsewhere > 0 ? ` Locks voting on other networks are left out of this comparison.` : ""} <a href="docs.html#stay">How</a></div>`;
   const legend = types.length ? `<div class="legend">${types.map(t => `<span><i class="pdot" style="--c:${typeColor(t)}"></i>${esc(TYPE_NAME[t] || t)}</span>`).join("")}</div>` : "";
   const rows = p.perLock
     ? S.locks.map(L => `<div class="lockhead">#${L.id} <span class="num">${fmtA(lockAero(L))} AERO · ${isOpen(L) ? "open" : "opens " + esc(fmtTs(L.next))} · ${money(L.plan.expect_usd)}</span></div>` + (L.plan.legs.length ? L.plan.legs.map(poolRow).join("") : `<div class="small warn">No pool fits this lock under the rules.</div>`)).join("")
     : p.legs.map(poolRow).join("");
-  $("legs").innerHTML = legend + rows + (p.warnings.length ? `<div class="banner warn small">${esc(p.warnings.join(" "))}</div>` : "") + cta;
+  $("legs").innerHTML = stayBox + legend + rows + (p.warnings.length ? `<div class="banner warn small">${esc(p.warnings.join(" "))}</div>` : "") + cta;
   el.querySelectorAll("[data-copy]").forEach(c => c.addEventListener("click", () => copy(c.dataset.copy)));
   const c = $("cta"); if (c) c.addEventListener("click", () => c.dataset.act === "dry" ? dryAll() : c.dataset.act === "send" ? sendAll() : copy(splitText()));
 }
