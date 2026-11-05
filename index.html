@@ -269,6 +269,7 @@ async function waitReceipt(hash) {
 const S = { empty: 0, D: null, RK: null, H: null, histBusy: false, CR: null, addr: null, account: null, provider: null, locks: [], live: null, plan: null,
             dial: null, ST: null, winsBr: null, mode: store.get("mode", "lock"), logv: store.get("logv", "week") === "day" ? "day" : "week",
             bracket: null, busy: false, cool: 169200 };
+const LOCK_MAX = 60;          // locks read per wallet (6 chain calls each; the biggest wallets hold hundreds)
 const viewer = () => S.addr;
 const owns = L => !!(S.account && L.owner && L.owner.toLowerCase() === S.account.toLowerCase());
 
@@ -310,9 +311,10 @@ async function loadHist() {
 async function discover(addr) {
   const r = await multicall([{ target: C.SAERO, callData: I.en.encodeFunctionData("balanceOf", [addr]) }]);
   const n = Number(dec(I.en, "balanceOf", r[0])?.[0] ?? 0n);
-  const idx = await multicall(Array.from({ length: Math.min(n, 20) }, (_, i) => ({ target: C.SAERO, callData: I.en.encodeFunctionData("tokenOfOwnerByIndex", [addr, i]) })));
+  S.total = n;
+  const idx = await multicall(Array.from({ length: Math.min(n, LOCK_MAX) }, (_, i) => ({ target: C.SAERO, callData: I.en.encodeFunctionData("tokenOfOwnerByIndex", [addr, i]) })));
   const ids = idx.map(x => dec(I.en, "tokenOfOwnerByIndex", x)).filter(Boolean).map(x => Number(x[0]));
-  log(`${short(addr)} holds ${n} sAERO lock${n === 1 ? "" : "s"}${n > 20 ? " (showing the first 20)" : ""}.`);
+  log(`${short(addr)} holds ${n} sAERO lock${n === 1 ? "" : "s"}${n > LOCK_MAX ? ` (showing the first ${LOCK_MAX})` : ""}.`);
   return ids;
 }
 
@@ -499,7 +501,7 @@ function renderHero() {
   if (S.D && Date.now() / 1000 - S.D.scan_ts > 3 * 3600) pills.push(`<span class="tag warn">Pool data ${esc(ago(S.D.scan_ts))}</span>`);
   h.innerHTML = `<div class="hrow">${ring(first, true)}<div class="hmain"><div class="hk">This window · ${esc(short(S.addr))}</div>
     <div class="hv num">${p ? money(p.expect_usd) : "-"}</div>
-    <div class="hs num">${p ? p.apr.toFixed(0) + "% APR · " : ""}${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} · ${fmtA(aero)} AERO</div></div></div>
+    <div class="hs num">${p ? p.apr.toFixed(0) + "% APR · " : ""}${S.locks.length}${S.total > LOCK_MAX ? ` of ${S.total}` : ""} lock${S.locks.length === 1 ? "" : "s"} · ${fmtA(aero)} AERO</div></div></div>
     <div class="pills">${pills.join("")}</div>`;
 }
 function poolRow(l) {
@@ -595,7 +597,7 @@ function renderLocks() {
   if (!S.locks.length) { el.classList.add("hidden"); return; }
   el.classList.remove("hidden");
   const now = Date.now() / 1000;
-  el.innerHTML = `<h2>Locks <span>${S.locks.length} · ${fmtA(totalAero())} AERO</span></h2><div class="body">` + S.locks.map(L => {
+  el.innerHTML = `<h2>Locks <span>${S.locks.length}${S.total > LOCK_MAX ? ` of ${S.total}` : ""} · ${fmtA(totalAero())} AERO</span></h2><div class="body">` + (S.total > LOCK_MAX ? `<div class="banner warn small">This wallet holds ${S.total} locks; the first ${LOCK_MAX} are shown and counted. The rest are not in the split, the rank or the earnings.</div>` : "") + S.locks.map(L => {
     const open = L.next ? L.next <= now : true, mine = owns(L);
     const net = L.booked === 0n && L.elsewhere.length ? ` · <span class="warn">votes on ${esc(L.elsewhere.map(c => NET[c] || "chain " + c).join(" + "))}</span>` : "";
     const who = S.account ? (mine ? ` · <span class="ok">yours</span>` : ` · <span class="mut2">not the connected wallet</span>`) : "";
@@ -1138,7 +1140,7 @@ $("sweep").addEventListener("toggle", () => { if ($("sweep").open && viewer() &&
 async function lookup(raw) {
   let a = String(raw || "").trim();
   if (!/^0x[0-9a-fA-F]{40}$/.test(a)) { toast("that isn't a wallet address"); return; }
-  a = ethers.getAddress(a); S.addr = a; S.locks = []; S.plan = null; S.bracket = null; S.busy = true; S.err = null; $("addr").value = a; render();
+  a = ethers.getAddress(a); S.addr = a; S.locks = []; S.total = 0; S.plan = null; S.bracket = null; S.busy = true; S.err = null; $("addr").value = a; render();
   SW.rows = []; SW.plan = null; SW.dry = null; renderSweep();
   try { history.replaceState(null, "", "?addr=" + a); } catch (e) {}
   try {
