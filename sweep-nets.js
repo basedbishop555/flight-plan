@@ -210,6 +210,114 @@
     if (String(now).toLowerCase() !== net.hex.toLowerCase()) throw new Error(`wallet is still on chain ${parseInt(now, 16)}, not ${net.name}`);
   }
 
-  window.SweepNets = { NETS, byId, rpc, call, multicall, simSwapGas, stableBalance, waitReceipt, scan, gasGuess, gasCheck, gasAmt, gasUsd, suggest, relayUrl, ensureNet,
+  /* ---------- gas bridge: ETH on Base -> the gas token on another network, via Relay (11/5/2026) ----------
+     One transaction on Base per network: depositNative(depositor, id) on Relay's Base deposit contract, with the ETH as
+     value. Relay's solver pays the gas token (ETH; USDC on Arc) to the recipient on the other network within seconds,
+     or refunds the depositor on Base. The page cannot read the order behind `id`, so it checks everything it can:
+     the To address is the pinned deposit contract, the method is depositNative, the depositor is you, the value is
+     exactly what was asked (and under a hard cap), and Relay's quote says recipient = you, output = that network's gas
+     token. Then it dry-runs the deposit on Base. Anything else is refused. */
+  const RELAY = "https://api.relay.link";
+  const RELAY_DEPOSITORY = "0x4cd00e387622c35bddb9b4c962c136462338bc31";   // Base, Relay protocol v2 (api /chains, 11/5/2026)
+  const DEPOSIT_NATIVE = "0x49290c1c";                                     // depositNative(address depositor, bytes32 id)
+  const BRIDGE_MAX_WEI = 6000000000000000n;                                // 0.006 ETH (~$13) per network, never more
+  const bridgeUsd = net => (net.key === "ethereum" ? 5 : 1);
+  function bridgeCheck(b, owner) {
+    const o = owner.toLowerCase(), t = b.tx, why = [];
+    if ((t.to || "").toLowerCase() !== RELAY_DEPOSITORY) why.push("To is not Relay's Base deposit contract");
+    if (Number(t.chainId) !== 8453) why.push("not a Base transaction");
+    if (BigInt(t.value) !== b.value) why.push("amount differs from the one asked for");
+    if (b.value <= 0n || b.value > BRIDGE_MAX_WEI) why.push("amount is over the 0.006 ETH cap");
+    const d = (t.data || "").toLowerCase();
+    if (!d.startsWith(DEPOSIT_NATIVE) || d.length !== 2 + 8 + 128) why.push("method is not depositNative");
+    else if ("0x" + d.slice(10 + 24, 10 + 64) !== o) why.push("depositor is not you");
+    if ((b.recipient || "").toLowerCase() !== o) why.push("recipient on the other network is not you");
+    if (Number(b.outChain) !== b.net.chainId || (b.outToken || "").toLowerCase() !== ZERO) why.push(`output is not ${b.net.gas} on ${b.net.name}`);
+    if (why.length) throw new Error(`bridge to ${b.net.name} refused: ${why.join("; ")}`);
+    return true;
+  }
+  async function bridgeQuote(net, owner) {
+    const base = byId(8453);
+    if (net.isBase) throw new Error("Base needs no bridge");
+    if (!base || !base.native_usd) throw new Error("no ETH price in the routes file");
+    const value = BigInt(Math.round(bridgeUsd(net) / base.native_usd * 1e9)) * 1000000000n;
+    const o = owner.toLowerCase();
+    // A smart-contract wallet (a Safe, say) lives at its address only on the networks it was deployed to: refuse to send
+    // gas to an address that is a contract on Base but empty on the target, where nobody may be able to move it
+    const [cb, cn] = await Promise.all([rpc(base, "eth_getCode", [o, "latest"]), rpc(net, "eth_getCode", [o, "latest"])]);
+    if (cb && cb !== "0x" && (!cn || cn === "0x")) throw new Error(`This address is a smart-contract wallet on Base that doesn't exist on ${net.name}; gas sent there might be stuck. Fund gas there another way.`);
+    const r = await fetch(RELAY + "/quote", { method: "POST", headers: { "content-type": "application/json" }, signal: AbortSignal.timeout(20000),
+      body: JSON.stringify({ user: o, recipient: o, originChainId: 8453, destinationChainId: net.chainId, originCurrency: ZERO, destinationCurrency: ZERO, amount: value.toString(), tradeType: "EXACT_INPUT" }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.steps) {
+      const m = j.message || ("HTTP " + r.status);
+      throw new Error(/invalid recipient/i.test(m) ? `Relay can't deliver to this address on ${net.name} (a smart-contract wallet often exists on one network only). Fund gas there another way.` : `Relay quote for ${net.name} failed: ${m}`);
+    }
+    if (j.steps.length !== 1 || (j.steps[0].items || []).length !== 1 || j.steps[0].kind !== "transaction") throw new Error(`Relay's ${net.name} quote needs more than one step; not supported here`);
+    const it = j.steps[0].items[0], det = j.details || {}, out = det.currencyOut || {};
+    const b = { net, value, at: Date.now(), requestId: j.requestId, tx: { to: it.data.to, data: it.data.data, value: it.data.value, chainId: it.data.chainId },
+      recipient: det.recipient, outChain: out.currency && out.currency.chainId, outToken: out.currency && out.currency.address,
+      outWei: BigInt(out.amount || 0), outUsd: Number(out.amountUsd || 0), inUsd: Number((det.currencyIn || {}).amountUsd || 0), secs: det.timeEstimate };
+    bridgeCheck(b, owner);
+    return b;
+  }
+  // Base-side rehearsal: enough ETH on Base, and every deposit goes through from your address
+  async function bridgeDry(items, owner) {
+    const base = byId(8453), total = items.reduce((t, b) => t + b.value, 0n);
+    const bal = BigInt(await rpc(base, "eth_getBalance", [owner, "latest"]));
+    const price = BigInt(await rpc(base, "eth_gasPrice", []));
+    const room = 200000n * BigInt(items.length) * price * 2n;
+    if (bal < total + room) return { ok: false, why: `This wallet has ${gasAmt(bal)} ETH on Base; the bridge needs ${gasAmt(total + room)} ETH there (amount + gas).`, total };
+    const calls = items.map(b => ({ from: owner, to: b.tx.to, data: b.tx.data, value: "0x" + b.value.toString(16), gas: "0x" + (200000).toString(16) }));
+    const res = await rpc(base, "eth_simulateV1", [{ blockStateCalls: [{ calls }], validation: false }, "latest"]);
+    const bad = res[0].calls.findIndex(c => c.status !== "0x1");
+    if (bad >= 0) return { ok: false, why: `The ${items[bad].net.name} deposit failed in the dry run: ${JSON.stringify(res[0].calls[bad].error || res[0].calls[bad].returnData).slice(0, 160)}`, total };
+    return { ok: true, total, gas: res[0].calls.reduce((t, c) => t + parseInt(c.gasUsed, 16), 0) };
+  }
+  // Sign on Base (one batch when the wallet can, else one by one), then wait for Relay to fill each order
+  async function bridgeSend(provider, account, items, log, prog) {
+    const base = byId(8453);
+    for (let i = 0; i < items.length; i++) if (Date.now() - items[i].at > 90000) { log(`Quote for ${items[i].net.name} is over 90s old; refreshing.`); items[i] = await bridgeQuote(items[i].net, account); }
+    items.forEach(b => bridgeCheck(b, account));
+    await ensureNet(provider, base, log);
+    const calls = items.map(b => ({ to: b.tx.to, data: b.tx.data, value: "0x" + b.value.toString(16) }));
+    for (const c of calls) bridgeCheck(items[calls.indexOf(c)], account);
+    let atomic = false;
+    if (calls.length > 1) {
+      try { const caps = await provider.request({ method: "wallet_getCapabilities", params: [account, ["0x2105"]] }); const st = caps && caps["0x2105"] && caps["0x2105"].atomic && caps["0x2105"].atomic.status; atomic = st === "supported" || st === "ready"; } catch (e) { /* one by one */ }
+    }
+    const txs = [];
+    if (atomic) {
+      prog(`Waiting for your signature (${calls.length} bridges, one batch)…`);
+      const id = await provider.request({ method: "wallet_sendCalls", params: [{ version: "2.0.0", chainId: "0x2105", from: account, atomicRequired: true, calls }] });
+      for (let i = 0; i < 90; i++) {
+        const s = await provider.request({ method: "wallet_getCallsStatus", params: [typeof id === "string" ? id : id.id] });
+        if (s.status === 200 || s.status === "CONFIRMED") { (s.receipts || []).forEach(r => r.transactionHash && txs.push(r.transactionHash)); break; }
+        if (s.status >= 400) throw new Error("batch failed: " + JSON.stringify(s).slice(0, 200));
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    } else {
+      for (const [i, c] of calls.entries()) {
+        prog(`Signature ${i + 1} of ${calls.length}: bridge ${gasAmt(items[i].value)} ETH to ${items[i].net.name}`);
+        const h = await provider.request({ method: "eth_sendTransaction", params: [{ from: account, to: c.to, data: c.data, value: c.value }] });
+        txs.push(h); log(`  bridge to ${items[i].net.name} sent ${h}`);
+        const rc = await waitReceipt(base, h);
+        if (rc.status !== "0x1") throw new Error(`deposit ${h} reverted on Base`);
+      }
+    }
+    prog("Deposited on Base. Waiting for Relay to deliver (usually seconds)…");
+    const done = {};
+    for (let i = 0; i < 60 && Object.keys(done).length < items.length; i++) {
+      for (const b of items) {
+        if (done[b.net.chainId]) continue;
+        try { const s = await (await fetch(`${RELAY}/intents/status?requestId=${encodeURIComponent(b.requestId)}`, { signal: AbortSignal.timeout(10000) })).json();
+          if (s.status === "success" || s.status === "failure" || s.status === "refund") { done[b.net.chainId] = s.status; log(`Relay ${b.net.name}: ${s.status}`, s.status === "success" ? "ok" : "bad"); } } catch (e) { /* retry */ }
+      }
+      if (Object.keys(done).length < items.length) await new Promise(r => setTimeout(r, 3000));
+    }
+    return { txs, done };
+  }
+
+  window.SweepNets = { NETS, byId, rpc, call, multicall, simSwapGas, stableBalance, bridgeQuote, bridgeCheck, bridgeDry, bridgeSend, bridgeUsd, RELAY_DEPOSITORY, waitReceipt, scan, gasGuess, gasCheck, gasAmt, gasUsd, suggest, relayUrl, ensureNet,
     txUrl: (net, h) => `${net.explorer}/tx/${h}` };
 })();

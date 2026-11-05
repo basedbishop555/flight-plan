@@ -214,21 +214,25 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
     <li><b>Arc is different: its gas is USDC, not ETH.</b> Bridge USDC to Arc (Relay lists Arc too). On Arc the USDC you hold is also your gas, so once you have some, each sweep tops it up.</li>
     <li><b>Re-scan.</b> The "needs gas" mark on that network's button disappears once there is enough.</li>
   </ol>
+  <h3>Or tap Get gas</h3>
+  <p>When a network is short, the sweep shows <b>Get gas: bridge ~$1 of ETH from Base</b> (and <b>Get gas on all N networks</b> when several are). The page asks Relay for a quote, shows what goes in and what arrives, checks it, and rehearses the deposit on Base. One signature on Base per network, or one in total if your wallet signs batches. Relay usually delivers within seconds; if it can't, it refunds you on Base. You need that ETH (plus a little gas) on Base first.</p>
+  <p class="mut">The page won't bridge to a smart-contract wallet (like a Safe) on a network where that wallet doesn't exist, because the gas could be stuck there.</p>
   <p><b>The page checks before you sign.</b> If the wallet is short on a network, the sweep says so in plain words, for example "To swap ARB on Arbitrum you need about 0.00002 ETH (~$0.05) for gas on Arbitrum. This wallet has 0 ETH there", and Sign stays off. The dry run still works without gas, so you can see what a sweep would pay before funding it.</p>
   <p class="mut">Aero's Metarouter and Metaquoter have the same address on every network, and each network's sweep goes through the same guard as Base's: exact-amount approvals to the Metarouter, one swap paid to your own address.</p>
 </div></section>
 
 <section class="grp safe" id="safe"><h2>What it signs, and never signs</h2><div class="body">
-  <p>Connecting shares only your address. With the owning wallet connected, Flight Plan can ask for exactly three kinds of signature:</p>
+  <p>Connecting shares only your address. With the owning wallet connected, Flight Plan can ask for exactly four kinds of signature:</p>
   <ol>
     <li><b>A vote.</b> One <code>allocate</code> call to the Aero <b>Voter</b> for a lock your wallet owns, <b>0 ETH</b>. The guard checks, before every send: the To address is the Voter; the call is <code>allocate</code>; the lock id is the one shown and your account owns it; the refund address is you; every dispatch is Base-only with zero value and zero gas limit; the gauges are exactly the plan's; the amounts add up to the whole stake. It is rebuilt from the plan and checked again against a fresh chain read (owner, window, booked amount) right before your wallet opens.</li>
     <li><b>A sweep approval.</b> <code>approve</code> on a reward token the scan found in your wallet, spender = Aero's <b>Metarouter</b>, amount = <b>exactly your balance</b>. Never unlimited.</li>
     <li><b>A sweep swap.</b> One Metarouter <code>execute</code> that sells those tokens for USDC (USDG on Robinhood) with the minimum you set, <b>paid to your own address</b>, on the network the tokens are on.</li>
+    <li><b>A gas bridge, only when you tap Get gas.</b> <code>depositNative</code> on Relay's Base deposit contract <code>0x4cd00e387622c35bddb9b4c962c136462338bc31</code>, with about $1 of ETH ($5 for Ethereum, hard cap 0.006 ETH) as value. The guard checks the To address, the method, that the depositor is you, the exact amount, and that Relay's quote delivers that network's gas token to <b>your own address</b>; then it dry-runs the deposit on Base. <a href="#gas">More</a></li>
   </ol>
   <h3>Never</h3>
   <ul>
     <li>An approval on <b>sAERO</b>, or <code>setApprovalForAll</code> on anything. Your locks cannot be moved by this page: <code>allocate</code> moves votes, not tokens, and there is no code path that approves the escrow.</li>
-    <li>A transfer, a claim, a withdrawal, a merge, an unlimited approval, a message signature (<code>personal_sign</code> / typed data), or any value other than 0 ETH.</li>
+    <li>A transfer, a claim, a withdrawal, a merge, an unlimited approval, a message signature (<code>personal_sign</code> / typed data), or any ETH value except that capped gas bridge.</li>
     <li>Anything without a passing dry run first, and nothing in paste-only mode (no wallet connected).</li>
   </ul>
   <p>Worst case, if you ignore every check: a swap that fills at your slippage limit, or a poor pool pick for one 47-hour window. No lock can be lost.</p>

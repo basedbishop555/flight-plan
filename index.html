@@ -178,6 +178,7 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
     <div id="swNets"></div>
     <div id="toks" style="margin-top:6px"></div>
     <div id="swGas"></div>
+    <div id="swBridge"></div>
     <div id="swTot" class="tiles" style="display:none"></div>
     <details id="swPlanWrap" style="display:none;margin-top:8px"><summary class="small mut" style="cursor:pointer">What you will sign</summary><div id="swPlan" style="margin-top:6px"></div></details>
     <div class="sign" id="swSign" style="display:none"><button type="button" id="btnDry">Dry run</button><button type="button" id="btnSend" class="gbtn ggreen" disabled>Sign and sweep</button></div>
@@ -193,7 +194,7 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
 <section class="card" id="crowd"></section>
 <details class="card" id="logw"><summary class="body small mut" style="cursor:pointer">Log</summary><div class="body" style="padding-top:0"><div id="log"></div></div></details>
 
-<p class="foot">Unofficial. Not affiliated with Aerodrome. Signs only: one vote per lock you own, exact-amount sweep approvals, one sweep swap. Never an approval on sAERO.<br>
+<p class="foot">Unofficial. Not affiliated with Aerodrome. Signs only: one vote per lock you own, exact-amount sweep approvals, one sweep swap, and a small gas bridge when you ask for one. Never an approval on sAERO.<br>
 <b>Check the address bar says flight-plan.app.</b><br>
 <span id="fresh">Loading pool data…</span> · <a href="#" id="safelink2">Safety</a> · <a href="docs.html">Docs</a> · <a href="https://github.com/basedbishop555/flight-plan">Source</a><br>
 Free and open source. Tips welcome: <code data-copy="0xbe46e9dD6f22b5578529385F2e0Ee25840110196" id="tip" title="Tap to copy">0xbe46…0196</code> <a href="docs.html#tip">more</a></p>
@@ -201,13 +202,14 @@ Free and open source. Tips welcome: <code data-copy="0xbe46e9dD6f22b5578529385F2
 
 <div class="modal hidden" id="safety" role="dialog" aria-modal="true" aria-labelledby="safetyh"><div class="sheet">
   <h3 id="safetyh">Before you sign anything</h3>
-  <p>Flight Plan can sign for the locks and reward tokens your connected wallet owns. Exactly three kinds of signature, nothing else:</p>
+  <p>Flight Plan can sign for the locks and reward tokens your connected wallet owns. Exactly four kinds of signature, nothing else:</p>
   <ol>
     <li><b>A vote.</b> One <code>allocate</code> call to the Aero Voter for a lock you own, 0 ETH. It moves votes, never tokens.</li>
     <li><b>A sweep approval.</b> An exact-amount <code>approve</code> to Aero's Metarouter on a reward token the scan found in your wallet.</li>
     <li><b>A sweep swap.</b> One Metarouter <code>execute</code> that sells those rewards for USDC, paid to your own wallet.</li>
+    <li><b>A gas bridge, only when you tap Get gas.</b> A deposit of about $1 of ETH (Ethereum: $5, never over 0.006 ETH) to Relay's Base contract, delivered as gas to your own address on another network.</li>
   </ol>
-  <p><b>Never:</b> an approval on sAERO, <code>setApprovalForAll</code>, a transfer, a claim, an unlimited approval, or any value other than 0 ETH. Every signature is rehearsed on the chain first (a dry run) and checked by the open-source guard before it reaches your wallet. Reject anything that looks different.</p>
+  <p><b>Never:</b> an approval on sAERO, <code>setApprovalForAll</code>, a transfer, a claim, an unlimited approval, or any ETH value except that capped gas bridge. Every signature is rehearsed on the chain first (a dry run) and checked by the open-source guard before it reaches your wallet. Reject anything that looks different.</p>
   <p><b>Check the address bar says flight-plan.app.</b> A copy on another address can be anything.</p>
   <button type="button" class="cta gbtn gblue" id="safeok" style="margin-top:10px">Got it</button>
   <p class="small mut2" style="text-align:center;margin:8px 0 0"><a href="docs.html#safe">Read the full safety page</a></p>
@@ -1073,7 +1075,7 @@ async function swGasRead(n, owner, units) {
 }
 function swPick(cid) {
   useNet(SN.byId(cid)); SW.cid = SWN.chainId;
-  SW.rows = SW.byNet[SWN.chainId] || []; SW.plan = null; SW.dry = null; SW.done = null; $("swOut").innerHTML = "";
+  SW.rows = SW.byNet[SWN.chainId] || []; SW.plan = null; SW.dry = null; SW.done = null; $("swOut").innerHTML = ""; if (!BR) $("swBridge").innerHTML = "";
   renderSweep(); swBuildPlan(viewer());
 }
 function renderNets() {
@@ -1092,7 +1094,48 @@ function renderGas() {
   const names = sel.slice(0, 3).map(r => r.sym).join(", ") + (sel.length > 3 ? ` and ${sel.length - 3} more` : "");
   const usd = SN.gasUsd(SWN, g.need);
   el.innerHTML = `<div class="banner warn small" style="margin-top:8px"><b>Gas needed on ${esc(SWN.name)}.</b> To swap ${esc(names)} you need about <b>${SN.gasAmt(g.need)} ${SWN.gas}</b>${usd != null ? ` (~$${fmt(Math.max(usd, 0.01), 2)})` : ""} for gas on ${esc(SWN.name)}. This wallet has ${SN.gasAmt(g.bal)} ${SWN.gas} there.
-    Send ${SN.suggest(SWN)} to this same address on ${esc(SWN.name)} (for example with <a href="${SN.relayUrl(SWN)}" target="_blank" rel="noopener">Relay</a>, from ETH on Base), then re-scan. <a href="docs.html#gas">How</a></div>`;
+    Send ${SN.suggest(SWN)} to this same address on ${esc(SWN.name)} (for example with <a href="${SN.relayUrl(SWN)}" target="_blank" rel="noopener">Relay</a>, from ETH on Base), then re-scan. <a href="docs.html#gas">How</a>
+    ${SWN.isBase ? "" : `<div style="margin-top:6px"><button class="sm" data-gas="${SWN.chainId}">Get gas: bridge ~$${SN.bridgeUsd(SWN)} of ETH from Base</button>${gasShort().length > 1 ? ` <button class="sm" data-gas="${gasShort().map(n => n.chainId).join(",")}">Get gas on all ${gasShort().length} networks that need it</button>` : ""}</div>`}</div>`;
+  el.querySelectorAll("button[data-gas]").forEach(b => b.addEventListener("click", () => swGetGas(b.dataset.gas.split(",").map(Number)).catch(e => log("Get gas failed: " + (e.message || e), "bad"))));
+}
+/* Get gas (11/5/2026): bridge a little ETH from Base to every network that is short, via Relay. Quote + guard +
+   Base dry run first (sweep-nets.js); one signature when the wallet batches. Nothing is sent without the Sign tap. */
+let BR = null;
+const gasShort = () => SN.NETS.filter(n => !n.isBase && SW.byNet[n.chainId] && SW.gas[n.chainId] && !SW.gas[n.chainId].ok);
+async function swGetGas(cids) {
+  const owner = viewer(); if (!owner) return;
+  const nets = cids.map(c => SN.byId(c)).filter(Boolean), el = $("swBridge");
+  el.innerHTML = `<div class="banner small">Asking Relay for ${nets.length === 1 ? "a quote" : nets.length + " quotes"}…</div>`;
+  const qs = await Promise.allSettled(nets.map(n => SN.bridgeQuote(n, owner)));
+  const items = [], errs = [];
+  qs.forEach((q, i) => { if (q.status === "fulfilled") items.push(q.value); else errs.push(q.reason.message || String(q.reason)); });
+  errs.forEach(e => log(e, "bad"));
+  if (!items.length) { el.innerHTML = `<div class="banner bad small">${esc(errs.join(" "))}</div>`; return; }
+  const dry = await SN.bridgeDry(items, owner).catch(e => ({ ok: false, why: e.message }));
+  BR = { owner, items, dry };
+  const mine = S.account && ethers.getAddress(S.account) === owner;
+  const usdIn = items.reduce((t, b) => t + b.inUsd, 0), usdOut = items.reduce((t, b) => t + b.outUsd, 0);
+  el.innerHTML = `<div class="banner ${dry.ok ? "ok" : "bad"} small" style="margin-top:8px"><b>Get gas from Base, via Relay</b>
+    <ul style="margin:6px 0 6px 18px;padding:0">${items.map(b => `<li>${esc(b.net.name)}: send <b>${SN.gasAmt(b.value)} ETH</b> from Base, get about <b>${SN.gasAmt(b.outWei)} ${b.net.gas}</b> (~$${fmt(b.outUsd, 2)}) to <code>${short(owner)}</code> on ${esc(b.net.name)}${b.secs != null ? `, ~${b.secs}s` : ""}</li>`).join("")}</ul>
+    Total ~$${fmt(usdIn, 2)} in, ~$${fmt(usdOut, 2)} out (Relay's fee is the difference). ${items.length > 1 ? `${items.length} deposits on Base: one signature if your wallet batches, else one each.` : "One signature on Base."}
+    <br><span class="mut">Checked before your wallet opens: To = Relay's Base deposit contract <code>${SN.RELAY_DEPOSITORY}</code>, method depositNative, depositor and recipient = you, amount = exactly the line above (never over 0.006 ETH). Relay is a separate service; if it can't deliver, it refunds you on Base.</span>
+    ${errs.length ? `<br><span class="mut">${esc(errs.join(" "))}</span>` : ""}
+    <div style="margin-top:6px">${dry.ok ? `Dry run on Base OK.` : `<b>Dry run: ${esc(dry.why)}</b>`}</div>
+    <div class="sign" style="margin-top:6px"><button class="sm" id="brCancel">Cancel</button> <button class="sm primary" id="brSign" ${dry.ok && mine ? "" : "disabled"}>${mine ? "Sign bridge" : "Connect this wallet to sign"}</button></div></div>`;
+  $("brCancel").addEventListener("click", () => { BR = null; el.innerHTML = ""; });
+  $("brSign").addEventListener("click", () => swBridgeSend().catch(e => { log("Bridge stopped: " + (e.message || e), "bad"); el.innerHTML = `<div class="banner bad small">Bridge stopped: ${esc(e.message || e)}. Nothing more will be sent; re-scan to see where things stand.</div>`; }));
+}
+async function swBridgeSend() {
+  const b = BR; if (!b || !b.dry.ok || !S.account || ethers.getAddress(S.account) !== b.owner) return;
+  const el = $("swBridge"); $("brSign").disabled = true;
+  const prog = m => { el.innerHTML = `<div class="banner small">${esc(m)}</div>`; };
+  const r = await SN.bridgeSend(S.provider, b.owner, b.items, log, prog);
+  const nets = b.items.map(x => x.net);
+  await Promise.all(nets.map(n => swGasRead(n, b.owner).catch(() => null)));
+  renderNets(); renderGas(); BR = null;
+  const okN = nets.filter(n => r.done[n.chainId] === "success").map(n => n.name), late = nets.filter(n => !r.done[n.chainId]).map(n => n.name);
+  el.innerHTML = `<div class="banner ${late.length || okN.length < nets.length ? "warn" : "ok"} small">${okN.length ? `Gas delivered on ${esc(okN.join(", "))}. ` : ""}${late.length ? `Still on its way to ${esc(late.join(", "))}; re-scan in a minute. ` : ""}${r.txs.map(h => `<a href="https://basescan.org/tx/${h}" target="_blank" rel="noopener">${h.slice(0, 10)}…</a>`).join(" · ")} · switch back to ${esc(SWN.name)} and sweep when ready.</div>`;
+  if (SWN.isBase || gasOk()) $("btnSend").disabled = !SW.dry;
 }
 const gasOk = () => { const g = SW.gas[SWN.chainId]; return !g || g.ok; };
 const gasCostTxt = gas => { const g = SW.gas[SWN.chainId]; if (!g) return ""; const w = BigInt(gas) * g.price, usd = SN.gasUsd(SWN, w); return `≈ ${SN.gasAmt(w)} ${SWN.gas}${usd != null ? ` ($${fmt(usd, 3)})` : ""}`; };
