@@ -277,6 +277,12 @@ async function loadData() {
   // are fetched only once someone looks a wallet up, in parallel with the chain reads
   const [d, c] = await Promise.all([fetch("data/plan.json?v=" + v).then(x => x.json()),
     fetch("data/crowd.json?v=" + v).then(x => x.json()).catch(() => null)]);
+  if ((d.v || 1) !== P.PLAN_V) {      // a cached data file from before/after a format change: never plan from it
+    S.D = null; S.CR = c; renderCrowd();
+    $("fresh").textContent = "Pool data is being refreshed; reload in a few minutes";
+    log(`Pool data format v${d.v || 1} does not match this page (v${P.PLAN_V}); waiting for the refresh.`, "warn");
+    throw new Error("pool data is being refreshed; reload in a few minutes");
+  }
   S.D = d; S.CR = c;
   $("fresh").textContent = `Pool data from ${ago(d.scan_ts)}`;
   log(`Pool data from ${new Date(d.scan_ts * 1000).toLocaleString()} · ${d.gauges.length} pools · AERO $${d.px.toFixed(4)}`);
@@ -1108,7 +1114,7 @@ $("find").addEventListener("submit", e => { e.preventDefault(); lookup($("addr")
 setInterval(() => { if (!document.hidden && S.locks.length) { renderHero(); renderLocks(); } }, 30000);
 
 render();
-loadData().then(() => { const q = new URLSearchParams(location.search).get("addr"); if (q) lookup(q); }).catch(e => { $("fresh").textContent = "Pool data unavailable"; log("Data load failed: " + e.message, "bad"); });
+loadData().then(() => { const q = new URLSearchParams(location.search).get("addr"); if (q) lookup(q); }).catch(e => { if (!/refreshed/.test(e.message)) $("fresh").textContent = "Pool data unavailable"; log("Data load failed: " + e.message, "bad"); });
 })();
 </script>
 </body></html>
