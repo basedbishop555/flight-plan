@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Flight Plan</title>
-<meta name="description" content="Plan your sAERO votes: see your locks, a split sized to them, how you rank against every lock, and a free dry run. Read-only; it never asks you to sign.">
+<meta name="description" content="Plan and sign your sAERO votes: see your locks, a split sized to them, how you rank against every lock, a free dry run, then one signature per lock. Sweep rewards to USDC. Open source.">
 <meta name="theme-color" content="#090e1f">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -13,32 +13,40 @@
 <style>
 :root{--bg:#f7f8fb;--fg:#090e1f;--mut:#505675;--mut2:#80859f;--line:#dbdde4;--line2:#eaeaec;--card:#fff;--card2:#f4f5f8;--acc:#154afa;--accsoft:#e7eeff;
   --ok:#008d67;--oksoft:#e6f6ef;--warn:#ae5a0e;--warnsoft:#fff6e0;--bad:#c1261b;--badsoft:#fff1f0;--track:#eaeaec;
-  --c1:#154afa;--c1s:#e7eeff;--c3:#6b4cf6;--c3s:#efebff;--t-fee:#2f6bff;--t-stream:#e8890c;--t-stock:#e2548f;--t-thin:#0f9f92;
+  --c1:#154afa;--c1s:#e7eeff;--c2:#0f9f6b;--c3:#6b4cf6;--c3s:#efebff;--t-fee:#2f6bff;--t-stream:#e8890c;--t-stock:#e2548f;--t-thin:#0f9f92;
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;
   --shadow:0 1px 3px rgba(9,14,31,.08);--glowc:rgba(107,76,246,.10);--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#090e1f;--fg:#eaeaec;--mut:#b0b4ca;--mut2:#80859f;--line:#222845;--line2:#1a2040;--card:#12172c;--card2:#0d1226;
   --acc:#8c9fff;--accsoft:#152b6e;--ok:#49ba8f;--oksoft:#0f2a24;--warn:#f9a23e;--warnsoft:#2e2210;--bad:#e66a61;--badsoft:#33171a;--track:#222845;
-  --c1:#8c9fff;--c1s:#152b6e;--c3:#a996ff;--c3s:#251c55;--t-fee:#6f95ff;--t-stream:#f9b64e;--t-stock:#f07aac;--t-thin:#3fd0c0;--shadow:0 1px 3px rgba(0,0,0,.4);--glowc:rgba(169,150,255,.12)}}
+  --c1:#8c9fff;--c1s:#152b6e;--c2:#2fd08f;--c3:#a996ff;--c3s:#251c55;--t-fee:#6f95ff;--t-stream:#f9b64e;--t-stock:#f07aac;--t-thin:#3fd0c0;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--shadow:0 1px 3px rgba(0,0,0,.4);--glowc:rgba(169,150,255,.12)}}
 :root[data-theme="dark"]{--bg:#090e1f;--fg:#eaeaec;--mut:#b0b4ca;--mut2:#80859f;--line:#222845;--line2:#1a2040;--card:#12172c;--card2:#0d1226;
   --acc:#8c9fff;--accsoft:#152b6e;--ok:#49ba8f;--oksoft:#0f2a24;--warn:#f9a23e;--warnsoft:#2e2210;--bad:#e66a61;--badsoft:#33171a;--track:#222845;
-  --c1:#8c9fff;--c1s:#152b6e;--c3:#a996ff;--c3s:#251c55;--t-fee:#6f95ff;--t-stream:#f9b64e;--t-stock:#f07aac;--t-thin:#3fd0c0;--shadow:0 1px 3px rgba(0,0,0,.4);--glowc:rgba(169,150,255,.12)}
+  --c1:#8c9fff;--c1s:#152b6e;--c2:#2fd08f;--c3:#a996ff;--c3s:#251c55;--t-fee:#6f95ff;--t-stream:#f9b64e;--t-stock:#f07aac;--t-thin:#3fd0c0;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--shadow:0 1px 3px rgba(0,0,0,.4);--glowc:rgba(169,150,255,.12)}
 *{box-sizing:border-box} html{-webkit-text-size-adjust:100%}
 body{background:var(--bg);color:var(--fg);font:16px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;margin:0 auto;padding:14px 16px 48px;max-width:720px;overflow-x:hidden}
 a{color:var(--acc)} b{font-weight:600} .num{font-variant-numeric:tabular-nums} .mut{color:var(--mut)} .mut2{color:var(--mut2)} .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)} .small{font-size:13px}
 code{font:12px var(--mono);background:var(--card2);border:1px solid var(--line2);padding:1px 5px;border-radius:5px;word-break:break-all}
-.hdr{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.hdr{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .wm{display:flex;align-items:center;gap:9px;font-weight:800;font-size:21px;letter-spacing:-.5px;color:var(--fg);text-decoration:none}
 .wm img{width:30px;height:30px;border-radius:8px} .sp{flex:1}
-.pillink{font-size:13px;text-decoration:none;color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--card)}
+.pillink{font-size:13px;text-decoration:none;color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--card);white-space:nowrap}
+.wpill{font:600 13px Inter,system-ui,sans-serif;border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--card);color:var(--fg);display:inline-flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer}
+.wpill.live{border-color:var(--ok);color:var(--ok);background:var(--oksoft);cursor:default} .wpill .dot{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
+.wpill.btn{border:0;color:#fff;background:linear-gradient(180deg,#3f78ff,#154afa);box-shadow:0 3px 10px rgba(21,74,250,.35)}
 .find{display:flex;gap:8px;margin:0 0 6px}
 .find input{flex:1;min-width:0;font:15px var(--mono);padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--fg)}
+input[type=number],input[type=text].plain{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--fg)}
 button{font:inherit;font-weight:600;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;-webkit-tap-highlight-color:transparent}
 button:disabled{opacity:.45;cursor:not-allowed} button.sm{padding:6px 10px;font-size:13px;border-radius:9px}
 .gbtn{border:0;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 4px 14px var(--gl)}
-.gblue{background:linear-gradient(180deg,#3f78ff,#154afa);--gl:rgba(21,74,250,.4)} .gviolet{background:linear-gradient(180deg,#8b6dff,#5a3be0);--gl:rgba(107,76,246,.45)}
+.gblue{background:linear-gradient(180deg,#3f78ff,#154afa);--gl:rgba(21,74,250,.4)} .gviolet{background:linear-gradient(180deg,#8b6dff,#5a3be0);--gl:rgba(107,76,246,.45)} .ggreen{background:linear-gradient(180deg,#2fd08f,#0f9f6b);--gl:rgba(15,159,107,.38)}
 .hint{font-size:12.5px;color:var(--mut2);margin:0 0 12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;margin:0 0 12px;box-shadow:var(--shadow)}
-.card>h2{font-size:12px;letter-spacing:1.3px;text-transform:uppercase;color:var(--c3);padding:12px 14px;margin:0;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;gap:8px;font-weight:700}
-.card>h2 span{color:var(--mut2);font-weight:500;letter-spacing:0;text-transform:none}
+.card>h2,.card>summary{font-size:12px;letter-spacing:1.3px;text-transform:uppercase;color:var(--c3);padding:12px 14px;margin:0;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;gap:8px;font-weight:700;align-items:center}
+.card>h2 span,.card>summary span{color:var(--mut2);font-weight:500;letter-spacing:0;text-transform:none;text-align:right}
+.card>summary{list-style:none;cursor:pointer} .card>summary::-webkit-details-marker{display:none} .card:not([open])>summary{border-bottom:0}
+.card>summary::before{content:"▶";font-size:10px;color:var(--mut2);margin-right:4px;transition:transform .15s} .card[open]>summary::before{transform:rotate(90deg)}
+#sweep>summary{color:var(--c2)}
 .body{padding:12px 14px}
 .glow{background:linear-gradient(160deg,var(--glowc),transparent 55%),var(--card);border-color:color-mix(in srgb,var(--c3) 45%,var(--line))}
 .hero{padding:16px}
@@ -54,6 +62,7 @@ button:disabled{opacity:.45;cursor:not-allowed} button.sm{padding:6px 10px;font-
 .tag.ok{color:var(--ok);border-color:var(--ok);background:var(--oksoft)} .tag.warn{color:var(--warn);border-color:var(--warn);background:var(--warnsoft)} .tag.acc{color:var(--c3);border-color:var(--c3);background:var(--c3s)}
 .seg{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;margin:0 0 10px} .seg::-webkit-scrollbar{display:none}
 .seg button{flex:none;padding:6px 11px;font-size:13px;border-radius:999px;color:var(--mut)} .seg button.on{border-color:var(--c3);background:var(--c3s);color:var(--c3)}
+.seg.tight{margin:0;display:inline-flex} .seg.tight button{padding:4px 9px;font-size:12px}
 .seglabel{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut2);font-weight:700;margin:0 0 6px}
 .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--mut);margin:0 0 4px}.legend span{display:inline-flex;align-items:center;gap:5px}
 .pdot{width:10px;height:10px;border-radius:3px;background:var(--c);flex:none;display:inline-block}
@@ -73,26 +82,62 @@ details.pool>summary::-webkit-details-marker{display:none}
 .csub{font-size:12.5px;color:var(--mut2);text-align:center;margin-top:6px}
 .banner{border-radius:10px;padding:10px 12px;margin:10px 0 0;font-size:14px;border:1px solid var(--line);background:var(--card2)}
 .banner.ok{background:var(--oksoft);border-color:var(--ok)} .banner.bad{background:var(--badsoft);border-color:var(--bad)} .banner.warn{background:var(--warnsoft);border-color:var(--warn)}
+.banner .big{font-size:22px;font-weight:800;letter-spacing:-.4px}
 .lock{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;background:var(--card2)}
-.lhead{display:flex;align-items:center;gap:10px} .linfo{flex:1;min-width:0} .lid{font-weight:800;font-size:17px} .lmeta{font-size:12.5px;color:var(--mut)}
+.lhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap} .linfo{flex:1;min-width:0} .lid{font-weight:800;font-size:17px} .lmeta{font-size:12.5px;color:var(--mut)}
+.lbtns{display:flex;gap:6px} .lbtns button{white-space:nowrap}
 .ba .r{display:flex;align-items:center;gap:8px;font-size:13px;margin:5px 0} .ba .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ba .tr{height:6px;background:var(--track);border-radius:3px;position:relative;overflow:hidden;margin:2px 0 6px 18px}
 .ba .tr i{position:absolute;left:0;top:0;bottom:0;border-radius:3px} .ba .now{background:var(--mut2);opacity:.45} .ba .aft{background:var(--c)}
-.rkhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:2px 0 8px}
+.steplist{counter-reset:s;list-style:none;padding:0;margin:8px 0}
+.steplist li{position:relative;padding:5px 0 5px 28px;font-size:13.5px;border-bottom:1px dashed var(--line2)} .steplist li:last-child{border-bottom:0}
+.steplist li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:6px;width:20px;height:20px;border-radius:50%;background:var(--accsoft);color:var(--acc);font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center}
+h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut2);margin:12px 0 4px;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px} .chip{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:3px 9px;background:var(--card);display:inline-flex;gap:6px;align-items:center}
+.rcard{border:1px solid var(--line);border-radius:14px;padding:4px 12px 2px;margin:0 0 10px;background:var(--card)}
+.rch{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;padding:8px 0 4px}.rch b{font-size:15.5px;letter-spacing:-.2px}.rch span{font-size:12px;color:var(--mut2)}
 .rrow{display:grid;grid-template-columns:5.4em 1fr auto;gap:4px 10px;align-items:center;padding:10px 0;border-top:1px solid var(--line2)}
 .rrow .p{font-size:13px;color:var(--mut);font-weight:600} .rrow .apr{font-size:24px;font-weight:800;letter-spacing:-.6px;line-height:1}
 .rrow .apr small{display:block;font-size:11.5px;font-weight:500;color:var(--mut2);letter-spacing:0;margin-top:3px}
 .rrow .rk{text-align:right;font-size:13px;color:var(--c3);font-weight:700} .rrow .rk .tag{display:inline-block;margin-top:4px}
 .rrow .sub{grid-column:2 / 4;font-size:12px;color:var(--mut2)}
+.rcard.cmp .rrow{padding:7px 0} .rcard.cmp .rrow .apr{font-size:19px}
+.rwh{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut2);font-weight:700;padding:10px 0 4px;border-top:1px solid var(--line2)}
+.rw{display:grid;grid-template-columns:minmax(0,1fr) auto 3.6em auto;gap:0 10px;align-items:baseline;padding:6px 0;font-size:13px;border-top:1px dashed var(--line2)}
+.rw.rwc{white-space:nowrap;font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut2);font-weight:700;padding:2px 0 3px;border-top:0}.rw.rwc>div:not(:first-child){text-align:right}
+.rw .wl{color:var(--fg);font-weight:600;min-width:0}.rw .wl small{color:var(--mut2);font-weight:500}
+.rw .wy{font-weight:800;font-size:14.5px;text-align:right;white-space:nowrap}.rw .wy small{display:block;font-size:11px;font-weight:500;color:var(--mut2)}
+.rw .wv{font-weight:800;font-size:15.5px;text-align:right;white-space:nowrap}
+.rw .wr{font-size:12.5px;color:var(--acc);font-weight:700;text-align:right;white-space:nowrap}.rw .wr small{display:block;font-size:10.5px;font-weight:500;color:var(--mut2)}
+.tw{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:13px} th,td{border-bottom:1px solid var(--line2);padding:6px 6px;text-align:left;vertical-align:top;white-space:nowrap} th{color:var(--mut2);font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;font-weight:600} td.num,th.num{text-align:right}
+.row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:13px;color:var(--mut)} .ctl{display:inline-flex;align-items:center;gap:6px}
+.tok{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line2)} .tok:last-child{border-bottom:0}
+.tok input[type=checkbox]{width:18px;height:18px;accent-color:var(--acc);flex:none}
+.tok .sym{font-weight:700;min-width:64px} .tok .sym small{display:block;font:11px var(--mono);color:var(--mut2);font-weight:400}
+.tok .bal{flex:1;color:var(--mut);font-size:13px;min-width:0} .tok .bal small{display:block;color:var(--mut2);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tok .usd{font-weight:700;text-align:right;white-space:nowrap} .tok .usd small{display:block;font-weight:400;color:var(--mut2);font-size:11px}
+.tok.skip{opacity:.5}
+.sign{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px} .sign button{padding:12px 10px;font-size:15px;border-radius:12px}
+.viz{position:relative} .viz svg{width:100%;height:auto;display:block;touch-action:pan-y}
+.viz .c1{fill:var(--s1)} .viz .c2{fill:var(--s2)} .viz .c3{fill:none;stroke:var(--s3);stroke-width:2;stroke-linejoin:round}
+.viz .cg{stroke:var(--line2);stroke-width:1} .viz .cx{font-size:10px;fill:var(--mut2)} .viz .cxb{fill:var(--fg);font-weight:600}
+.viz .cband{fill:var(--mut2);opacity:.12} .viz .cnow{stroke:var(--mut);stroke-width:1.5} .viz .cpin{stroke:var(--fg);stroke-width:1;stroke-dasharray:3 3}
+.viz .ch{fill:transparent;cursor:crosshair} .viz .ch.on{fill:var(--mut2);opacity:.12}
+.lg{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--mut);margin:0 0 6px} .lg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px} .lg i.ln{height:2px;border-radius:1px;vertical-align:3px}
+.tip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px;box-shadow:var(--shadow);white-space:nowrap;display:none} .tip b{color:var(--fg)}
+.modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;padding:0 10px}
+.sheet{background:var(--card);color:var(--fg);border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));max-width:560px;width:100%;max-height:88vh;overflow:auto;font-size:14.5px;box-shadow:0 -8px 30px rgba(0,0,0,.3)}
+.sheet h3{margin:0 0 8px;font-size:19px;letter-spacing:-.4px} .sheet ol,.sheet ul{padding-left:1.2em;margin:.4em 0} .sheet li{margin:.3em 0} .sheet p{margin:.5em 0}
 .foot{font-size:12px;color:var(--mut2);margin-top:22px;text-align:center;line-height:1.6}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
 .hidden{display:none!important}
 #log{font:11.5px/1.45 var(--mono);white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;color:var(--mut)}
-@media (max-width:420px){.hv{font-size:40px}.ring.big{width:66px;height:66px}.ppct{font-size:23px}.rrow .apr{font-size:21px}}
+@media (max-width:420px){.hv{font-size:40px}.ring.big{width:66px;height:66px}.ppct{font-size:23px}.rrow .apr{font-size:21px}.wm span{display:none}}
 </style></head><body>
 <header class="hdr">
   <a class="wm" href="./"><img src="icons/icon-192.png" alt="">Flight Plan</a>
   <span class="sp"></span>
+  <button class="wpill btn" id="wpill" type="button">Connect wallet</button>
   <a class="pillink" href="docs.html">Docs</a>
 </header>
 
@@ -100,17 +145,54 @@ details.pool>summary::-webkit-details-marker{display:none}
   <input id="addr" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Paste a wallet address (0x…)" aria-label="Wallet address">
   <button type="submit" class="gbtn gblue" id="go">Look up</button>
 </form>
-<p class="hint">Or <a href="#" id="connect">connect a wallet</a> to fill it in. Flight Plan only reads; it never asks you to sign.</p>
+<p class="hint">Paste any address to look (read-only). Connect a wallet to sign votes and sweeps for what it owns: one signature per lock, dry-run first, never an approval on sAERO. <a href="#" id="safelink">What it signs</a></p>
 
 <section class="card glow hero" id="hero"></section>
 <section class="card" id="plan"></section>
 <section class="card" id="locks"></section>
+
+<details class="card" id="sweep">
+  <summary><b>Sweep rewards to USDC</b><span id="swk">paste or connect to scan</span></summary>
+  <div class="body">
+    <div class="row" style="justify-content:space-between">
+      <span class="ctl">Dust <span class="seg tight" id="floorSeg"><button type="button" data-f="1">skip &lt;$1</button><button type="button" data-f="0.5" class="on">skip &lt;$0.50</button><button type="button" data-f="0">sell all</button></span></span>
+      <span class="ctl">Slippage <input id="slip" type="number" value="1" step="0.25" min="0.1" max="5" style="width:4.6em">%</span>
+      <button type="button" class="sm" id="btnScan">Re-scan</button>
+    </div>
+    <details style="margin-top:8px"><summary class="small mut" style="cursor:pointer">Extra token addresses</summary>
+      <input id="extra" type="text" class="plain" style="width:100%;margin-top:6px" placeholder="0x…, 0x… (optional)"></details>
+    <div id="toks" style="margin-top:6px"></div>
+    <div id="swTot" class="tiles" style="display:none"></div>
+    <details id="swPlanWrap" style="display:none;margin-top:8px"><summary class="small mut" style="cursor:pointer">What you will sign</summary><div id="swPlan" style="margin-top:6px"></div></details>
+    <div class="sign" id="swSign" style="display:none"><button type="button" id="btnDry">Dry run</button><button type="button" id="btnSend" class="gbtn ggreen" disabled>Sign and sweep</button></div>
+    <div id="swOut"></div>
+    <p class="small mut2" style="margin:10px 0 0">Claim your rewards in the Aero app first, then sweep them here into USDC in one signature (plus an exact-amount approval per new token). <a href="docs.html#sweep">How the sweep works</a></p>
+  </div>
+</details>
+
 <section class="card" id="rank"></section>
+<section class="card" id="earn"></section>
+<section class="card" id="crowd"></section>
 <details class="card" id="logw"><summary class="body small mut" style="cursor:pointer">Log</summary><div class="body" style="padding-top:0"><div id="log"></div></div></details>
 
-<p class="foot">Unofficial. Not affiliated with Aerodrome. Read-only: no approvals, no signatures.<br>
-<span id="fresh">Loading pool data…</span> · <a href="docs.html">Docs</a> · <a href="https://github.com/basedbishop555/flight-plan">Source</a></p>
+<p class="foot">Unofficial. Not affiliated with Aerodrome. Signs only: one vote per lock you own, exact-amount sweep approvals, one sweep swap. Never an approval on sAERO.<br>
+<b>Check the address bar says flight-plan.app.</b><br>
+<span id="fresh">Loading pool data…</span> · <a href="#" id="safelink2">Safety</a> · <a href="docs.html">Docs</a> · <a href="https://github.com/basedbishop555/flight-plan">Source</a></p>
 <div class="toast" id="toast">copied</div>
+
+<div class="modal hidden" id="safety" role="dialog" aria-modal="true" aria-labelledby="safetyh"><div class="sheet">
+  <h3 id="safetyh">Before you sign anything</h3>
+  <p>Flight Plan can sign for the locks and reward tokens your connected wallet owns. Exactly three kinds of signature, nothing else:</p>
+  <ol>
+    <li><b>A vote.</b> One <code>allocate</code> call to the Aero Voter for a lock you own, 0 ETH. It moves votes, never tokens.</li>
+    <li><b>A sweep approval.</b> An exact-amount <code>approve</code> to Aero's Metarouter on a reward token the scan found in your wallet.</li>
+    <li><b>A sweep swap.</b> One Metarouter <code>execute</code> that sells those rewards for USDC, paid to your own wallet.</li>
+  </ol>
+  <p><b>Never:</b> an approval on sAERO, <code>setApprovalForAll</code>, a transfer, a claim, an unlimited approval, or any value other than 0 ETH. Every signature is rehearsed on the chain first (a dry run) and checked by the open-source guard before it reaches your wallet. Reject anything that looks different.</p>
+  <p><b>Check the address bar says flight-plan.app.</b> A copy on another address can be anything.</p>
+  <button type="button" class="cta gbtn gblue" id="safeok" style="margin-top:10px">Got it</button>
+  <p class="small mut2" style="text-align:center;margin:8px 0 0"><a href="docs.html#safe">Read the full safety page</a></p>
+</div></div>
 
 <script>
 window.onerror = function (msg, src, line) { try { var h = document.getElementById("hero"); h.innerHTML = "<div class='banner bad'><b>Something broke:</b> " + String(msg).replace(/</g, "&lt;") + " (line " + line + "). Reload the page.</div>"; } catch (e) {} };
@@ -118,58 +200,83 @@ window.onerror = function (msg, src, line) { try { var h = document.getElementBy
 <script src="vendor/ethers-6.13.4.umd.min.js"></script>
 <script src="allocate-lib.js"></script>
 <script src="planner.js"></script>
+<script src="sweep-routes.js"></script>
+<script src="crowd.js"></script>
 <script>
 (() => {
 "use strict";
-const A = window.AeroAlloc, C = A.C, P = window.Planner;
+const A = window.AeroAlloc, C = A.C, P = window.Planner, R = window.SWEEP_ROUTES || { meta: {}, tokens: {}, universe: {} }, M = R.meta || {};
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const short = a => a ? a.slice(0, 6) + "…" + a.slice(-4) : "";
+const fmt = (n, d = 2) => Number(n).toLocaleString(undefined, { maximumFractionDigits: d });
 const fmtA = x => Number(x).toLocaleString(undefined, { maximumFractionDigits: 0 });
-const money = x => x == null ? "–" : "$" + Number(x).toLocaleString(undefined, { minimumFractionDigits: Math.abs(x) >= 100 ? 0 : 2, maximumFractionDigits: Math.abs(x) >= 100 ? 0 : 2 });
+const money = x => x == null ? "-" : "$" + Number(x).toLocaleString(undefined, { minimumFractionDigits: Math.abs(x) >= 100 ? 0 : 2, maximumFractionDigits: Math.abs(x) >= 100 ? 0 : 2 });
 const fmtTs = ts => ts ? new Date(ts * 1000).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }) : "";
 const ago = ts => { const m = Math.max(0, Math.round((Date.now() / 1000 - ts) / 60)); return m < 60 ? `${m} min ago` : `${Math.floor(m / 60)}h ${m % 60}m ago`; };
+const ET = "America/New_York";
+const clock = ts => new Date(ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone: ET }).replace(" ", "").toLowerCase() + " ET";
 const store = { get(k, d) { try { const v = localStorage.getItem("fp:" + k); return v == null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem("fp:" + k, v); } catch (e) {} } };
 const NET = { 10: "OP", 1: "Ethereum", 42161: "Arbitrum", 4663: "Robinhood", 57073: "Ink", 5042: "Arc" };
 const TYPE_NAME = { "deep fee": "Deep fee", "stream-led": "Stream", "tokenized-stock": "Stock", "thin-token": "Thin token" };
 const TYPEC = { "deep fee": "var(--t-fee)", "stream-led": "var(--t-stream)", "tokenized-stock": "var(--t-stock)", "thin-token": "var(--t-thin)" };
 const typeColor = t => TYPEC[t] || "var(--mut2)";
-function log(s, cls) { const d = document.createElement("div"); if (cls) d.className = cls; d.textContent = new Date().toLocaleTimeString() + "  " + s; $("log").appendChild(d); }
+function log(s, cls) { const d = document.createElement("div"); if (cls) d.className = cls; d.textContent = new Date().toLocaleTimeString() + "  " + s; $("log").appendChild(d); $("log").scrollTop = $("log").scrollHeight; }
 function toast(t) { const el = $("toast"); el.textContent = t || "copied"; el.style.opacity = 1; setTimeout(() => el.style.opacity = 0, 1000); }
 async function copy(t) { try { await navigator.clipboard.writeText(t); toast("copied"); } catch (e) { toast("copy failed"); } }
 
-// ---------- chain reads (public RPC, read-only) ----------
+// ---------- chain reads (public RPC) ----------
 async function rpc(method, params) {
   const r = await fetch(C.RPC, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
   const j = await r.json(); if (j.error) throw new Error(method + ": " + JSON.stringify(j.error).slice(0, 200)); return j.result;
 }
+const ethCall = (to, data) => rpc("eth_call", [{ to, data }, "latest"]);
 const I = {
   mc3: new ethers.Interface(A.ABI.mc3), voter: new ethers.Interface(A.ABI.voter), leaf: new ethers.Interface(A.ABI.leaf), saero: new ethers.Interface(A.ABI.saero),
   en: new ethers.Interface(["function balanceOf(address) view returns (uint256)", "function tokenOfOwnerByIndex(address,uint256) view returns (uint256)"]),
   ch: new ethers.Interface(["function allocationChainIds(uint256) view returns (uint256[])"]),
   fr: new ethers.Interface(["function gaugeToRewards(address) view returns (address)"]),
   ts: new ethers.Interface(["function totalSupply() view returns (uint256)"]),
+  erc20: new ethers.Interface(["function balanceOf(address) view returns (uint256)", "function allowance(address,address) view returns (uint256)", "function approve(address,uint256) returns (bool)"]),
+  mq: new ethers.Interface(["function quoteExactInput(address[] pools, address tokenIn, uint256 amountIn) returns (uint256 amountOut, uint160[] a, uint32[] b)"]),
+  mr: new ethers.Interface(["function execute(bytes commands, bytes[] inputs, uint256 deadline) payable"]),
 };
 async function multicall(calls) {
   const out = [];
   for (let i = 0; i < calls.length; i += 60) {
-    const raw = await rpc("eth_call", [{ to: C.MC3, data: I.mc3.encodeFunctionData("tryAggregate", [false, calls.slice(i, i + 60)]) }, "latest"]);
+    const raw = await ethCall(C.MC3, I.mc3.encodeFunctionData("tryAggregate", [false, calls.slice(i, i + 60)]));
     out.push(...I.mc3.decodeFunctionResult("tryAggregate", raw)[0].map(r => ({ success: r[0], returnData: r[1] })));
   }
   return out;
 }
 const dec = (iface, fn, r) => (r && r.success && r.returnData.length >= 66) ? iface.decodeFunctionResult(fn, r.returnData) : null;
+async function waitReceipt(hash) {
+  for (let i = 0; i < 150; i++) { const r = await rpc("eth_getTransactionReceipt", [hash]); if (r) return r; await new Promise(s => setTimeout(s, 2000)); }
+  throw new Error("timed out waiting for " + hash);
+}
 
 // ---------- state ----------
-const S = { empty: 0, D: null, RK: null, addr: null, locks: [], live: null, plan: null, nPools: Number(store.get("pools", 0)) || 0,
-            mode: store.get("mode", "lock"), bracket: null, busy: false, cool: 169200 };
+const S = { empty: 0, D: null, RK: null, H: null, histBusy: false, CR: null, addr: null, account: null, provider: null, locks: [], live: null, plan: null,
+            nPools: Number(store.get("pools", 0)) || 0, mode: store.get("mode", "lock"), logv: store.get("logv", "week") === "day" ? "day" : "week",
+            bracket: null, busy: false, cool: 169200 };
+const viewer = () => S.addr;
+const owns = L => !!(S.account && L.owner && L.owner.toLowerCase() === S.account.toLowerCase());
 
 async function loadData() {
   const v = Math.floor(Date.now() / 600000);         // refresh at most every 10 min
-  const [d, r] = await Promise.all([fetch("data/plan.json?v=" + v).then(x => x.json()), fetch("data/rank.json?v=" + v).then(x => x.json()).catch(() => null)]);
-  S.D = d; S.RK = r ? decodeRank(r) : null;
+  const [d, r, c] = await Promise.all([fetch("data/plan.json?v=" + v).then(x => x.json()),
+    fetch("data/rank.json?v=" + v).then(x => x.json()).catch(() => null), fetch("data/crowd.json?v=" + v).then(x => x.json()).catch(() => null)]);
+  S.D = d; S.RK = r ? decodeRank(r) : null; S.CR = c;
   $("fresh").textContent = `Pool data from ${ago(d.scan_ts)}`;
   log(`Pool data from ${new Date(d.scan_ts * 1000).toLocaleString()} · ${d.gauges.length} pools · AERO $${d.px.toFixed(4)}`);
+  renderCrowd();
+}
+async function loadHist() {
+  if (S.H || S.histBusy) return;
+  S.histBusy = true;
+  try { const v = Math.floor(Date.now() / 600000); S.H = decodeHist(await fetch("data/history.json?v=" + v).then(x => x.json())); log(`History loaded: ${S.H.weeks.length} weeks, ${S.H.days.length} days.`); }
+  catch (e) { log("History unavailable: " + e.message, "warn"); }
+  S.histBusy = false; renderRank();
 }
 
 async function discover(addr) {
@@ -196,9 +303,9 @@ async function readLocks(ids) {
     const r = res.slice(6 * k, 6 * k + 6);
     const st = dec(I.saero, "staked", r[1]), ts = dec(I.leaf, "tokenStates", r[3]);
     const la = ts ? Number(ts[1]) : null;
-    return { id, owner: dec(I.saero, "ownerOf", r[0])?.[0] || null, staked: st ? st[0] : 0n, booked: dec(I.voter, "allocationChainAmounts", r[2])?.[0] ?? 0n,
+    return { id, owner: dec(I.saero, "ownerOf", r[0])?.[0] || null, staked: st ? st[0] : 0n, permanent: st ? !!st[2] : false, booked: dec(I.voter, "allocationChainAmounts", r[2])?.[0] ?? 0n,
              la, next: la ? la + S.cool : null, gauges: (dec(I.leaf, "allocatedGauges", r[4])?.[0] || []).map(g => g.toLowerCase()),
-             elsewhere: (dec(I.ch, "allocationChainIds", r[5])?.[0] || []).map(Number).filter(c => c && c !== C.CHAIN_ID), current: {} };
+             elsewhere: (dec(I.ch, "allocationChainIds", r[5])?.[0] || []).map(Number).filter(c => c && c !== C.CHAIN_ID), current: {}, read: Date.now() };
   });
   const q = [], qi = [];
   for (const L of out) for (const g of L.gauges) { q.push({ target: C.LEAF, callData: I.leaf.encodeFunctionData("allocations", [L.id, g]) }); qi.push([L, g]); }
@@ -223,40 +330,67 @@ async function readLive() {
 const lockAero = L => Number(ethers.formatUnits(L.staked, 18));
 const totalAero = () => S.locks.reduce((n, L) => n + lockAero(L), 0);
 const openTs = () => { const now = Date.now() / 1000, nx = S.locks.map(L => L.next).filter(Boolean); return Math.max(nx.length ? Math.min(...nx) : now, now); };
-function replan() { S.plan = S.locks.length && totalAero() > 0 ? P.plan(S.D, totalAero(), openTs(), S.nPools || null, S.live) : null; for (const L of S.locks) L.dry = null; }
+function replan() { S.plan = S.locks.length && totalAero() > 0 ? P.plan(S.D, totalAero(), openTs(), S.nPools || null, S.live) : null; for (const L of S.locks) { L.dry = null; L.call = null; if (!L.sent) L.status = ""; } }
+const planSplit = () => S.plan.legs.map(l => ({ gauge: l.gauge, pct: l.pct, label: l.label, pool: l.pool }));
+const planGauges = () => new Set(S.plan.legs.map(l => l.gauge.toLowerCase()));
+const isOpen = L => L.next ? L.next <= Date.now() / 1000 : true;
+const canSend = L => owns(L) && !!(L.dry && L.dry.ok) && isOpen(L) && !!S.plan && S.plan.placed === 100 && !L.sent;
 
 // ---------- rank (every lock / every wallet), computed here from data/rank.json ----------
-function decodeRank(R) {
+function decodeRank(Rk) {
   const per = {};
-  for (const [name, p] of Object.entries(R.periods)) {
+  for (const [name, p] of Object.entries(Rk.periods)) {
     const rows = []; let i = 0;
     for (let k = 0; k < p.i.length; k++) { i += p.i[k]; const r = p.r[k], a = p.a[k]; rows.push({ i, c: p.c[k] / 100, a, r: r / 1e6, v: (r + p.v[k]) / 1e6, va: a - p.va[k], f: p.f[k] }); }
-    per[name] = { t0: p.t0, t1: p.t1, rows };
+    per[name] = { t0: p.t0, t1: p.t1, rows, byI: new Map(rows.map(x => [x.i, x])) };
   }
-  const idOf = new Map(R.ids.map((id, i) => [id, i]));
-  return { ...R, per, idOf };
+  const earn = new Map();
+  if (Rk.earn) { let i = 0; for (let k = 0; k < Rk.earn.i.length; k++) { i += Rk.earn.i[k]; earn.set(i, { usd: Rk.earn.e[k] / 100, unclaimed: Rk.earn.u[k] / 100, since: Rk.earn.s[k] }); } }
+  const idOf = new Map(Rk.ids.map((id, i) => [id, i]));
+  return { ...Rk, per, idOf, earn, groups: Rk.groups || {} };
+}
+function decodeHist(H) {
+  const idOf = new Map(H.ids.map((id, i) => [id, i]));
+  const bucket = b => {
+    const rows = []; let i = 0; const p = b.rows;
+    for (let k = 0; k < p.i.length; k++) { i += p.i[k]; const r = p.r[k], a = p.a[k]; rows.push({ i, a, r: r / 1000, v: (r + p.v[k]) / 1000, va: a - p.va[k] }); }
+    const w = b.w.r.map((r, k) => ({ r: r / 1000, a: b.w.a[k] }));
+    return { ...b, rows, byI: new Map(rows.map(x => [x.i, x])), w };
+  };
+  return { ...H, idOf, weeks: H.weeks.map(bucket), days: H.days.map(bucket) };
 }
 function stats(list, thr) { const a = list.filter(x => x.a >= thr).map(x => x.r).sort((x, y) => x - y); if (!a.length) return null; const m = a.reduce((s, x) => s + x, 0) / a.length; const md = a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2; return { a, avg: m, med: md }; }
-function wallets(rows, R) {
+function rankOf(st, apr) { let lo = 0, hi = st.a.length; while (lo < hi) { const m = (lo + hi) >> 1; if (st.a[m] <= apr) lo = m + 1; else hi = m; } const better = st.a.length - lo; return { rank: better + 1, of: st.a.length, top: (better + 1) / st.a.length * 100 }; }
+function wallets(rows, Rk) {
   const acc = new Map();
-  for (const x of rows) { const g = R.grp[x.i]; const w = acc.get(g) || { c: 0, a: 0, ra: 0, vv: 0, va: 0 }; w.c += x.c; w.a += x.a; w.ra += x.r * x.a; w.vv += x.v * x.va; w.va += x.va; acc.set(g, w); }
+  for (const x of rows) { const g = Rk.grp[x.i]; const w = acc.get(g) || { c: 0, a: 0, ra: 0, vv: 0, va: 0 }; w.c += x.c; w.a += x.a; w.ra += x.r * x.a; w.vv += x.v * x.va; w.va += x.va; acc.set(g, w); }
   const out = [];
-  for (const [g, w] of acc) if (w.va >= R.min_aero && w.a > 0) out.push({ g, c: w.c, a: w.a, r: w.ra / w.a, v: w.va ? w.vv / w.va : null, va: w.va });
+  for (const [g, w] of acc) if (w.va >= Rk.min_aero && w.a > 0) out.push({ g, c: w.c, a: w.a, r: w.ra / w.a, v: w.va ? w.vv / w.va : null, va: w.va });
   return out;
 }
-function rankLine(period, ids, mode, thr) {
-  const R = S.RK, p = R && R.per[period]; if (!p) return null;
-  const mine = ids.map(id => R.idOf.get(id)).filter(i => i != null).map(i => p.rows.find(x => x.i === i)).filter(Boolean);
-  if (!mine.length) return null;
+const WCACHE = new Map();
+function walletPool(period) { const Rk = S.RK; if (!WCACHE.has(period)) WCACHE.set(period, wallets(Rk.per[period].rows, Rk)); return WCACHE.get(period); }
+function combine(mine) {
   const a = mine.reduce((s, x) => s + x.a, 0); if (!a) return null;
   const apr = mine.reduce((s, x) => s + x.r * x.a, 0) / a;
   const vm = mine.filter(x => x.va > 0), vote = vm.length ? vm.reduce((s, x) => s + x.v * x.va, 0) / vm.reduce((s, x) => s + x.va, 0) : null;
-  const pool = mode === "wallet" ? wallets(p.rows, R) : p.rows.filter(x => x.f);
-  const st = stats(pool, thr); if (!st) return null;
-  let lo = 0, hi = st.a.length; while (lo < hi) { const m = (lo + hi) >> 1; if (st.a[m] <= apr) lo = m + 1; else hi = m; }
-  const better = st.a.length - lo, n = st.a.length;
-  return { apr, vote, usd_day: mine.reduce((s, x) => s + x.c, 0), rank: better + 1, of: n, top: (better + 1) / n * 100, avg: st.avg, med: st.med };
+  return { apr, vote, aero: a, usd_day: mine.reduce((s, x) => s + (x.c || 0), 0) };
 }
+function rankLine(period, idxs, mode, thr) {
+  const Rk = S.RK, p = Rk && Rk.per[period]; if (!p) return null;
+  const mine = idxs.map(i => p.byI.get(i)).filter(Boolean); if (!mine.length) return null;
+  const me = combine(mine); if (!me) return null;
+  const pool = mode === "wallet" ? walletPool(period) : p.rows.filter(x => x.f);
+  const st = stats(pool, thr); if (!st) return null;
+  return { ...me, ...rankOf(st, me.apr), avg: st.avg, med: st.med };
+}
+function histLine(b, idxs, mode, thr) {
+  const mine = idxs.map(i => b.byI.get(i)).filter(Boolean); if (!mine.length) return null;
+  const me = combine(mine); if (!me) return null;
+  const st = stats(mode === "wallet" ? b.w : b.rows, thr);
+  return st ? { ...me, ...rankOf(st, me.apr), avg: st.avg, med: st.med } : { ...me, avg: null };
+}
+const lockIdxs = ids => ids.map(id => S.RK.idOf.get(id)).filter(i => i != null);
 
 // ---------- render ----------
 function ring(L, big) {
@@ -264,12 +398,17 @@ function ring(L, big) {
   const open = next ? next <= now : !!L;
   const frac = open ? 1 : Math.max(0, Math.min(1, (now - la) / Math.max(1, next - la)));
   const r = 20, c = 2 * Math.PI * r, left = next - now;
-  const txt = open ? "OPEN" : !next ? "–" : left >= 3600 ? `${Math.floor(left / 3600)}h<br>${Math.round((left % 3600) / 60)}m` : `${Math.max(0, Math.round(left / 60))}m`;
+  const txt = open ? "OPEN" : !next ? "-" : left >= 3600 ? `${Math.floor(left / 3600)}h<br>${Math.round((left % 3600) / 60)}m` : `${Math.max(0, Math.round(left / 60))}m`;
   return `<div class="ring${big ? " big" : ""}${open ? " open" : ""}"><svg viewBox="0 0 48 48"><circle class="bgc" cx="24" cy="24" r="${r}"/><circle class="fgc" cx="24" cy="24" r="${r}" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - frac)).toFixed(1)}"/></svg><div class="t">${txt}</div></div>`;
+}
+function renderPill() {
+  const el = $("wpill");
+  if (S.account) { el.className = "wpill live"; el.innerHTML = `<span class="dot"></span>${esc(short(S.account))} · Base`; }
+  else { el.className = "wpill btn"; el.textContent = "Connect wallet"; }
 }
 function renderHero() {
   const h = $("hero");
-  if (!S.addr) { h.innerHTML = `<div class="hk">Plan your next vote</div><div class="hv" style="font-size:28px;letter-spacing:-.6px">Paste a wallet to start</div><div class="hs">You'll see its sAERO locks, a split sized to them, and how they rank against every lock.</div>`; return; }
+  if (!S.addr) { h.innerHTML = `<div class="hk">Plan your next vote</div><div class="hv" style="font-size:28px;letter-spacing:-.6px">Paste a wallet or connect to start</div><div class="hs">You'll see its sAERO locks, a split sized to them, how they rank against every lock, and (connected) one signature per lock.</div>`; return; }
   if (S.busy) { h.innerHTML = `<div class="hk">${esc(short(S.addr))}</div><div class="hv" style="font-size:28px">Reading the chain…</div>`; return; }
   if (!S.locks.length) { h.innerHTML = `<div class="hk">${esc(short(S.addr))}</div><div class="hv" style="font-size:28px">${S.empty ? "These locks are empty" : "No sAERO locks here"}</div><div class="hs">${S.empty ? `${S.empty} lock${S.empty === 1 ? "" : "s"} found, but none holds any AERO now (withdrawn or merged).` : "Check the address, or try the wallet that holds your locks."}</div>`; return; }
   const p = S.plan, aero = totalAero(), now = Date.now() / 1000;
@@ -277,6 +416,8 @@ function renderHero() {
   const pills = [];
   const ot = openTs();
   pills.push(ot <= now + 60 ? `<span class="tag ok">Window open</span>` : `<span class="tag">Opens ${esc(fmtTs(ot))}</span>`);
+  if (S.account) pills.push(S.locks.some(owns) ? `<span class="tag ok">Yours · can sign</span>` : `<span class="tag">Not your locks · read-only</span>`);
+  else pills.push(`<span class="tag">Read-only · connect to sign</span>`);
   if (p) {
     const crowd = p.legs.filter(l => l.row.rank48 && l.row.rank48 <= 5).length; if (crowd) pills.push(`<span class="tag warn">${crowd} crowded</span>`);
     const fad = p.legs.filter(l => l.row.fading).length; if (fad) pills.push(`<span class="tag warn">${fad} fading</span>`);
@@ -284,7 +425,7 @@ function renderHero() {
   }
   if (S.D && Date.now() / 1000 - S.D.scan_ts > 3 * 3600) pills.push(`<span class="tag warn">Pool data ${esc(ago(S.D.scan_ts))}</span>`);
   h.innerHTML = `<div class="hrow">${ring(first, true)}<div class="hmain"><div class="hk">This window · ${esc(short(S.addr))}</div>
-    <div class="hv num">${p ? money(p.expect_usd) : "–"}</div>
+    <div class="hv num">${p ? money(p.expect_usd) : "-"}</div>
     <div class="hs num">${p ? p.apr.toFixed(0) + "% APR · " : ""}${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} · ${fmtA(aero)} AERO</div></div></div>
     <div class="pills">${pills.join("")}</div>`;
 }
@@ -295,8 +436,8 @@ function poolRow(l) {
   const st = (r.streams || [])[0];
   return `<details class="pool"><summary><span class="pdot" style="--c:${col}"></span><span class="pname">${esc(r.name)}<small>${esc(tags)}</small><span class="pbar"><i style="--c:${col};width:${Math.min(100, l.pct * 4)}%"></i></span></span><span class="ppct num">${l.pct}<small>%</small><em>${fmtA(l.aero)} AERO</em></span><span class="chev">▶</span></summary>
     <div class="drawer"><div class="tiles">
-      <div class="tile"><div class="k">Expected · 47h</div><div class="v num">${money(l.expect_usd)} <small>${money(l.expect_low_usd)}–${money(l.expect_high_usd)}</small></div></div>
-      <div class="tile"><div class="k">APR</div><div class="v num">${apr != null ? apr.toFixed(0) + "%" : "–"}</div></div>
+      <div class="tile"><div class="k">Expected · 47h</div><div class="v num">${money(l.expect_usd)} <small>${money(l.expect_low_usd)} to ${money(l.expect_high_usd)}</small></div></div>
+      <div class="tile"><div class="k">APR</div><div class="v num">${apr != null ? apr.toFixed(0) + "%" : "-"}</div></div>
       <div class="tile"><div class="k">Fees · day</div><div class="v num">${money(r.fee_day)} <small>to voters</small></div></div>
       <div class="tile"><div class="k">Streams · 47h</div><div class="v num">${money(r.inc_w)}${st ? ` <small>${esc(st.tok)} to ${esc(fmtTs(st.end))}</small>` : ""}</div></div>
       <div class="tile"><div class="k">Votes in it now</div><div class="v num">${(r.alloc / 1e6).toFixed(2)}M <small>you'd be ${(l.slice * 100).toFixed(1)}%</small></div></div>
@@ -310,11 +451,14 @@ function renderPlan() {
   el.classList.remove("hidden");
   const p = S.plan, types = [...new Set(p.legs.map(l => l.type))];
   const picks = ["Auto", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => { const v = n === "Auto" ? 0 : n; return `<button type="button" data-n="${v}" class="${S.nPools === v ? "on" : ""}">${n}</button>`; }).join("");
-  const dried = S.locks.filter(L => L.dry).length, sums = p.placed === 100;
+  const dried = S.locks.filter(L => L.dry || L.sent).length, sums = p.placed === 100, mine = S.locks.filter(owns), ready = S.locks.filter(canSend), sent = S.locks.filter(L => L.sent);
   let cta;
   if (!sums) cta = `<button class="cta gbtn gviolet" disabled>Pick more pools to place 100%</button>`;
   else if (dried < S.locks.length) cta = `<button class="cta gbtn gviolet" id="cta" data-act="dry">Dry run ${S.locks.length > 1 ? "all " + S.locks.length + " locks" : "#" + S.locks[0].id}</button><div class="csub">A free rehearsal on the chain · nothing is signed</div>`;
-  else { const ok = S.locks.filter(L => L.dry && L.dry.ok).length; cta = `<button class="cta gbtn gviolet" id="cta" data-act="copy">Copy the split for the Aero app</button><div class="csub">${ok} of ${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} dry-ran OK · then vote these percentages in the Aero app</div>`; }
+  else if (ready.length) cta = `<button class="cta gbtn gviolet" id="cta" data-act="send">Allocate ${ready.length === 1 ? "#" + ready[0].id : ready.length + " locks"} · ${ready.length} signature${ready.length === 1 ? "" : "s"}</button><div class="csub">One allocate call per lock, to the Aero Voter, 0 ETH · dry run passed</div>`;
+  else if (mine.length && sent.length === mine.length) cta = `<button class="cta gbtn ggreen" disabled>Allocated ✓</button><div class="csub">${sent.length} lock${sent.length === 1 ? "" : "s"} voted this window</div>`;
+  else if (mine.length && mine.some(L => L.dry && L.dry.ok && !isOpen(L))) cta = `<button class="cta gbtn gviolet" disabled>Opens ${esc(fmtTs(Math.min(...mine.filter(L => !isOpen(L)).map(L => L.next))))}</button><div class="csub">Dry run OK · the Allocate button unlocks when the window opens</div>`;
+  else { const ok = S.locks.filter(L => L.dry && L.dry.ok).length; cta = `<button class="cta gbtn gviolet" id="cta" data-act="copy">Copy the split for the Aero app</button><div class="csub">${ok} of ${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} dry-ran OK · ${S.account ? "connect the wallet that owns these locks to sign here, or" : "connect to sign here, or"} vote these percentages in the Aero app</div>`; }
   el.innerHTML = `<h2>Your split <span>${esc(fmtTs(p.start))} · 47h</span></h2><div class="body">
     <div class="seglabel">Pools</div><div class="seg" id="npick">${picks}</div>
     ${types.length ? `<div class="legend">${types.map(t => `<span><i class="pdot" style="--c:${typeColor(t)}"></i>${esc(TYPE_NAME[t] || t)}</span>`).join("")}</div>` : ""}
@@ -323,7 +467,7 @@ function renderPlan() {
     ${cta}</div>`;
   el.querySelectorAll("#npick button").forEach(b => b.addEventListener("click", () => { S.nPools = Number(b.dataset.n); store.set("pools", String(S.nPools)); replan(); render(); }));
   el.querySelectorAll("[data-copy]").forEach(c => c.addEventListener("click", () => copy(c.dataset.copy)));
-  const c = $("cta"); if (c) c.addEventListener("click", () => c.dataset.act === "dry" ? dryAll() : copy(splitText()));
+  const c = $("cta"); if (c) c.addEventListener("click", () => c.dataset.act === "dry" ? dryAll() : c.dataset.act === "send" ? sendAll() : copy(splitText()));
 }
 function splitText() { return `Flight Plan split, window from ${fmtTs(S.plan.start)}:\n` + S.plan.legs.map(l => `${l.pct}% ${l.label}`).join("\n"); }
 function renderLocks() {
@@ -332,60 +476,129 @@ function renderLocks() {
   el.classList.remove("hidden");
   const now = Date.now() / 1000;
   el.innerHTML = `<h2>Locks <span>${S.locks.length} · ${fmtA(totalAero())} AERO</span></h2><div class="body">` + S.locks.map(L => {
-    const open = L.next ? L.next <= now : true;
+    const open = L.next ? L.next <= now : true, mine = owns(L);
     const net = L.booked === 0n && L.elsewhere.length ? ` · <span class="warn">votes on ${esc(L.elsewhere.map(c => NET[c] || "chain " + c).join(" + "))}</span>` : "";
-    return `<div class="lock"><div class="lhead">${ring(L)}<div class="linfo"><div class="lid">#${L.id}</div><div class="lmeta num">${fmtA(lockAero(L))} AERO · ${open ? `<span class="ok">open</span>` : "opens " + esc(fmtTs(L.next))}${net}</div></div>
-      <button class="sm" data-dry="${L.id}" ${S.plan && S.plan.placed === 100 ? "" : "disabled"}>Dry run</button></div><div class="small">${L.status || ""}</div></div>`;
-  }).join("") + `</div>`;
+    const who = S.account ? (mine ? ` · <span class="ok">yours</span>` : ` · <span class="mut2">not the connected wallet</span>`) : "";
+    const planOk = S.plan && S.plan.placed === 100;
+    const btns = L.sent ? "" : `<button class="sm" data-dry="${L.id}" ${planOk ? "" : "disabled"}>Dry run</button>` + (mine ? `<button class="sm gbtn gviolet" data-send="${L.id}" ${canSend(L) ? "" : "disabled"}>Allocate</button>` : "");
+    return `<div class="lock"><div class="lhead">${ring(L)}<div class="linfo"><div class="lid">#${L.id}</div><div class="lmeta num">${fmtA(lockAero(L))} AERO · ${open ? `<span class="ok">open</span>` : "opens " + esc(fmtTs(L.next))}${net}${who}</div></div>
+      <div class="lbtns">${btns}</div></div><div class="small">${L.status || ""}</div></div>`;
+  }).join("") + `${S.account ? "" : `<p class="small mut2" style="margin:8px 0 0">Paste-only is read-only. Connect the wallet that owns these locks to sign here.</p>`}</div>`;
   el.querySelectorAll("[data-dry]").forEach(b => b.addEventListener("click", () => dryRun(S.locks.find(L => L.id === Number(b.dataset.dry)))));
+  el.querySelectorAll("[data-send]").forEach(b => b.addEventListener("click", () => send(S.locks.find(L => L.id === Number(b.dataset.send)))));
+}
+const voteTxt = x => x.vote != null && Math.abs(x.vote - x.apr) >= 0.005 ? `voting ${(x.vote * 100).toFixed(1)}%` : "";
+function rankRows(idxs, thr, compact) {
+  const Rk = S.RK, names = { now: "Now", "2d": "2 days", "7d": "7 days" };
+  return ["now", "2d", "7d"].map(k => {
+    const x = rankLine(k, idxs, S.mode, thr);
+    if (!x) return `<div class="rrow"><div class="p">${names[k]}</div><div class="mut2 small">building history</div><div></div></div>`;
+    const wk = x.apr * 1000 * Rk.px / 52, good = x.apr >= x.avg, vt = voteTxt(x);
+    return `<div class="rrow"><div class="p">${names[k]}</div>
+      <div class="apr num ${good ? "ok" : "warn"}">${(x.apr * 100).toFixed(1)}%<small>${vt ? vt + " · " : ""}$${wk.toFixed(2)}/wk per 1k</small></div>
+      <div class="rk num">#${x.rank.toLocaleString()} <span class="mut2" style="font-weight:500">of ${x.of.toLocaleString()}</span><br><span class="tag ${x.top <= 25 ? "ok" : x.top <= 50 ? "acc" : ""}">top ${x.top < 10 ? x.top.toFixed(1) : Math.round(x.top)}%</span></div>
+      ${compact ? "" : `<div class="sub">avg ${(x.avg * 100).toFixed(1)}% · median ${(x.med * 100).toFixed(1)}%</div>`}</div>`;
+  }).join("");
+}
+function histRows(idxs, thr) {
+  const H = S.H;
+  if (!H) return `<div class="rwh"><span>You vs the average, over time</span></div><div class="small mut2" style="padding:6px 0">${S.histBusy ? "Loading the history…" : "History unavailable."}</div>`;
+  const L = S.logv === "day" ? H.days : H.weeks;
+  const label = (w, i) => {
+    if (S.logv === "week") return (i === 0 && !w.final ? "This week" : "Week of " + new Date(w.wk * 1000).toLocaleDateString([], { month: "numeric", day: "numeric", timeZone: "UTC" })) + (w.final ? "" : ` <small>so far, to ${clock(w.to)}</small>`);
+    if (i === 0 && !w.final) return `Today <small>so far, to ${clock(w.to)}</small>`;
+    return new Date(w.wk * 1000).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", timeZone: ET })
+      + (w.partial ? ` <small>from ${clock(w.from)}</small>` : w.final && w.to - w.from < 18 * 3600 ? ` <small>${Math.round((w.to - w.from) / 3600)}h read</small>` : "");
+  };
+  const head = `<div class="rwh"><span>You vs the average, over time</span><span class="seg tight"><button type="button" data-logv="week" class="${S.logv === "week" ? "on" : ""}">By week</button><button type="button" data-logv="day" class="${S.logv === "day" ? "on" : ""}">By day</button></span></div>
+    <div class="rw rwc"><div>${S.logv === "day" ? "Day" : "Week"}</div><div>You</div><div>vs avg</div><div>${S.mode === "wallet" ? "Wallet rank" : "Rank"}</div></div>`;
+  const rows = L.map((w, i) => {
+    const x = histLine(w, idxs, S.mode, thr);
+    if (!x) return `<div class="rw"><div class="wl">${label(w, i)}</div><div class="wy mut2">-</div><div class="wv mut2">-</div><div class="wr mut2">not tracked yet</div></div>`;
+    const vs = x.avg ? (x.apr / x.avg - 1) * 100 : null, cls = vs == null ? "mut2" : vs >= 0 ? "ok" : "warn", vt = voteTxt(x);
+    return `<div class="rw"><div class="wl">${label(w, i)}</div>
+      <div class="wy num">${(x.apr * 100).toFixed(1)}%<small>${x.avg != null ? "avg " + (x.avg * 100).toFixed(1) + "%" : ""}${vt ? "<br>" + vt : ""}</small></div>
+      <div class="wv num ${cls}">${vs == null ? "-" : Math.abs(vs) < 0.5 ? "0%" : (vs >= 0 ? "+" : "−") + Math.abs(vs).toFixed(0) + "%"}</div>
+      <div class="wr num">${x.rank ? "#" + x.rank.toLocaleString() + `<small>of ${x.of.toLocaleString()}</small>` : "-"}</div></div>`;
+  }).join("");
+  const running = L[0] && !L[0].final ? `<div class="small mut2" style="margin:4px 0 0">The running row ends at the last every-lock read (${esc(ago(L[0].to))}; every lock is read about every 3 hours). Days run midnight to midnight US Eastern; weeks are Aero epochs (Thursday 00:00 UTC).</div>` : "";
+  const since = S.logv === "day" && H.days_since ? `<div class="small mut2" style="margin:4px 0 6px">The daily log starts ${new Date(H.days_since * 1000).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", timeZone: ET })}: the reads only reach back about 8 days, and a lock only has history from the day it was first tracked.</div>` : "";
+  return head + (rows || `<div class="small mut2" style="padding:6px 0">Nothing logged yet.</div>`) + running + since;
 }
 function renderRank() {
   const el = $("rank");
   if (!S.locks.length || !S.RK) { el.classList.add("hidden"); return; }
   el.classList.remove("hidden");
-  const R = S.RK, ids = S.locks.map(L => L.id), aero = totalAero();
-  const br = R.brackets; if (S.bracket == null) { S.bracket = store.get("bracket", null); if (S.bracket == null) { let b = "all"; for (const [k, t] of br) if (aero >= t) b = k; S.bracket = b; } }
+  const Rk = S.RK, idxs = lockIdxs(S.locks.map(L => L.id)), aero = totalAero();
+  const br = Rk.brackets; if (S.bracket == null) { S.bracket = store.get("bracket", null); if (S.bracket == null) { let b = "all"; for (const [k, t] of br) if (aero >= t) b = k; S.bracket = b; } }
   const thr = (br.find(b => b[0] === S.bracket) || br[0])[1];
-  const names = { now: "Now", "2d": "2 days", "7d": "7 days" };
-  const rows = ["now", "2d", "7d"].map(k => {
-    const x = rankLine(k, ids, S.mode, thr);
-    if (!x) return `<div class="rrow"><div class="p">${names[k]}</div><div class="mut2 small">building history</div><div></div></div>`;
-    const wk = x.apr * 1000 * R.px / 52, good = x.apr >= x.avg;
-    const vote = x.vote != null && Math.abs(x.vote - x.apr) >= 0.005 ? `voting ${(x.vote * 100).toFixed(1)}% · ` : "";
-    return `<div class="rrow"><div class="p">${names[k]}</div>
-      <div class="apr num ${good ? "ok" : "warn"}">${(x.apr * 100).toFixed(1)}%<small>${vote}$${wk.toFixed(2)}/wk per 1k</small></div>
-      <div class="rk num">#${x.rank.toLocaleString()} <span class="mut2" style="font-weight:500">of ${x.of.toLocaleString()}</span><br><span class="tag ${x.top <= 25 ? "ok" : x.top <= 50 ? "acc" : ""}">top ${x.top < 10 ? x.top.toFixed(1) : Math.round(x.top)}%</span></div>
-      <div class="sub">avg ${(x.avg * 100).toFixed(1)}% · median ${(x.med * 100).toFixed(1)}%</div></div>`;
-  }).join("");
   const label = { all: "All", "10k": "10k+", "50k": "50k+", "100k": "100k+", "250k": "250k+", "500k": "500k+", "1m": "1M+" };
+  const you = idxs.length ? `<div class="rcard glow"><div class="rch"><b>Your locks</b><span class="num">${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} · ${fmtA(aero)} AERO</span></div>${rankRows(idxs, thr)}${histRows(idxs, thr)}</div>`
+    : `<div class="rcard glow"><div class="rch"><b>Your locks</b></div><p class="small mut2">Not in the rank data yet: new locks show up after the next every-lock read (about every 3 hours).</p></div>`;
+  const cmp = Object.entries(Rk.groups).map(([name, g]) => `<div class="rcard cmp"><div class="rch"><b>${esc(name)}</b><span class="num">${g.length} lock${g.length === 1 ? "" : "s"}</span></div>${rankRows(g, thr, true)}</div>`).join("");
   el.innerHTML = `<h2>vs every ${S.mode === "wallet" ? "wallet" : "lock"} <span>APR on the whole lock</span></h2><div class="body">
     <div class="seg" id="mode"><button type="button" data-m="lock" class="${S.mode === "lock" ? "on" : ""}">Every lock</button><button type="button" data-m="wallet" class="${S.mode === "wallet" ? "on" : ""}">Every wallet</button></div>
     <div class="seg" id="brk">${br.map(([k]) => `<button type="button" data-b="${k}" class="${S.bracket === k ? "on" : ""}">${label[k] || k}</button>`).join("")}</div>
-    ${rows}<p class="small mut2" style="margin:8px 0 0">All your locks counted as one. "Now" is the last 12 hours. <a href="docs.html#rank">How it's measured</a></p></div>`;
+    ${you}${cmp ? `<div class="seglabel" style="margin-top:4px">Compare with</div>${cmp}` : ""}
+    <p class="small mut2" style="margin:8px 0 0">All your locks counted as one. "Now" is the last 12 hours. Autopilot and 40acres are products that vote for many lockers; each is shown as one combined entry. <a href="docs.html#rank">How it's measured</a></p></div>`;
   el.querySelectorAll("#mode button").forEach(b => b.addEventListener("click", () => { S.mode = b.dataset.m; store.set("mode", S.mode); renderRank(); }));
   el.querySelectorAll("#brk button").forEach(b => b.addEventListener("click", () => { S.bracket = b.dataset.b; store.set("bracket", S.bracket); renderRank(); }));
+  el.querySelectorAll("[data-logv]").forEach(b => b.addEventListener("click", () => { S.logv = b.dataset.logv; store.set("logv", S.logv); renderRank(); }));
 }
-function render() { renderHero(); renderPlan(); renderLocks(); renderRank(); }
+function renderEarn() {
+  const el = $("earn");
+  if (!S.locks.length || !S.RK) { el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  const Rk = S.RK, p1 = Rk.per["1d"], p7 = Rk.per["7d"];
+  const pct = x => x == null ? "-" : (x * 100).toFixed(1) + "%";
+  let T = { aero: 0, usd: 0, unc: 0, known: 0 }, since = null, partial = false;
+  const rows = S.locks.map(L => {
+    const i = Rk.idOf.get(L.id), e = i != null ? Rk.earn.get(i) : null, r1 = i != null && p1 ? p1.byI.get(i) : null, r7 = i != null && p7 ? p7.byI.get(i) : null;
+    T.aero += lockAero(L);
+    if (e) { T.usd += e.usd; T.unc += e.unclaimed; T.known++; since = since == null ? e.since : Math.min(since, e.since); if (e.since > Rk.store_from + 3600) partial = true; }
+    return `<tr><td>#${L.id}</td><td class="num">${fmtA(lockAero(L))}</td><td class="num">${r1 ? pct(r1.r) : "-"}</td><td class="num">${r7 ? pct(r7.r) : "-"}</td><td class="num">${e ? money(e.usd) : "-"}</td><td class="num">${e ? money(e.unclaimed) : "-"}</td><td class="mut2">${e ? new Date(e.since * 1000).toLocaleDateString([], { month: "numeric", day: "numeric" }) : "not tracked yet"}</td></tr>`;
+  }).join("");
+  const l1 = idxLine(p1), l7 = idxLine(p7);
+  const tot = S.locks.length > 1 ? `<tr style="font-weight:600"><td>All</td><td class="num">${fmtA(T.aero)}</td><td class="num">${pct(l1)}</td><td class="num">${pct(l7)}</td><td class="num">${T.known ? money(T.usd) : "-"}</td><td class="num">${T.known ? money(T.unc) : "-"}</td><td></td></tr>` : "";
+  el.innerHTML = `<h2>Earnings <span>read ${esc(ago(Rk.ts))}</span></h2><div class="body">
+    <div class="tw"><table><tr><th>Lock</th><th class="num">AERO</th><th class="num">APR 24h</th><th class="num">APR 7d</th><th class="num">Earned</th><th class="num">Unclaimed</th><th>Since</th></tr>${rows}${tot}</table></div>
+    <p class="small mut2" style="margin:8px 0 0">APR = fees and incentives earned over the period on the whole lock, at today's AERO price, annualized. Earned = what the tracker has seen each lock earn since it first read it (claims bridged, every network), at most about 8 days back; it is not lifetime earnings.${partial ? " One or more of these locks were first read after the tracker's window started, so their Earned covers fewer days." : ""} Unclaimed is what the last read saw waiting, every network. <a href="docs.html#earn">More</a></p></div>`;
+  function idxLine(p) { if (!p) return null; const mine = S.locks.map(L => Rk.idOf.get(L.id)).filter(i => i != null).map(i => p.byI.get(i)).filter(Boolean); const c = combine(mine); return c ? c.apr : null; }
+}
+function renderCrowd() {
+  const el = $("crowd");
+  if (!S.CR || !window.CrowdChart) { el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  const now = Date.now() / 1000;
+  const pins = S.locks.filter(L => L.next && L.next > now - 72 * 3600 && L.next < now + 72 * 3600).map(L => ({ t: L.next, label: "#" + L.id }));
+  try { window.CrowdChart.render(el, S.CR, pins); } catch (e) { el.innerHTML = `<h2>When the crowd moves</h2><div class="body small mut2">Chart failed: ${esc(e.message)}</div>`; }
+}
+function render() { renderPill(); renderHero(); renderPlan(); renderLocks(); renderRank(); renderEarn(); renderCrowd(); }
 
 // ---------- dry run (eth_simulateV1 from the lock owner's address; nothing is signed or sent) ----------
+function buildCall(L) {
+  const split = planSplit();
+  const call = A.buildAllocate(ethers, { tokenId: L.id, owner: L.owner, staked: L.staked, booked: L.booked, split });
+  const g = A.checkCall(ethers, call, { tokenId: L.id, owner: L.owner, account: L.owner, staked: L.staked, booked: L.booked, allowedGauges: planGauges() });
+  if (!g.ok) throw new Error("safety check: " + g.why);
+  return call;
+}
 async function dryRun(L) {
-  if (!L || !S.plan) return;
+  if (!L || !S.plan || L.sent) return;
   const now = Math.floor(Date.now() / 1000);
   if (L.booked === 0n && L.elsewhere.length) {
     L.dry = { ok: false };
-    L.status = `<div class="banner warn">#${L.id} votes on ${esc(L.elsewhere.map(c => NET[c] || "chain " + c).join(" + "))}. Flight Plan rehearses Base votes only; use the percentages in the Aero app for this lock. <a href="docs.html#networks">Why</a></div>`;
+    L.status = `<div class="banner warn">#${L.id} votes on ${esc(L.elsewhere.map(c => NET[c] || "chain " + c).join(" + "))}. Flight Plan rehearses and signs Base votes only; use the percentages in the Aero app for this lock. <a href="docs.html#networks">Why</a></div>`;
     return render();
   }
   try {
-    const split = S.plan.legs.map(l => ({ gauge: l.gauge, pct: l.pct, label: l.label, pool: l.pool }));
-    const call = A.buildAllocate(ethers, { tokenId: L.id, owner: L.owner, staked: L.staked, booked: L.booked, split });
-    const g = A.checkCall(ethers, call, { tokenId: L.id, owner: L.owner, account: L.owner, staked: L.staked, booked: L.booked, allowedGauges: new Set(split.map(s => s.gauge.toLowerCase())) });
-    if (!g.ok) throw new Error("safety check: " + g.why);
+    const call = buildCall(L);
     const at = L.next && L.next > now ? L.next + 5 : now;
     L.status = `<div class="banner">Rehearsing${at > now ? " at the window open" : ""}…</div>`; render();
     const calls = [{ from: call.owner, to: call.to, data: call.data, value: "0x0", gas: "0x" + (30_000_000).toString(16) },
       ...call.legs.map(l => ({ from: call.owner, to: C.LEAF, data: I.leaf.encodeFunctionData("allocations", [L.id, ethers.getAddress(l.gauge)]) })),
-      { from: call.owner, to: C.LEAF, data: I.leaf.encodeFunctionData("allocatedGauges", [L.id]) }];
+      { from: call.owner, to: C.LEAF, data: I.leaf.encodeFunctionData("allocatedGauges", [L.id]) },
+      { from: call.owner, to: C.LEAF, data: I.leaf.encodeFunctionData("tokenStates", [L.id]) }];
     const block = { calls }; if (at > now) block.blockOverrides = { time: "0x" + at.toString(16) };
     const res = (await rpc("eth_simulateV1", [{ blockStateCalls: [block], validation: false }, "latest"]))[0].calls;
     if (res[0].status !== "0x1") {
@@ -395,7 +608,8 @@ async function dryRun(L) {
       log(`#${L.id} dry run failed: ${err.slice(0, 200)}`, "bad"); return render();
     }
     const after = call.legs.map((l, i) => ({ ...l, got: I.leaf.decodeFunctionResult("allocations", res[1 + i].returnData)[0] }));
-    const gl = I.leaf.decodeFunctionResult("allocatedGauges", res[res.length - 1].returnData)[0].map(x => x.toLowerCase());
+    const gl = I.leaf.decodeFunctionResult("allocatedGauges", res[res.length - 2].returnData)[0].map(x => x.toLowerCase());
+    const ts = I.leaf.decodeFunctionResult("tokenStates", res[res.length - 1].returnData);
     const total = after.reduce((s, x) => s + x.got, 0n), extra = gl.filter(x => !after.some(a => a.gauge === x));
     const ok = total === L.staked && !extra.length && after.every(a => a.got === a.allocated);
     const tot = Number(ethers.formatUnits(L.staked, 18)) || 1, gas = parseInt(res[0].gasUsed, 16);
@@ -404,38 +618,380 @@ async function dryRun(L) {
     const line = (name, col, a, b) => `<div class="r"><span class="pdot" style="--c:${col}"></span><span class="nm">${esc(name)}</span><span class="num">${(100 * a / tot).toFixed(0)}% → <b>${(100 * b / tot).toFixed(0)}%</b></span></div><div class="tr"><i class="now" style="width:${(100 * a / tot).toFixed(1)}%"></i><i class="aft" style="--c:${col};width:${(100 * b / tot).toFixed(1)}%"></i></div>`;
     let bars = after.map(a => line(a.label, typeColor((leg[a.gauge] || {}).type), nowW(a.gauge), Number(ethers.formatUnits(a.got, 18)))).join("");
     for (const g2 of Object.keys(L.current)) if (!after.some(a => a.gauge === g2)) bars += line(short(g2) + " (cleared)", "var(--mut2)", nowW(g2), 0);
-    L.dry = { ok };
-    L.status = `<div class="banner ${ok ? "ok" : "bad"}"><b>${ok ? "Dry run OK" : "Result doesn't match the plan"}</b> · network fee about $${(gas * 0.006e-9 * 2400).toFixed(3)}</div><div class="ba" style="margin-top:8px">${bars}</div>`;
+    const bytes = (call.data.length - 2) / 2, newLA = Number(ts[1]);
+    L.dry = { ok, data: call.data, at }; L.call = call;
+    const sign = owns(L) && ok ? `<h3 class="sub">What you will sign</h3><ol class="steplist">
+      <li>Network <b>Base</b></li>
+      <li>To <code data-copy="${call.to}">${call.to}</code> <span class="mut">= the Aero Voter; compare start and end</span></li>
+      <li>Method <b>allocate</b> <span class="mut">(selector <code>${C.ALLOCATE_SELECTOR}</code>)</span></li>
+      <li>Value <b>0 ETH</b></li>
+      <li>Data ${bytes.toLocaleString()} bytes <span class="mut">(a hardware wallet shows this as raw data; your wallet's preview should show sAERO #${L.id} re-allocated and no token moves)</span></li></ol>
+      <div class="small mut2">Reject it if any screen names sAERO <code>0xbf7977e1…</code>, "setApprovalForAll", "approve", "transfer", or a value other than 0. Next change after this vote: <b>${esc(fmtTs(newLA + S.cool))}</b>.</div>` : "";
+    L.status = `<div class="banner ${ok ? "ok" : "bad"}"><b>${ok ? "Dry run OK" : "Result doesn't match the plan"}</b> · network fee about $${(gas * 0.006e-9 * 2400).toFixed(3)}${!ok ? "" : !owns(L) ? (S.account ? " · not the connected wallet" : " · connect to sign") : isOpen(L) ? " · ready to sign" : " · opens " + esc(fmtTs(L.next))}</div><div class="ba" style="margin-top:8px">${bars}</div>${sign}`;
     log(`#${L.id} dry run ${ok ? "OK" : "mismatch"} · gas ${gas.toLocaleString()}`, ok ? "" : "bad");
   } catch (e) { L.dry = { ok: false }; L.status = `<div class="banner bad">Dry run failed: ${esc(e.message || e)}</div>`; log(`#${L.id}: ${e.message || e}`, "bad"); }
   render();
 }
-async function dryAll() { for (const L of S.locks) if (!L.dry) await dryRun(L); }
+async function dryAll() { for (const L of S.locks) if (!L.dry && !L.sent) await dryRun(L); }
+
+// ---------- sign: ONE Voter.allocate per lock the connected wallet owns (Phase 2) ----------
+async function send(L) {
+  if (!L || L.sent) return;
+  try {
+    if (!S.account || !S.provider) throw new Error("connect the wallet first");
+    if (!owns(L)) throw new Error("this lock is not owned by the connected wallet");
+    if (!L.dry || !L.dry.ok) throw new Error("dry run first");
+    if (!S.plan || S.plan.placed !== 100) throw new Error("the split does not place 100%");
+    const call = buildCall(L);                                    // rebuild from the plan
+    if (call.data !== L.dry.data) throw new Error("the plan changed since the dry run; dry-run again");
+    await ensureChain();
+    const [fresh] = await readLocks([L.id]);                      // live re-check: owner, window, booked
+    Object.assign(L, fresh);
+    if (!L.owner || L.owner.toLowerCase() !== S.account.toLowerCase()) throw new Error("the lock is not owned by the connected account");
+    if (L.next && L.next > Date.now() / 1000 + 2) throw new Error(`the window opens ${fmtTs(L.next)}; not yet`);
+    const g = A.checkCall(ethers, call, { tokenId: L.id, owner: L.owner, account: S.account, staked: L.staked, booked: L.booked, allowedGauges: planGauges() });
+    if (!g.ok) throw new Error("guard tripped: " + g.why);
+    L.status = `<div class="banner">Waiting for your signature… check the To address (the Aero Voter) and 0 ETH.</div>`; render();
+    log(`Sending allocate #${L.id} (${call.legs.length} gauges) for signature…`);
+    const hash = await S.provider.request({ method: "eth_sendTransaction", params: [{ from: S.account, to: call.to, data: call.data, value: "0x0" }] });
+    L.sent = hash; L.status = `<div class="banner">Sent <a href="https://basescan.org/tx/${hash}" target="_blank" rel="noopener">${hash.slice(0, 12)}…</a>, waiting for confirmation…</div>`; render();
+    log(`#${L.id} sent ${hash}`);
+    const rc = await waitReceipt(hash);
+    if (rc.status !== "0x1") { L.sent = null; L.dry = null; throw new Error(`transaction ${hash.slice(0, 12)}… reverted on chain`); }
+    log(`#${L.id} confirmed in block ${parseInt(rc.blockNumber, 16)}`, "ok");
+    const [after] = await readLocks([L.id]); Object.assign(L, after);
+    const tot = Number(ethers.formatUnits(L.staked, 18)) || 1, leg = Object.fromEntries(S.plan.legs.map(l => [l.gauge.toLowerCase(), l]));
+    const chips = Object.entries(L.current).map(([g2, v]) => `<span class="chip"><span class="pdot" style="--c:${typeColor((leg[g2] || {}).type)}"></span>${esc((leg[g2] || {}).label || short(g2))} <b class="num">${(100 * Number(ethers.formatUnits(v, 18)) / tot).toFixed(0)}%</b></span>`).join("");
+    L.status = `<div class="banner ok"><div class="big">Allocated ✓</div><span class="small">Block ${parseInt(rc.blockNumber, 16).toLocaleString()} · <a href="https://basescan.org/tx/${hash}" target="_blank" rel="noopener">view on Basescan</a> · next change <b>${esc(fmtTs(L.next))}</b></span><div class="chips">${chips}</div></div>`;
+    store.set("sent:" + L.id, hash);
+  } catch (e) { log("Stopped: " + (e.message || e), "bad"); L.status = `<div class="banner bad">Stopped: ${esc(e.message || e)}</div>`; }
+  render();
+}
+async function sendAll() { for (const L of S.locks) if (canSend(L)) await send(L); }
+
+// ---------- wallet ----------
+async function connect() {
+  const eth = window.ethereum;
+  if (!eth) { toast("no wallet in this browser"); log("No browser wallet found. Open this page inside your wallet's browser, or enable the extension.", "warn"); return; }
+  if (!store.get("safety")) { showSafety(true); return; }
+  S.provider = eth;
+  const accs = await eth.request({ method: "eth_requestAccounts" });
+  if (!accs || !accs[0]) throw new Error("no account");
+  S.account = ethers.getAddress(accs[0]);
+  await ensureChain();
+  if (!S.hooked && eth.on) {
+    S.hooked = true;
+    eth.on("accountsChanged", a => { S.account = a[0] ? ethers.getAddress(a[0]) : null; renderPill(); log(S.account ? `Account changed to ${S.account}` : "Wallet disconnected."); SW.rows = []; SW.plan = null; SW.dry = null; renderSweep(); if (S.account) lookup(S.account); else render(); });
+    eth.on("chainChanged", id => log(`Wallet network changed to chain ${parseInt(id, 16)}.`, parseInt(id, 16) === C.CHAIN_ID ? "" : "warn"));
+  }
+  renderPill(); log(`Connected ${S.account}`);
+  await lookup(S.account);
+  if ($("sweep").open) swScan().catch(e => log("Scan failed: " + e.message, "bad"));
+}
+async function ensureChain() {
+  const id = await S.provider.request({ method: "eth_chainId" });
+  if (id !== C.CHAIN_HEX) { log(`Wallet is on chain ${parseInt(id, 16)}; asking it to switch to Base…`, "warn"); await S.provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: C.CHAIN_HEX }] }); }
+}
+$("wpill").addEventListener("click", () => { if (!S.account) connect().catch(e => { log("Connect failed: " + (e.message || e), "bad"); toast("connect cancelled"); }); });
+
+// ---------- first-visit safety sheet ----------
+let safetyThenConnect = false;
+function showSafety(thenConnect) { safetyThenConnect = !!thenConnect; $("safety").classList.remove("hidden"); }
+$("safeok").addEventListener("click", () => { store.set("safety", "1"); $("safety").classList.add("hidden"); if (safetyThenConnect) { safetyThenConnect = false; connect().catch(e => log("Connect failed: " + (e.message || e), "bad")); } });
+for (const id of ["safelink", "safelink2"]) $(id).addEventListener("click", e => { e.preventDefault(); showSafety(false); });
+if (!store.get("safety")) showSafety(false);
+
+/* ======================================================================================
+   SWEEP: every reward token with a route to USDC through the new Aero pools, sold in ONE
+   Metarouter.execute, with exact-amount approvals to the Metarouter only (ported from the
+   private page, 11/5/2026; no server, no logging).
+   ====================================================================================== */
+const MR = M.metarouter ? ethers.getAddress(M.metarouter) : null, MQ = M.metaquoter ? ethers.getAddress(M.metaquoter) : null, USDC = M.usdc ? ethers.getAddress(M.usdc) : null;
+const CMD_CL = 0x00, CMD_V2 = 0x08, FLAG_ALLOW_REVERT = 0x80, DUST_ALLOW_REVERT_USD = 0.25;
+const coder = ethers.AbiCoder.defaultAbiCoder();
+const APPROVE_SEL = I.erc20.getFunction("approve").selector, EXEC_SEL = I.mr.getFunction("execute").selector;
+// Guard: a call may only be (a) approve(Metarouter, amount) on a token this scan found in the wallet, or (b) execute() on the Metarouter.
+function callIsAllowed(c, rows) {
+  const to = c.to.toLowerCase();
+  if (to === MR.toLowerCase()) return c.data.startsWith(EXEC_SEL);
+  if (!rows.some(r => r.address.toLowerCase() === to)) return false;
+  if (!c.data.startsWith(APPROVE_SEL)) return false;
+  const [spender, amount] = I.erc20.decodeFunctionData("approve", c.data);
+  const row = rows.find(r => r.address.toLowerCase() === to);
+  return spender.toLowerCase() === MR.toLowerCase() && amount === row.balance;
+}
+const UNIVERSE = Object.entries(R.universe || {}).map(([a, m]) => ({ sym: m.symbol || a.slice(0, 8), address: ethers.getAddress(a), decimals: m.decimals ?? 18 }));
+const KNOWN = Object.fromEntries(Object.values(R.tokens || {}).map(t => [t.address.toLowerCase(), t]));
+const EXTRA_KEY = "fp:sweep:extraTokens";
+function extraTokens() { try { return (localStorage.getItem(EXTRA_KEY) || "").split(/[\s,]+/).filter(x => /^0x[0-9a-fA-F]{40}$/.test(x)).map(ethers.getAddress); } catch (e) { return []; } }
+let SW = { rows: [], plan: null, dry: null, floor: 0.5, busy: false, done: null };
+try { $("extra").value = localStorage.getItem(EXTRA_KEY) || ""; } catch (e) {}
+
+async function explorerTokens(owner) {
+  const out = []; let url = `https://base.blockscout.com/api/v2/addresses/${owner}/tokens?type=ERC-20`;
+  try {
+    for (let page = 0; page < 5 && url; page++) {
+      const r = await fetch(url, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(8000) }); if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      for (const it of j.items || []) {
+        const tk = it.token || {}; const a = tk.address_hash || tk.address; if (!a || !/^0x[0-9a-fA-F]{40}$/.test(a)) continue;
+        out.push({ sym: tk.symbol || null, address: ethers.getAddress(a), decimals: tk.decimals != null ? Number(tk.decimals) : null });
+      }
+      const np = j.next_page_params; url = np ? `https://base.blockscout.com/api/v2/addresses/${owner}/tokens?` + new URLSearchParams({ type: "ERC-20", ...Object.fromEntries(Object.entries(np).map(([k, v]) => [k, String(v)])) }) : null;
+    }
+    log(`Block explorer lists ${out.length} ERC-20 token${out.length === 1 ? "" : "s"} in this wallet.`);
+  } catch (e) { log("Block explorer lookup unavailable (" + (e.message || e) + "); scanning the Aero token universe + your extra addresses only.", "warn"); }
+  return out;
+}
+const I_F = new ethers.Interface(["function getPool(address,address,int24) view returns (address)", "function getPool(address,address) view returns (address)"]);
+const ZERO = "0x0000000000000000000000000000000000000000";
+let MID_POOLS = null;
+async function poolsBetween(pairs) {
+  const calls = [], idx = [];
+  for (const [a, b] of pairs) {
+    for (const s of M.spacings) { calls.push({ target: M.clFactory, callData: I_F.encodeFunctionData("getPool(address,address,int24)", [a, b, s]) }); idx.push([a, b, "cl", `CL${s}`]); }
+    calls.push({ target: M.volatileFactory, callData: I_F.encodeFunctionData("getPool(address,address)", [a, b]) }); idx.push([a, b, "v2", "vAMM"]);
+    calls.push({ target: M.stableFactory, callData: I_F.encodeFunctionData("getPool(address,address)", [a, b]) }); idx.push([a, b, "v2", "sAMM"]);
+  }
+  const res = await multicall(calls); const out = {};
+  res.forEach((r, i) => {
+    if (!r.success || r.returnData.length < 66) return;
+    const pool = ethers.getAddress("0x" + r.returnData.slice(26)); if (pool === ZERO) return;
+    const [a, b, kind, label] = idx[i]; (out[`${a}|${b}`] ||= []).push({ pool, kind, label });
+  });
+  return out;
+}
+async function discoverRoutes(tokens) {
+  if (!tokens.length) return {};
+  const WETH = ethers.getAddress(M.weth), CBBTC = ethers.getAddress(M.cbbtc);
+  if (!MID_POOLS) MID_POOLS = await poolsBetween([[WETH, USDC], [CBBTC, USDC]]);
+  const pairs = tokens.flatMap(t => [[t, USDC], [t, WETH], [t, CBBTC]].filter(([a, b]) => a.toLowerCase() !== b.toLowerCase()));
+  const found = await poolsBetween(pairs); const out = {};
+  for (const t of tokens) {
+    const routes = [];
+    for (const p of found[`${t}|${USDC}`] || []) routes.push({ pools: [p.pool], kinds: [p.kind], via: p.label });
+    for (const [mid, name] of [[WETH, "WETH"], [CBBTC, "cbBTC"]]) {
+      if (t.toLowerCase() === mid.toLowerCase()) continue;
+      for (const p1 of found[`${t}|${mid}`] || []) for (const p2 of MID_POOLS[`${mid}|${USDC}`] || []) if (p1.kind === p2.kind) routes.push({ pools: [p1.pool, p2.pool], kinds: [p1.kind, p2.kind], via: `${p1.label} → ${name} → ${p2.label}` });
+    }
+    out[t.toLowerCase()] = routes;
+  }
+  return out;
+}
+async function swScan() {
+  const owner = viewer();
+  if (!MR) { renderSweep("The sweep routes file did not load."); return; }
+  if (!owner) { renderSweep("Paste an address or connect a wallet first."); return; }
+  if (SW.busy) return; SW.busy = true; $("swk").textContent = "scanning…";
+  try {
+    const floor = SW.floor, slip = Math.min(5, Math.max(0.1, Number($("slip").value) || 1)) / 100;
+    const discovered = await explorerTokens(owner);
+    const seen = new Set(); const toks = [];
+    for (const t of [...Object.entries(R.tokens || {}).map(([k, t]) => ({ sym: k, address: ethers.getAddress(t.address), decimals: t.decimals })), ...UNIVERSE, ...extraTokens().map(a => ({ sym: null, address: a, decimals: null })), ...discovered]) {
+      const k = t.address.toLowerCase(); if (k === USDC.toLowerCase() || seen.has(k)) continue; seen.add(k); toks.push(t);
+    }
+    log(`Reading ${toks.length} token balances for ${short(owner)}…`);
+    const bal = await multicall(toks.flatMap(t => [
+      { target: t.address, callData: I.erc20.encodeFunctionData("balanceOf", [owner]) },
+      { target: t.address, callData: I.erc20.encodeFunctionData("allowance", [owner, MR]) }]));
+    let rows = [];
+    toks.forEach((t, k) => {
+      const b = bal[2 * k].success && bal[2 * k].returnData.length >= 66 ? BigInt(bal[2 * k].returnData) : 0n;
+      const al = bal[2 * k + 1].success && bal[2 * k + 1].returnData.length >= 66 ? BigInt(bal[2 * k + 1].returnData) : 0n;
+      if (b > 0n) rows.push({ sym: t.sym, decimals: t.decimals, balance: b, allowance: al, address: t.address, known: KNOWN[t.address.toLowerCase()] || null });
+    });
+    if (!rows.length) { SW.rows = []; SW.plan = null; renderSweep("Nothing to sweep: no reward tokens in this wallet. Claim in the Aero app first, then re-scan."); log("No sellable tokens found.", "warn"); return; }
+    const need = rows.filter(r => r.sym == null || r.decimals == null);
+    if (need.length) {
+      const md = await multicall(need.flatMap(r => [{ target: r.address, callData: "0x95d89b41" }, { target: r.address, callData: "0x313ce567" }]));
+      need.forEach((r, k) => {
+        try { r.sym = r.sym || coder.decode(["string"], md[2 * k].returnData)[0]; } catch (e) { r.sym = r.sym || short(r.address); }
+        try { r.decimals = r.decimals ?? Number(BigInt(md[2 * k + 1].returnData)); } catch (e) { r.decimals = r.decimals ?? 18; }
+      });
+    }
+    log(`${rows.length} tokens hold a balance. Finding routes through new Aero pools…`);
+    const mids = await discoverRoutes(rows.filter(r => !r.known).map(r => r.address));
+    for (const r of rows) r.routes = r.known ? r.known.routes : (mids[r.address.toLowerCase()] || []);
+    const noRoute = rows.filter(r => !r.routes.length);
+    rows = rows.filter(r => r.routes.length);
+    if (noRoute.length) log(`${noRoute.length} token${noRoute.length === 1 ? "" : "s"} with no new-Aero route to USDC, skipped: ${noRoute.slice(0, 12).map(r => r.sym).join(", ")}${noRoute.length > 12 ? ", …" : ""}`);
+    if (!rows.length) { SW.rows = []; SW.plan = null; renderSweep("Nothing here has a route to USDC through the new Aero pools."); return; }
+    log(`Quoting ${rows.reduce((n, r) => n + r.routes.length, 0)} candidate routes through the Metaquoter…`);
+    const qcalls = [], qidx = [];
+    rows.forEach((r, ri) => r.routes.forEach((rt, qi) => { qcalls.push({ target: MQ, callData: I.mq.encodeFunctionData("quoteExactInput", [rt.pools, r.address, r.balance]) }); qidx.push([ri, qi]); }));
+    const q = await multicall(qcalls);
+    rows.forEach(r => { r.quotes = []; });
+    q.forEach((res, i) => { const [ri, qi] = qidx[i]; if (res.success && res.returnData.length >= 66) rows[ri].quotes.push({ route: rows[ri].routes[qi], out: BigInt(I.mq.decodeFunctionResult("quoteExactInput", res.returnData)[0]) }); });
+    for (const r of rows) {
+      r.quotes.sort((a, b) => (b.out > a.out ? 1 : b.out < a.out ? -1 : 0));
+      r.best = r.quotes[0] || null;
+      r.usd = r.best ? Number(r.best.out) / 1e6 : 0;
+      r.minOut = r.best ? (r.best.out * BigInt(Math.round((1 - slip) * 1e6)) / 1000000n) : 0n;
+      r.sell = !!r.best && r.usd >= floor;
+      r.allowRevert = r.usd < DUST_ALLOW_REVERT_USD;
+      r.needsApproval = r.allowance < r.balance;
+      r.note = !r.best ? "no quote" : r.usd < floor ? `under $${floor}` : r.allowRevert ? "dust, may revert" : "";
+    }
+    rows.sort((a, b) => b.usd - a.usd);
+    SW.rows = rows; SW.plan = null; SW.dry = null; SW.done = null;
+    renderSweep(); swBuildPlan(owner);
+  } finally { SW.busy = false; if ($("swk").textContent === "scanning…") $("swk").textContent = ""; }
+}
+function renderSweep(emptyMsg) {
+  const box = $("toks"); box.innerHTML = "";
+  if (!SW.rows.length) {
+    box.innerHTML = emptyMsg ? `<div class="banner warn small">${esc(emptyMsg)}</div>` : "";
+    $("swTot").style.display = "none"; $("swPlanWrap").style.display = "none"; $("swSign").style.display = "none"; $("swk").textContent = emptyMsg ? "nothing to sweep" : (viewer() ? "open to scan" : "paste or connect to scan");
+    return;
+  }
+  let tot = 0, n = 0;
+  for (const r of SW.rows) {
+    const d = document.createElement("div"); d.className = "tok" + (r.sell ? "" : " skip");
+    d.innerHTML = `<input type="checkbox" ${r.sell ? "checked" : ""} ${r.best ? "" : "disabled"} data-addr="${r.address}">
+      <div class="sym">${esc(r.sym)}${r.known ? "" : `<small title="${r.address}">${short(r.address)}</small>`}</div>
+      <div class="bal">${fmt(ethers.formatUnits(r.balance, r.decimals), 4)}<small>${r.best ? "via " + esc(r.best.route.via) : "no route"}${r.needsApproval ? " · approval needed" : ""}${r.note ? " · " + esc(r.note) : ""}</small></div>
+      <div class="usd num">${r.best ? "$" + fmt(r.usd, 2) : "-"}<small>${r.best ? "min $" + fmt(Number(r.minOut) / 1e6, 2) : ""}</small></div>`;
+    box.appendChild(d);
+    if (r.sell) { tot += r.usd; n++; }
+  }
+  box.querySelectorAll("input[type=checkbox]").forEach(cb => cb.addEventListener("change", e => {
+    const r = SW.rows.find(x => x.address === e.target.dataset.addr); r.sell = e.target.checked; renderSweep(); swBuildPlan(viewer());
+  }));
+  const appr = SW.rows.filter(r => r.sell && r.needsApproval).length;
+  $("swTot").style.display = ""; $("swTot").innerHTML = `<div class="tile"><div class="k">Expected</div><div class="v num">$${fmt(tot, 2)} <small>USDC</small></div></div>
+    <div class="tile"><div class="k">Tokens</div><div class="v num">${n} <small>of ${SW.rows.length}</small></div></div>
+    <div class="tile"><div class="k">Signatures</div><div class="v num">${n ? appr + 1 : 0} <small>${appr} approval${appr === 1 ? "" : "s"} + 1 swap</small></div></div>`;
+  $("swk").textContent = `${n} to sell · $${fmt(tot, 2)}`;
+}
+function swBuildPlan(ownerIn) {
+  if (!ownerIn) return;
+  const owner = ethers.getAddress(ownerIn);
+  const sel = SW.rows.filter(r => r.sell && r.best);
+  if (!sel.length) { $("swPlanWrap").style.display = "none"; $("swSign").style.display = "none"; SW.plan = null; return; }
+  const approvals = sel.filter(r => r.needsApproval).map(r => ({ to: r.address, data: I.erc20.encodeFunctionData("approve", [MR, r.balance]), desc: `Approve the Metarouter to spend exactly ${fmt(ethers.formatUnits(r.balance, r.decimals), 6)} ${r.sym}`, sym: r.sym, amount: ethers.formatUnits(r.balance, r.decimals) }));
+  const cmds = [], inputs = [];
+  for (const r of sel) {
+    const kind = r.best.route.kinds[0];
+    cmds.push((kind === "cl" ? CMD_CL : CMD_V2) | (r.allowRevert ? FLAG_ALLOW_REVERT : 0));
+    inputs.push(coder.encode(["tuple(address[] pools,address tokenIn,tuple(uint8 mode,uint256 value) amountIn,bool payerIsUser,uint256 minAmountOut,address recipient)"],
+      [[r.best.route.pools, r.address, [0, r.balance], true, r.minOut, owner]]));
+  }
+  const deadline = Math.floor(Date.now() / 1000) + 20 * 60;
+  const exec = { to: MR, data: I.mr.encodeFunctionData("execute", [ethers.hexlify(new Uint8Array(cmds)), inputs, deadline]), desc: `ONE swap: ${sel.length} swap${sel.length === 1 ? "" : "s"} through the Metarouter, USDC lands in ${short(owner)}` };
+  for (const c of [...approvals, exec]) if (!callIsAllowed(c, sel)) throw new Error("internal guard: unexpected call to " + c.to);
+  SW.plan = { owner, approvals, exec, deadline, sel }; SW.dry = null;
+  const bytes = (exec.data.length - 2) / 2;
+  $("swPlan").innerHTML = `<ol class="steplist">${approvals.map(a => `<li><b>Approve ${esc(a.sym)}</b> · To <code>${a.to}</code> (the ${esc(a.sym)} token) · spender <code>${MR}</code> (Metarouter) · amount <b>${esc(a.amount)}</b> · 0 ETH</li>`).join("")}
+    <li><b>Swap</b> · To <code>${MR}</code> (Aero Metarouter) · method <b>execute</b> <code>${exec.data.slice(0, 10)}</code> · ${bytes.toLocaleString()} bytes · <b>0 ETH</b> · USDC paid to <code>${owner}</code> (you)<br><span class="mut">A hardware wallet shows this as raw data. Check the To address and 0 ETH on the device; the content is what the dry run returns and what your wallet's simulation shows (minus the reward tokens, plus USDC).</span></li></ol>
+    <p class="small mut">Network <b>Base</b> on every screen. Reject anything naming sAERO <code>0xbf7977e1…</code>, "setApprovalForAll", "transfer", or an amount larger than the row. Deadline ${new Date(deadline * 1000).toLocaleTimeString()}.</p>`;
+  $("swPlanWrap").style.display = ""; $("swSign").style.display = ""; $("btnSend").disabled = true; $("swOut").innerHTML = "";
+}
+async function swDry() {
+  const p = SW.plan; if (!p) return;
+  log("Sweep dry run: simulating approvals + swap from your address…");
+  $("swOut").innerHTML = `<div class="banner small">Simulating…</div>`;
+  const balData = I.erc20.encodeFunctionData("balanceOf", [p.owner]);
+  const calls = [{ from: p.owner, to: USDC, data: balData },
+    ...p.approvals.map(a => ({ from: p.owner, to: a.to, data: a.data })),
+    { from: p.owner, to: p.exec.to, data: p.exec.data, gas: "0x" + (30_000_000).toString(16) },
+    { from: p.owner, to: USDC, data: balData }];
+  let res;
+  try { res = await rpc("eth_simulateV1", [{ blockStateCalls: [{ calls }], validation: false }, "latest"]); }
+  catch (e) { log("Simulation RPC failed: " + e.message, "bad"); $("swOut").innerHTML = `<div class="banner bad">Simulation failed. Not safe to sign.</div>`; return; }
+  const out = res[0].calls;
+  const bad = out.findIndex(c => c.status !== "0x1");
+  if (bad >= 0) {
+    const c = out[bad]; const what = bad === 0 || bad === out.length - 1 ? "balance read" : bad <= p.approvals.length ? `approval #${bad}` : "the swap";
+    const errTxt = JSON.stringify(c.error || c.returnData); const oog = /out of gas|OutOfGas/i.test(errTxt);
+    log(`Simulation: ${what} FAILED${oog ? " (out of gas in the simulation: a page limit, not your wallet)" : ""}: ${errTxt.slice(0, 300)}`, "bad");
+    $("swOut").innerHTML = `<div class="banner bad"><b>Dry run failed at ${esc(what)}.</b> Nothing was sent. Untick the token that cannot swap, or raise slippage, and dry-run again. <a href="docs.html#fail">Help</a></div>`;
+    SW.dry = null; $("btnSend").disabled = true; return;
+  }
+  const before = BigInt(out[0].returnData), after = BigInt(out[out.length - 1].returnData);
+  const got = Number(after - before) / 1e6, gas = out.slice(1, -1).reduce((s, c) => s + parseInt(c.gasUsed, 16), 0);
+  const expect = p.sel.reduce((s, r) => s + r.usd, 0);
+  SW.dry = { got, gas };
+  const mine = S.account && ethers.getAddress(S.account) === p.owner;
+  log(`Sweep simulation OK: +${fmt(got, 4)} USDC (quotes ${fmt(expect, 4)}), gas ${gas.toLocaleString()}`, "ok");
+  $("swOut").innerHTML = `<div class="banner ok"><div class="big num">+$${fmt(got, 2)} USDC</div><span class="small">Dry run OK · quotes said $${fmt(expect, 2)} · gas ${gas.toLocaleString()} ≈ $${fmt(gas * 0.006e-9 * 2400, 3)} · ${p.approvals.length + 1} signature${p.approvals.length ? "s" : ""}${mine ? "" : S.account ? " · connect the wallet that holds these tokens to sign" : " · connect to sign"}</span></div>`;
+  $("btnSend").disabled = !mine;
+}
+async function swSend() {
+  const p = SW.plan; if (!p || !S.account || !SW.dry) return;
+  if (ethers.getAddress(S.account) !== p.owner) { log("Connected account differs from the scanned one. Re-scan.", "bad"); return; }
+  await ensureChain();
+  const all = [...p.approvals, p.exec];
+  for (const c of all) if (!callIsAllowed(c, p.sel)) { log("Guard tripped: refusing to send to " + c.to, "bad"); return; }
+  $("btnSend").disabled = true; $("btnDry").disabled = true;
+  const prog = m => { $("swOut").innerHTML = `<div class="banner small">${m}</div>`; };
+  let atomic = false;
+  try {
+    const caps = await S.provider.request({ method: "wallet_getCapabilities", params: [S.account, [C.CHAIN_HEX]] });
+    const st = caps && caps[C.CHAIN_HEX] && caps[C.CHAIN_HEX].atomic && caps[C.CHAIN_HEX].atomic.status;
+    atomic = st === "supported" || st === "ready";
+    log(`Wallet batching capability: ${st || "none"}`);
+  } catch (e) { log("Wallet does not expose wallet_getCapabilities; signing one by one."); }
+  const txs = [];
+  try {
+    if (atomic) {
+      prog("Waiting for your signature (one batch)…");
+      const id = await S.provider.request({ method: "wallet_sendCalls", params: [{ version: "2.0.0", chainId: C.CHAIN_HEX, from: S.account, atomicRequired: true, calls: all.map(c => ({ to: c.to, data: c.data, value: "0x0" })) }] });
+      log(`Batch submitted (${all.length} calls in one signature), id ${JSON.stringify(id).slice(0, 80)}. Waiting…`);
+      for (let i = 0; i < 90; i++) {
+        const s = await S.provider.request({ method: "wallet_getCallsStatus", params: [typeof id === "string" ? id : id.id] });
+        if (s.status === 200 || s.status === "CONFIRMED") { log("Batch confirmed.", "ok"); (s.receipts || []).forEach(r => r.transactionHash && txs.push(r.transactionHash)); break; }
+        if (s.status >= 400) throw new Error("batch failed: " + JSON.stringify(s).slice(0, 200));
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    } else {
+      for (const [i, c] of all.entries()) {
+        prog(`Signature ${i + 1} of ${all.length}: ${esc(c.desc)}`);
+        log(`Signing ${i + 1}/${all.length}: ${c.desc}`);
+        const hash = await S.provider.request({ method: "eth_sendTransaction", params: [{ from: S.account, to: c.to, data: c.data, value: "0x0" }] });
+        log(`  sent ${hash}, waiting for confirmation…`); txs.push(hash);
+        const rc = await waitReceipt(hash);
+        if (rc.status !== "0x1") throw new Error(`transaction ${hash} reverted on chain`);
+        log(`  confirmed in block ${parseInt(rc.blockNumber, 16)}`, "ok");
+      }
+    }
+    const b = BigInt(await ethCall(USDC, I.erc20.encodeFunctionData("balanceOf", [S.account])));
+    SW.done = { usdc: Number(b) / 1e6, txs };
+    log(`Sweep done. USDC balance now ${fmt(Number(b) / 1e6, 2)}.`, "ok");
+    $("swOut").innerHTML = `<div class="banner ok"><div class="big num">Swept ✓ · ${fmt(Number(b) / 1e6, 2)} USDC in the wallet</div><span class="small">${txs.length ? txs.map(h => `<a href="https://basescan.org/tx/${h}" target="_blank" rel="noopener">${h.slice(0, 10)}…</a>`).join(" · ") : ""} · <a href="#" id="swAgain">re-scan</a> to confirm the reward tokens are gone</span></div>`;
+    const ag = $("swAgain"); if (ag) ag.addEventListener("click", e => { e.preventDefault(); swScan().catch(er => log(er.message, "bad")); });
+    $("swk").textContent = "done";
+  } catch (e) { log("Stopped: " + (e.message || e), "bad"); $("swOut").innerHTML = `<div class="banner bad">Stopped: ${esc(e.message || e)}. ${txs.length ? "Sent so far: " + txs.map(h => h.slice(0, 10) + "…").join(", ") + ". " : ""}Re-scan before trying again.</div>`; }
+  $("btnDry").disabled = false;
+}
+$("floorSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { $("floorSeg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); SW.floor = Number(b.dataset.f); if (SW.rows.length) swScan().catch(e => log(e.message, "bad")); }));
+$("btnScan").addEventListener("click", () => { try { localStorage.setItem(EXTRA_KEY, $("extra").value); } catch (e) {} swScan().catch(e => log("Scan failed: " + e.message, "bad")); });
+$("btnDry").addEventListener("click", () => swDry().catch(e => log("Dry run failed: " + e.message, "bad")));
+$("btnSend").addEventListener("click", () => swSend().catch(e => log("Sweep failed: " + e.message, "bad")));
+$("sweep").addEventListener("toggle", () => { if ($("sweep").open && viewer() && !SW.rows.length && !SW.busy) swScan().catch(e => log("Scan failed: " + e.message, "bad")); });
 
 // ---------- look up ----------
 async function lookup(raw) {
   let a = String(raw || "").trim();
   if (!/^0x[0-9a-fA-F]{40}$/.test(a)) { toast("that isn't a wallet address"); return; }
   a = ethers.getAddress(a); S.addr = a; S.locks = []; S.plan = null; S.bracket = null; S.busy = true; $("addr").value = a; render();
+  SW.rows = []; SW.plan = null; SW.dry = null; renderSweep();
   try { history.replaceState(null, "", "?addr=" + a); } catch (e) {}
   try {
     if (!S.D) await loadData();
     const ids = await discover(a);
     const all = ids.length ? await readLocks(ids) : [];
     S.locks = all.filter(L => L.staked > 0n); S.empty = all.length - S.locks.length;
+    for (const L of S.locks) { const h = store.get("sent:" + L.id); if (h && L.la && Date.now() / 1000 - L.la < 600) L.sent = h; }
     S.live = S.locks.length ? await readLive().catch(e => { log("Live pool sizes unavailable, using the last scan: " + e.message, "warn"); return null; }) : null;
     replan();
     if (S.plan) log(`Plan: ${S.plan.legs.length} pools, ~${money(S.plan.expect_usd)} this window.`);
+    if (S.locks.length) loadHist();
   } catch (e) { log("Lookup failed: " + (e.message || e), "bad"); toast("lookup failed, try again"); }
   S.busy = false; render();
+  if ($("sweep").open && S.addr) swScan().catch(e => log("Scan failed: " + e.message, "bad"));
 }
 $("find").addEventListener("submit", e => { e.preventDefault(); lookup($("addr").value); });
-$("connect").addEventListener("click", async e => {
-  e.preventDefault();
-  if (!window.ethereum) { toast("no wallet in this browser"); return; }
-  try { const accs = await window.ethereum.request({ method: "eth_requestAccounts" }); if (accs && accs[0]) lookup(accs[0]); } catch (er) { toast("connect cancelled"); }
-});
-setInterval(() => { if (!document.hidden && S.locks.length) renderHero(); }, 30000);
+setInterval(() => { if (!document.hidden && S.locks.length) { renderHero(); renderLocks(); renderPlan(); } }, 30000);
 
 render();
 loadData().then(() => { const q = new URLSearchParams(location.search).get("addr"); if (q) lookup(q); }).catch(e => { $("fresh").textContent = "Pool data unavailable"; log("Data load failed: " + e.message, "bad"); });

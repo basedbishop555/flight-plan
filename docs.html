@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Flight Plan Docs</title>
-<meta name="description" content="How Flight Plan works: windows, how the split is made, why yours differs, the rank, what it reads and never does, and the contract addresses.">
+<meta name="description" content="How Flight Plan works: windows, how the split is made, why yours differs, the rank and history, earnings, the sweep, the crowd chart, what it signs and never signs, hardware wallets, and the contract addresses.">
 <meta name="theme-color" content="#090e1f">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -45,15 +45,16 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
   <a class="wm" href="./"><img src="icons/icon-192.png" alt="">Flight Plan <span>Docs</span></a>
   <span class="sp"></span><a class="back" href="./">← Back to the app</a>
 </header>
-<p class="lede">Flight Plan is an unofficial, open-source helper for sAERO voters on Aero. It reads the chain, suggests a split sized to your locks, shows how you rank, and rehearses the vote for free. It never asks you to sign anything. You vote in the Aero app.</p>
-<nav class="toc"><a href="#use">How to use it</a><a href="#window">Windows</a><a href="#plan">How the split is made</a><a href="#pools">How many pools</a><a href="#yours">Why yours differs</a><a href="#rank">Rank</a><a href="#safe">What it reads and never does</a><a href="#blind">Never sign blind</a><a href="#anchors">Addresses</a><a href="#networks">Other networks</a><a href="#fail">When a dry run fails</a><a href="#data">Data</a></nav>
+<p class="lede">Flight Plan is an unofficial, open-source helper for sAERO voters on Aero. It reads the chain, suggests a split sized to your locks, shows how you rank, rehearses every signature for free, and (when you connect the wallet that owns the locks) signs one vote per lock and one sweep of your rewards into USDC. Nothing you enter reaches a server: the page is static files plus public chain reads.</p>
+<nav class="toc"><a href="#use">How to use it</a><a href="#window">Windows</a><a href="#plan">How the split is made</a><a href="#pools">How many pools</a><a href="#yours">Why yours differs</a><a href="#rank">Rank</a><a href="#history">By week, by day</a><a href="#earn">Earnings</a><a href="#sweep">Sweep</a><a href="#crowd">The crowd chart</a><a href="#safe">What it signs and never signs</a><a href="#blind">Never sign blind</a><a href="#hardware">Hardware wallets</a><a href="#anchors">Addresses</a><a href="#networks">Other networks</a><a href="#fail">When something fails</a><a href="#data">Data</a></nav>
 
 <section class="grp" id="use"><h2>How to use it</h2><div class="body">
   <ol>
-    <li><b>Paste your wallet address</b> (or connect a wallet, which only fills the address in). Flight Plan finds your sAERO locks on chain.</li>
+    <li><b>Paste a wallet address</b> to look (read-only), or <b>connect</b> the wallet that owns your locks to sign. Flight Plan finds the sAERO locks on chain.</li>
     <li><b>Read your split.</b> The big number is what this window is expected to pay. Tap any pool for the detail behind it.</li>
     <li><b>Dry run.</b> A free rehearsal on the chain from your address: it shows exactly what your votes would become. Nothing is signed or sent.</li>
-    <li><b>Copy the split</b> and vote those percentages in the Aero app.</li>
+    <li><b>Allocate</b> (connected, window open, dry run passed): one signature per lock, an <code>allocate</code> call to the Aero Voter with 0 ETH. Or copy the split and vote in the Aero app.</li>
+    <li><b>Sweep</b> (optional): after you claim rewards in the Aero app, sell them for USDC in one swap.</li>
   </ol>
   <h3>Colors</h3>
   <p><span class="dot" style="--c:var(--t-fee)"></span>Deep fee · big pools paid mainly by trading fees<br>
@@ -99,33 +100,77 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
     <li><b>Size filter</b> (10k+ to 1M+) ranks you among locks or wallets at least that big. It starts on your own size.</li>
     <li><b>Whole-lock APR.</b> Earnings are divided by everything a lock holds, including AERO parked and not voting anywhere, because parked AERO earns nothing. When that differs from the APR on the voting part alone, the voting APR shows small underneath.</li>
     <li><b>Average and median</b> are the plain average and middle APR of every lock (or wallet) over 100 AERO in the filter, each counted once.</li>
+    <li><b>Compare with: Autopilot USDC, Autopilot sAERO, 40acres.</b> Public products that vote on behalf of many lockers, each shown as one combined entry with the same math: whole-lock APR, voting APR when it differs, rank, top %, and dollars per week per 1,000 AERO. Autopilot is Aero's own relay (a keeper picks its pools); 40acres is a third-party vault whose per-user accounts share one contract template, which is how they are recognised.</li>
   </ul>
-  <p class="mut">Earnings are read on chain for every lock (fees and incentives, claims bridged) and valued at current prices. Rank data refreshes every 3 hours.</p>
+  <p class="mut">Earnings are read on chain for every lock (fees and incentives, claims bridged, every network) and valued at current prices. Rank data refreshes about every 3 hours.</p>
 </div></section>
 
-<section class="grp safe" id="safe"><h2>What it reads, and never does</h2><div class="body">
+<section class="grp" id="history"><h2>By week, by day: you vs the average over time</h2><div class="body">
   <ul>
-    <li><b>Reads only:</b> your locks, their votes, pool sizes, and a dry run (<code>eth_simulateV1</code>, a simulation that changes nothing) through a public Base RPC, straight from your browser.</li>
-    <li><b>Connect</b> asks your wallet for its address and nothing else. There is no Sign or Send button anywhere.</li>
-    <li><b>Never:</b> an approval, a transfer, a claim, or any transaction. Nothing you enter is sent to a server; the page is static files plus public chain reads.</li>
+    <li><b>By week</b> follows Aero's epochs (Thursday 00:00 UTC to Thursday). <b>By day</b> runs midnight to midnight US Eastern. The choice is remembered on this device.</li>
+    <li>Each row: your APR for that bucket (all your locks as one), the average of every lock or wallet in your size filter, how far you sat from it, and your rank when your locks were in that bucket.</li>
+    <li><b>Today so far</b> and <b>This week so far</b> run to the last every-lock read, which happens about every 3 hours; the row says when. Rewards land in lumps, so a running row swings until the bucket closes.</li>
+    <li>The daily log reaches back about 8 days (the reads only keep that much), and a lock only has history from the day it was first tracked. Old days were measured across 2 or 3 reads and say so.</li>
   </ul>
-  <div class="note bad">If any site claiming to be Flight Plan asks you to sign or approve something, it isn't this one. Close it.</div>
 </div></section>
 
-<section class="grp safe" id="blind"><h2>Never sign blind (when you vote in the Aero app)</h2><div class="body">
+<section class="grp" id="earn"><h2>Earnings</h2><div class="body">
+  <ul>
+    <li><b>APR 24h / 7d</b>: fees and incentives each lock earned over the period, on the whole lock, at today's AERO price, annualized.</li>
+    <li><b>Earned</b>: what the tracker has seen the lock earn since it first read it, with claims bridged (a claim doesn't reset the count) across every network. The reads keep about 8 days, so this is <b>not</b> lifetime earnings; the Since column shows where the count starts, and a lock first read after the tracker's window started covers fewer days.</li>
+    <li><b>Unclaimed</b>: what the last read saw waiting to be claimed, every network, in dollars.</li>
+  </ul>
+</div></section>
+
+<section class="grp" id="sweep"><h2>The sweep: rewards to USDC</h2><div class="body">
   <ol>
-    <li><b>Dry run here first</b> so you know exactly what your votes should become.</li>
-    <li><b>Network is Base</b>, the <b>To</b> address is the Voter below, and the value is <b>0 ETH</b>.</li>
-    <li>Your wallet's preview should show your sAERO lock re-allocated and <b>no tokens moving</b>.</li>
+    <li><b>Claim</b> your rewards in the Aero app first (Flight Plan never claims).</li>
+    <li><b>Scan.</b> The page lists every token in the wallet with a route to USDC through Aero's new pools (the block explorer's token list, the Aero token universe, and any extra addresses you add), quotes each route live through Aero's Metaquoter, and picks the best.</li>
+    <li><b>Dust and slippage.</b> Tokens under the dust floor are skipped by default (you can tick them back); the minimum received is the quote minus your slippage setting. Tokens under $0.25 are marked "may revert" so one failing dust swap can't block the rest.</li>
+    <li><b>Dry run</b> simulates the approvals and the swap from your address and shows the USDC you would get. Nothing is sent.</li>
+    <li><b>Sign.</b> An exact-amount <code>approve</code> to the Metarouter for each token that needs one, then <b>one</b> Metarouter <code>execute</code> that sells them all, with the USDC paid to your own wallet. A wallet that supports batching signs it once; otherwise one signature per call. Every call is checked against an allowlist before it reaches your wallet: only approve(Metarouter, exactly the balance) on a token the scan found, or execute() on the Metarouter.</li>
   </ol>
-  <div class="note warn"><b>Reject</b> anything that says "setApprovalForAll", "approve" on sAERO, or "transfer", or a value other than 0. Voting moves votes, never tokens.</div>
-  <p class="mut">Hardware wallets show the vote as raw data, so the To address, network and 0 ETH are the checks you can make on the device.</p>
+</div></section>
+
+<section class="grp" id="crowd"><h2>When the crowd moves</h2><div class="body">
+  <p>Every sAERO vote since launch is read from the chain. The chart shows sAERO moved per 2 hours over the last 72 hours, sAERO coming off its 47-hour cooldown over the next 72 hours, and how much of it is likely to move (from how quickly locks have historically moved after their window opened). The shaded band is when the Aero team's incentive batch usually lands; your own lock windows are pinned with a dashed line.</p>
+  <p class="mut">The edge: a vote keeps earning past its window until you change it, so waiting for a big wave to move (its dilution is then known) and for the team's batch to land is free.</p>
+</div></section>
+
+<section class="grp safe" id="safe"><h2>What it signs, and never signs</h2><div class="body">
+  <p>Connecting shares only your address. With the owning wallet connected, Flight Plan can ask for exactly three kinds of signature:</p>
+  <ol>
+    <li><b>A vote.</b> One <code>allocate</code> call to the Aero <b>Voter</b> for a lock your wallet owns, <b>0 ETH</b>. The guard checks, before every send: the To address is the Voter; the call is <code>allocate</code>; the lock id is the one shown and your account owns it; the refund address is you; every dispatch is Base-only with zero value and zero gas limit; the gauges are exactly the plan's; the amounts add up to the whole stake. It is rebuilt from the plan and checked again against a fresh chain read (owner, window, booked amount) right before your wallet opens.</li>
+    <li><b>A sweep approval.</b> <code>approve</code> on a reward token the scan found in your wallet, spender = Aero's <b>Metarouter</b>, amount = <b>exactly your balance</b>. Never unlimited.</li>
+    <li><b>A sweep swap.</b> One Metarouter <code>execute</code> that sells those tokens for USDC with the minimum you set, <b>paid to your own address</b>.</li>
+  </ol>
+  <h3>Never</h3>
+  <ul>
+    <li>An approval on <b>sAERO</b>, or <code>setApprovalForAll</code> on anything. Your locks cannot be moved by this page: <code>allocate</code> moves votes, not tokens, and there is no code path that approves the escrow.</li>
+    <li>A transfer, a claim, a withdrawal, a merge, an unlimited approval, a message signature (<code>personal_sign</code> / typed data), or any value other than 0 ETH.</li>
+    <li>Anything without a passing dry run first, and nothing in paste-only mode (no wallet connected).</li>
+  </ul>
+  <p>Worst case, if you ignore every check: a swap that fills at your slippage limit, or a poor pool pick for one 47-hour window. No lock can be lost.</p>
+  <div class="note bad">Check the address bar says <b>flight-plan.app</b>. A copy on another address can be anything. If any page claiming to be Flight Plan asks for a signature that doesn't match the three above, close it.</div>
+</div></section>
+
+<section class="grp safe" id="blind"><h2>Never sign blind</h2><div class="body">
+  <ol>
+    <li><b>Dry run first</b>, every time, so you know exactly what your votes (or the swap) should become.</li>
+    <li><b>Network is Base</b>, the <b>To</b> address is the Voter (a vote) or the Metarouter (a sweep) or a reward token (an approval), and the value is <b>0 ETH</b>. The addresses are below; compare the start and the end.</li>
+    <li>Your wallet's preview should show your sAERO lock re-allocated and <b>no tokens moving</b> (a vote), or minus the reward tokens and plus USDC (a sweep).</li>
+  </ol>
+  <div class="note warn"><b>Reject</b> anything that says "setApprovalForAll", "approve" on sAERO, "transfer", an amount larger than the row, or a value other than 0.</div>
+</div></section>
+
+<section class="grp" id="hardware"><h2>Hardware wallets</h2><div class="body">
+  <p>A Keystone, Ledger or similar device shows <code>allocate</code> and <code>execute</code> as raw data: it cannot decode them, so the device screen alone can't tell you what the call does. What you <b>can</b> check on the device: the network (Base), the To address (compare its start and end with the addresses below), the method selector (<code>0xf02e634e</code> for allocate), and 0 ETH. What tells you the content is right: the dry run on this page (the chain's own answer), the "What you will sign" list under each dry run, and your software wallet's simulation (Rabby shows the lock re-allocated and no token moves). Approvals decode normally: check the spender is the Metarouter and the amount is your balance.</p>
 </div></section>
 
 <section class="grp" id="anchors"><h2>Contract addresses (Base)</h2><div class="body">
   <p>Tap to copy. Check them once against Aero's published deployment files.</p>
   <div class="addr"><span class="k">Voter · where every vote goes</span><code data-copy="0x49d7d4f17ec56ef8fa04e464af5d1a4942cc31e6">0x49d7d4f17ec56ef8fa04e464af5d1a4942cc31e6</code></div>
-  <div class="addr"><span class="k">Metarouter · Aero's swap router (for selling rewards in the Aero app)</span><code data-copy="0x0fef9e88a7b76bcdbf451780c6774fe32965ee98">0x0fef9e88a7b76bcdbf451780c6774fe32965ee98</code></div>
+  <div class="addr"><span class="k">Metarouter · Aero's swap router (the sweep sells rewards through it)</span><code data-copy="0x0fef9e88a7b76bcdbf451780c6774fe32965ee98">0x0fef9e88a7b76bcdbf451780c6774fe32965ee98</code></div>
   <div class="addr"><span class="k">sAERO (your locks; never approve it)</span><code data-copy="0xbf7977e1521e9a3032bf7243ee4712f311f13915">0xbf7977e1521e9a3032bf7243ee4712f311f13915</code></div>
   <div class="addr"><span class="k">LeafVoter (Base)</span><code data-copy="0x382409fad8503fbcdbb27a4211551fa03e884078">0x382409fad8503fbcdbb27a4211551fa03e884078</code></div>
   <div class="addr"><span class="k">Multicall3 (batched reads)</span><code data-copy="0xcA11bde05977b3631167028862bE2a173976CA11">0xcA11bde05977b3631167028862bE2a173976CA11</code></div>
@@ -133,21 +178,26 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 </div></section>
 
 <section class="grp" id="networks"><h2>Locks voting on other networks</h2><div class="body">
-  <p>Aero runs on several networks (OP, Arbitrum, Ethereum, Ink, Robinhood, Arc) and a lock can vote on any of them. Flight Plan plans and rehearses <b>Base</b> votes. If a lock's votes sit on another network, its card says so and the dry run is skipped; you can still use the suggested percentages for it in the Aero app.</p>
+  <p>Aero runs on several networks (OP, Arbitrum, Ethereum, Ink, Robinhood, Arc) and a lock can vote on any of them. Flight Plan plans, rehearses and signs <b>Base</b> votes only. If a lock's votes sit on another network, its card says so and the dry run and Allocate are skipped; you can still use the suggested percentages for it in the Aero app.</p>
 </div></section>
 
-<section class="grp" id="fail"><h2>When a dry run fails</h2><div class="body">
+<section class="grp" id="fail"><h2>When something fails</h2><div class="body">
   <div class="tw"><table><tr><th>Message</th><th>Meaning</th><th>Do</th></tr>
   <tr><td>cooldown still running</td><td>the 47 hours haven't passed for that lock</td><td>wait for its ring to read OPEN</td></tr>
   <tr><td>votes on another network</td><td>the lock votes on OP, Arbitrum or another network</td><td>use the Aero app for that lock</td></tr>
   <tr><td>pick more pools</td><td>your wallet is too big for that few pools</td><td>pick a higher number or Auto</td></tr>
-  <tr><td>safety check: …</td><td>the rehearsal call failed the same checks a real vote must pass</td><td>reload; if it repeats, open an issue on the source</td></tr></table></div>
-  <p class="mut">A dry run never sends anything, failed or not.</p>
+  <tr><td>safety check / guard tripped</td><td>the call failed the checks a real vote must pass</td><td>reload and dry-run again; if it repeats, open an issue on the source</td></tr>
+  <tr><td>the plan changed since the dry run</td><td>new pool data or a new pool count arrived after the rehearsal</td><td>dry-run again, then sign</td></tr>
+  <tr><td>not the connected wallet</td><td>the lock belongs to another address</td><td>connect the wallet that owns it</td></tr>
+  <tr><td>window opens …; not yet</td><td>the live re-check found the cooldown still running</td><td>wait for the open</td></tr>
+  <tr><td>sweep: dry run failed at the swap</td><td>one token's route cannot fill at your minimum</td><td>untick it or raise slippage, dry-run again</td></tr>
+  <tr><td>reverted on chain</td><td>the transaction was mined but failed; only gas was spent</td><td>dry-run again before retrying</td></tr></table></div>
+  <p class="mut">A dry run never sends anything, failed or not. A failed send spends only the network fee.</p>
 </div></section>
 
 <section class="grp" id="data"><h2>Data and freshness</h2><div class="body">
-  <p>Pool estimates are published every hour; ranks every 3 hours. How many votes each pool has is read live when you open the page. The footer shows how old the pool data is, and the page warns when it's more than 3 hours old.</p>
-  <p class="mut">Open source under the MIT license. The planning math runs in your browser (<code>planner.js</code>); the dry-run call is built and checked by <code>allocate-lib.js</code>. Prices from DefiLlama. Not financial advice: estimates can be wrong, and pools can change fast.</p>
+  <p>Pool estimates are published every hour; ranks, history and earnings every 3 hours; the crowd chart every hour. How many votes each pool has is read live when you open the page. The footer shows how old the pool data is, and the page warns when it's more than 3 hours old.</p>
+  <p class="mut">Open source under the MIT license. The planning math runs in your browser (<code>planner.js</code>); the vote call is built and checked by <code>allocate-lib.js</code>; sweep routes come from <code>sweep-routes.js</code> and are re-quoted live. Prices from DefiLlama. Not financial advice: estimates can be wrong, and pools can change fast.</p>
 </div></section>
 
 <p class="foot">Unofficial. Not affiliated with Aerodrome. <a href="./">← Back to the app</a></p>
