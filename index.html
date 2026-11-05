@@ -864,6 +864,13 @@ function renderSweep(emptyMsg) {
     <div class="tile"><div class="k">Signatures</div><div class="v num">${n ? appr + 1 : 0} <small>${appr} approval${appr === 1 ? "" : "s"} + 1 swap</small></div></div>`;
   $("swk").textContent = `${n} to sell · $${fmt(tot, 2)}`;
 }
+// Rabby (and some other wallets) preview a swap as ONE token in and ONE token out. Our sweep sells several tokens in
+// one swap, so the preview compares a single token with the whole USDC total and can show a red "value" or
+// "slippage" warning. The balance change underneath is the true picture; the dry run proves it.
+function walletNote(n, usd) {
+  if (n < 2) return "";
+  return `<div class="banner warn small" style="margin-top:8px"><b>Expect a red warning in your wallet on the last signature.</b> This swap sells ${n} tokens at once, and wallets like Rabby compare just one of them against the whole USDC total, so it can look like a big loss or "slippage". It isn't: check that the balance change at the bottom of the wallet screen (the ${n} tokens out, USDC in) matches the dry run${usd != null ? ` (<b>+$${fmt(usd, 2)} USDC</b>)` : ""}. <a href="docs.html#sweep">Why</a></div>`;
+}
 function swBuildPlan(ownerIn) {
   if (!ownerIn) return;
   const owner = ethers.getAddress(ownerIn);
@@ -883,7 +890,7 @@ function swBuildPlan(ownerIn) {
   SW.plan = { owner, approvals, exec, deadline, sel }; SW.dry = null;
   const bytes = (exec.data.length - 2) / 2;
   $("swPlan").innerHTML = `<ol class="steplist">${approvals.map(a => `<li><b>Approve ${esc(a.sym)}</b> · To <code>${a.to}</code> (the ${esc(a.sym)} token) · spender <code>${MR}</code> (Metarouter) · amount <b>${esc(a.amount)}</b> · 0 ETH</li>`).join("")}
-    <li><b>Swap</b> · To <code>${MR}</code> (Aero Metarouter) · method <b>execute</b> <code>${exec.data.slice(0, 10)}</code> · ${bytes.toLocaleString()} bytes · <b>0 ETH</b> · USDC paid to <code>${owner}</code> (you)<br><span class="mut">A hardware wallet shows this as raw data. Check the To address and 0 ETH on the device; the content is what the dry run returns and what your wallet's simulation shows (minus the reward tokens, plus USDC).</span></li></ol>
+    <li><b>Swap</b> · To <code>${MR}</code> (Aero Metarouter) · method <b>execute</b> <code>${exec.data.slice(0, 10)}</code> · ${bytes.toLocaleString()} bytes · <b>0 ETH</b> · USDC paid to <code>${owner}</code> (you)<br><span class="mut">A hardware wallet shows this as raw data. Check the To address and 0 ETH on the device; the content is what the dry run returns and what your wallet's simulation shows (minus the reward tokens, plus USDC).</span>${sel.length > 1 ? `<br><span class="mut">Your wallet may flag this swap in red as a loss or "slippage": it compares one token with the whole total. The balance change is what counts.</span>` : ""}</li></ol>
     <p class="small mut">Network <b>Base</b> on every screen. Reject anything naming sAERO <code>0xbf7977e1…</code>, "setApprovalForAll", "transfer", or an amount larger than the row. Deadline ${new Date(deadline * 1000).toLocaleTimeString()}.</p>`;
   $("swPlanWrap").style.display = ""; $("swSign").style.display = ""; $("btnSend").disabled = true; $("swOut").innerHTML = "";
 }
@@ -914,7 +921,7 @@ async function swDry() {
   SW.dry = { got, gas };
   const mine = S.account && ethers.getAddress(S.account) === p.owner;
   log(`Sweep simulation OK: +${fmt(got, 4)} USDC (quotes ${fmt(expect, 4)}), gas ${gas.toLocaleString()}`, "ok");
-  $("swOut").innerHTML = `<div class="banner ok"><div class="big num">+$${fmt(got, 2)} USDC</div><span class="small">Dry run OK · quotes said $${fmt(expect, 2)} · gas ${gas.toLocaleString()} ≈ $${fmt(gas * 0.006e-9 * 2400, 3)} · ${p.approvals.length + 1} signature${p.approvals.length ? "s" : ""}${mine ? "" : S.account ? " · connect the wallet that holds these tokens to sign" : " · connect to sign"}</span></div>`;
+  $("swOut").innerHTML = `<div class="banner ok"><div class="big num">+$${fmt(got, 2)} USDC</div><span class="small">Dry run OK · quotes said $${fmt(expect, 2)} · gas ${gas.toLocaleString()} ≈ $${fmt(gas * 0.006e-9 * 2400, 3)} · ${p.approvals.length + 1} signature${p.approvals.length ? "s" : ""}${mine ? "" : S.account ? " · connect the wallet that holds these tokens to sign" : " · connect to sign"}</span></div>${walletNote(p.sel.length, got)}`;
   $("btnSend").disabled = !mine;
 }
 async function swSend() {
@@ -935,7 +942,7 @@ async function swSend() {
   const txs = [];
   try {
     if (atomic) {
-      prog("Waiting for your signature (one batch)…");
+      prog("Waiting for your signature (one batch)…" + walletNote(p.sel.length, SW.dry && SW.dry.got));
       const id = await S.provider.request({ method: "wallet_sendCalls", params: [{ version: "2.0.0", chainId: C.CHAIN_HEX, from: S.account, atomicRequired: true, calls: all.map(c => ({ to: c.to, data: c.data, value: "0x0" })) }] });
       log(`Batch submitted (${all.length} calls in one signature), id ${JSON.stringify(id).slice(0, 80)}. Waiting…`);
       for (let i = 0; i < 90; i++) {
@@ -946,7 +953,7 @@ async function swSend() {
       }
     } else {
       for (const [i, c] of all.entries()) {
-        prog(`Signature ${i + 1} of ${all.length}: ${esc(c.desc)}`);
+        prog(`Signature ${i + 1} of ${all.length}: ${esc(c.desc)}` + (c === p.exec ? walletNote(p.sel.length, SW.dry && SW.dry.got) : ""));
         log(`Signing ${i + 1}/${all.length}: ${c.desc}`);
         const hash = await S.provider.request({ method: "eth_sendTransaction", params: [{ from: S.account, to: c.to, data: c.data, value: "0x0" }] });
         log(`  sent ${hash}, waiting for confirmation…`); txs.push(hash);
