@@ -185,5 +185,5 @@
     return { legs, start: D.starts[si], expect_usd: tot.expected, expect_low_usd: tot.low, expect_high_usd: tot.high, apr, warnings, placed, opts: o };
   }
 
-  return { poolRules, chaseFor, value, optimize, rowsAt, startIndex, plan, weightsFor, feeDay, DEFAULTS };
+  return { poolRules, chaseFor, value, optimize, rowsAt, startIndex, plan, weightsFor, feeDay, DEFAULTS, PLAN_V };
 });
