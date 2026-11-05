@@ -427,7 +427,9 @@ function decodeHist(H) {
   };
   return { ...H, idOf, weeks: H.weeks.map(bucket), days: H.days.map(bucket) };
 }
-function stats(list, thr) { const a = list.filter(x => x.a >= thr).map(x => x.r).sort((x, y) => x - y); if (!a.length) return null; const m = a.reduce((s, x) => s + x, 0) / a.length; const md = a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2; return { a, avg: m, med: md }; }
+function stats(list, thr) {   // average = weighted by AERO (what the average AERO earned); median = the typical lock
+  const sel = list.filter(x => x.a >= thr), a = sel.map(x => x.r).sort((x, y) => x - y); if (!a.length) return null;
+  const wa = sel.reduce((s, x) => s + x.a, 0), m = wa ? sel.reduce((s, x) => s + x.r * x.a, 0) / wa : 0; const md = a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2; return { a, avg: m, med: md }; }
 function rankOf(st, apr) { let lo = 0, hi = st.a.length; while (lo < hi) { const m = (lo + hi) >> 1; if (st.a[m] <= apr) lo = m + 1; else hi = m; } const better = st.a.length - lo; return { rank: better + 1, of: st.a.length, top: (better + 1) / st.a.length * 100 }; }
 function wallets(rows, Rk) {
   const acc = new Map();
@@ -664,7 +666,7 @@ function renderRank() {
     <div class="seg" id="mode"><button type="button" data-m="lock" class="${S.mode === "lock" ? "on" : ""}">Every lock</button><button type="button" data-m="wallet" class="${S.mode === "wallet" ? "on" : ""}">Every wallet</button></div>
     <div class="seg" id="brk">${br.map(([k]) => `<button type="button" data-b="${k}" class="${S.bracket === k ? "on" : ""}">${label[k] || k}</button>`).join("")}</div>
     ${you}${cmp ? `<div class="seglabel" style="margin-top:4px">Compare with</div>${cmp}` : ""}
-    <p class="small mut2" style="margin:8px 0 0">All your locks counted as one. "Now" is about the last 12 hours, between two every-lock reads (the times are under it); "Today so far" in the history below starts at midnight, so the two cover different hours and can differ a lot when rewards land in a lump. Autopilot and 40acres are products that vote for many lockers; each is shown as one combined entry. <a href="docs.html#rank">How it's measured</a></p></div>`;
+    <p class="small mut2" style="margin:8px 0 0">All your locks counted as one. The average is weighted by AERO; the median is the typical lock. "Now" is about the last 12 hours, between two every-lock reads (the times are under it); "Today so far" in the history below starts at midnight, so the two cover different hours and can differ a lot when rewards land in a lump. Autopilot and 40acres are products that vote for many lockers; each is shown as one combined entry. <a href="docs.html#rank">How it's measured</a></p></div>`;
   el.querySelectorAll("#mode button").forEach(b => b.addEventListener("click", () => { S.mode = b.dataset.m; store.set("mode", S.mode); renderRank(); }));
   el.querySelectorAll("#brk button").forEach(b => b.addEventListener("click", () => { S.bracket = b.dataset.b; store.set("bracket", S.bracket); renderRank(); }));
   el.querySelectorAll("[data-logv]").forEach(b => b.addEventListener("click", () => { S.logv = b.dataset.logv; store.set("logv", S.logv); renderRank(); }));
@@ -718,11 +720,11 @@ function renderWins() {
   const weeks = (ST.history || []).length;
   el.innerHTML = `<h2>What actually wins <span>last 7 days · ${ST.locks.toLocaleString()} locks</span></h2><div class="body">
     <div class="seg" id="winsbr">${brs.map(k => `<button type="button" data-b="${k}" class="${S.winsBr === k ? "on" : ""}">${label[k] || k}</button>`).join("")}</div>
-    <p class="small mut" style="margin:0 0 8px">Every ranked lock${S.winsBr === "all" ? "" : " of " + (label[S.winsBr] || S.winsBr)}, grouped by what it did, with each group's whole-lock APR over the last 7 days. Group average ${pct(T.all && T.all.avg)} · median ${pct(T.all && T.all.median)}.</p>
+    <p class="small mut" style="margin:0 0 8px">Every ranked lock${S.winsBr === "all" ? "" : " of " + (label[S.winsBr] || S.winsBr)}, grouped by what it did, with each group's whole-lock APR over the last 7 days (average weighted by AERO). Group average ${pct(T.all && T.all.avg)} · median ${pct(T.all && T.all.median)}.</p>
     ${tbl("Pools voted", T.pools, ["1", "2-3", "4-6", "7+"], you.pools)}
     ${tbl("Moves in 7 days", T.moves, ["0", "1", "2+"], null)}
     ${tbl("Fees vs streams", T.mix, ["fee-led", "mixed", "stream-led"], you.mix)}
-    <p class="small mut2" style="margin:8px 0 0">Averages are pulled up by a few big winners; the median is the typical lock. Read on chain every 3 hours from the last ${Math.round((ST.to - ST.from) / 86400)} days; ${weeks ? `${weeks} weekly snapshot${weeks === 1 ? "" : "s"} kept so far` : "weekly snapshots start accumulating from this week"}. This is how the presets get tuned. <a href="docs.html#wins">How it's measured</a></p></div>`;
+    <p class="small mut2" style="margin:8px 0 0">The average is weighted by AERO (what the group's average AERO earned); the median is the typical lock. Read on chain every 3 hours from the last ${Math.round((ST.to - ST.from) / 86400)} days; ${weeks ? `${weeks} weekly snapshot${weeks === 1 ? "" : "s"} kept so far` : "weekly snapshots start accumulating from this week"}. This is how the presets get tuned. <a href="docs.html#wins">How it's measured</a></p></div>`;
   el.querySelectorAll("#winsbr button").forEach(b => b.addEventListener("click", () => { S.winsBr = b.dataset.b; renderWins(); }));
 }
 function renderCrowd() {
