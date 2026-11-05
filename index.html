@@ -474,7 +474,13 @@ function renderHero() {
   const h = $("hero");
   if (!S.addr) { h.innerHTML = `<div class="hk">Plan your next vote</div><div class="hv" style="font-size:28px;letter-spacing:-.6px">Paste a wallet or connect to start</div><div class="hs">You'll see its sAERO locks, a split sized to them, how they rank against every lock, and (connected) one signature per lock.</div>`; return; }
   if (S.busy) { h.innerHTML = `<div class="hk">${esc(short(S.addr))}</div><div class="hv" style="font-size:28px">Reading the chain…</div>`; return; }
-  if (!S.locks.length) { h.innerHTML = `<div class="hk">${esc(short(S.addr))}</div><div class="hv" style="font-size:28px">${S.empty ? "These locks are empty" : "No sAERO locks here"}</div><div class="hs">${S.empty ? `${S.empty} lock${S.empty === 1 ? "" : "s"} found, but none holds any AERO now (withdrawn or merged).` : "Check the address, or try the wallet that holds your locks."}</div>`; return; }
+  if (!S.locks.length) {
+    const mine = S.account && S.account.toLowerCase() === S.addr.toLowerCase();
+    const why = S.empty ? `${S.empty} lock${S.empty === 1 ? "" : "s"} found, but none holds any AERO now (withdrawn or merged).`
+      : mine ? `Your wallet handed Flight Plan the account <code>${esc(S.addr)}</code>, and that account owns no sAERO. Switch to the account that holds your locks inside your wallet (the page follows the switch), or paste that address above to look.`
+      : "Check the address, or try the wallet that holds your locks.";
+    h.innerHTML = `<div class="hk">${esc(short(S.addr))}${mine ? " · connected" : ""}</div><div class="hv" style="font-size:28px">${S.empty ? "These locks are empty" : mine ? "This account has no sAERO locks" : "No sAERO locks here"}</div><div class="hs">${why}</div>`; return;
+  }
   const p = S.plan, aero = totalAero(), now = Date.now() / 1000;
   const first = S.locks.slice().sort((a, b) => (a.next || 0) - (b.next || 0))[0];
   const pills = [];
