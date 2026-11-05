@@ -181,6 +181,17 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
   <p class="mut">Counts and averages only are published: nothing per lock or per wallet leaves the scanner.</p>
 </div></section>
 
+<section class="grp" id="tested"><h2>How each strategy did (the backtest)</h2><div class="body">
+  <p>Every 3 hours the scanner replays every strategy on its own past scans. For each past hour on a 3-hour grid it rebuilds exactly what the planner knew at that moment (pool scans up to then, the incentive programs seen by then, the self-tuned settings as they were then), makes each strategy's split with this same planner.js, and then pays that split from what the pools really paid over the next 47 hours: per scan, (voter fees + incentives) x your AERO / (the pool's actual votes at that scan + your AERO). Real pile-ons are included, and nothing from the future leaks into a plan.</p>
+  <ul>
+    <li><b>Strategies:</b> Balanced, Steady and Aggressive as on the dial, Aggressive held to Base, exactly 1, 3, 6 and 10 pools, and the old spike-chaser (the last 12 hours only, spikes trusted). Lock sizes 1k, 30k, 100k and 1M AERO.</li>
+    <li><b>Other networks:</b> the best single pool on each network, after the cost of voting there, against the best on Base at the same moment. Ink, Robinhood and Arc were scanned once a day until Nov 5 (every 3 hours since), so their early figures are rough.</li>
+    <li><b>Checked:</b> replaying real locks' votes the same way lands within about 0 to 15% of what the chain says they earned (slightly high).</li>
+    <li><b>"Beat Balanced"</b> counts separate 2-day stretches, not hours: starts 3 hours apart share most of their 47 hours, so a week of data is only 3 to 5 separate windows. Treat small differences as noise.</li>
+  </ul>
+  <p><b>Calibration.</b> On past data the planner's expected dollars ran high: realized / expected has a median near 0.7. So every expected, low and high figure on the page is multiplied by that measured factor for your preset (Custom uses Balanced's), and the "calibrated" link under the window total says so. A pool on another network keeps its full cost: (gross x factor) minus cost. The factor only ever scales down, needs at least 8 replayed plans, and is refit every 3 hours. "Move or stay" scales both sides the same way, so its verdict doesn't change.</p>
+</div></section>
+
 <section class="grp safe" id="safe"><h2>What it signs, and never signs</h2><div class="body">
   <p>Connecting shares only your address. With the owning wallet connected, Flight Plan can ask for exactly three kinds of signature:</p>
   <ol>

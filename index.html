@@ -186,6 +186,7 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
 <section class="card" id="rank"></section>
 <section class="card" id="earn"></section>
 <section class="card" id="wins"></section>
+<section class="card hidden" id="tested"></section>
 <section class="card" id="crowd"></section>
 <details class="card" id="logw"><summary class="body small mut" style="cursor:pointer">Log</summary><div class="body" style="padding-top:0"><div id="log"></div></div></details>
 
@@ -282,9 +283,11 @@ async function loadData() {
   const v = Math.floor(Date.now() / 600000);         // refresh at most every 10 min
   // open-time load is plan + crowd only (~55KB gz); the every-lock rank file (~480KB gz) and history (~620KB gz)
   // are fetched only once someone looks a wallet up, in parallel with the chain reads
-  const [d, c, st] = await Promise.all([fetch("data/plan.json?v=" + v).then(x => x.json()),
-    fetch("data/crowd.json?v=" + v).then(x => x.json()).catch(() => null), fetch("data/strategy.json?v=" + v).then(x => x.json()).catch(() => null)]);
+  const [d, c, st, bt] = await Promise.all([fetch("data/plan.json?v=" + v).then(x => x.json()),
+    fetch("data/crowd.json?v=" + v).then(x => x.json()).catch(() => null), fetch("data/strategy.json?v=" + v).then(x => x.json()).catch(() => null),
+    fetch("data/backtest.json?v=" + v).then(x => x.json()).catch(() => null)]);
   S.ST = st; renderWins();
+  S.BT = bt; renderTested();
   const want = P.PLAN_V || 1;
   if ((d.v || 1) !== want) {          // a cached file from before/after a format change: never plan from it
     S.D = null; S.CR = c; renderCrowd();
@@ -382,7 +385,19 @@ function clamp(x, lo, hi, dflt) { x = Number(x); return Number.isFinite(x) ? Mat
 function matchPreset(v) { for (const [k, q] of Object.entries(PRESETS)) if (q.n === v.n && Math.abs(q.memory - v.memory) < 1e-9 && q.trust === v.trust && Math.abs(q.caution - v.caution) < 1e-9 && Math.abs(q.streams - v.streams) < 1e-9) return k; return "custom"; }
 function setDial(v) { S.dial = { ...v, preset: matchPreset(v) }; store.set("dial", JSON.stringify(S.dial)); replan(); render(); }
 const dialOpts = () => ({ n: S.dial.n || null, memory: S.dial.memory, trust: S.dial.trust, caution: S.dial.caution, streams: S.dial.streams });
-const perLock = () => S.dial.n === 1 && S.locks.length > 1;      // Aggressive with several locks: each lock to a different top pool
+const perLock = () => S.dial.n === 1 && S.locks.length > 1;
+/* Backtest calibration (data/backtest.json): replayed on past scans, the planner's expected dollars ran high, so every
+   expected / low / high figure is scaled by the measured realized / expected for the preset (Custom uses Balanced's).
+   Refit every 3 hours; never above 1. A pool on another network keeps its full cost: (gross x f) minus cost. */
+function calF() { const c = S.BT && S.BT.calibration; if (!c) return 1; const k = S.dial && c[S.dial.preset] != null ? S.dial.preset : "balanced"; const f = Number(c[k]); return f > 0 && f < 1 ? f : 1; }
+function calib(pl) {
+  const f = calF(); if (!pl || f >= 1) return pl;
+  const ex0 = pl.expect_usd;
+  for (const l of pl.legs) { const c = l.cost || 0; for (const k of ["expect_usd", "expect_low_usd", "expect_high_usd"]) l[k] = (l[k] + c) * f - c; if (l.gross_usd != null) l.gross_usd *= f; }
+  if (pl.legs.length) for (const k of ["expect_usd", "expect_low_usd", "expect_high_usd"]) pl[k] = pl.legs.reduce((a, l) => a + l[k], 0);
+  pl.apr = ex0 ? pl.apr * pl.expect_usd / ex0 : pl.apr; pl.cal = f;
+  return pl;
+}      // Aggressive with several locks: each lock to a different top pool
 function replan() {
   if (!S.dial) S.dial = loadDial();
   for (const L of S.locks) { L.dry = null; L.call = null; L.plan = null; if (!L.sent) L.status = ""; }
@@ -392,14 +407,14 @@ function replan() {
   if (perLock()) {
     const taken = {}, legs = [], warnings = new Set(); let usd = 0, lo = 0, hi = 0, placed = 100;
     for (const L of S.locks.slice().sort((a, b) => lockAero(b) - lockAero(a))) {    // biggest lock picks first
-      const pl = P.plan(S.D, lockAero(L), Math.max(now, L.next || now), 1, S.live, { ...dialOpts(), taken: { ...taken } });
+      const pl = calib(P.plan(S.D, lockAero(L), Math.max(now, L.next || now), 1, S.live, { ...dialOpts(), taken: { ...taken } }));
       L.plan = pl; for (const l of pl.legs) { taken[l.row.gid] = (taken[l.row.gid] || 0) + l.aero; legs.push({ ...l, lock: L.id }); }
       usd += pl.expect_usd; lo += pl.expect_low_usd; hi += pl.expect_high_usd; placed = Math.min(placed, pl.placed); pl.warnings.forEach(w => warnings.add(w));
     }
     const aero = totalAero(), apr = aero && S.D.px ? usd / (aero * S.D.px) * 365 / (S.D.consts.H47 / 86400) * 100 : 0;
-    S.plan = { legs, start: openTs(), expect_usd: usd, expect_low_usd: lo, expect_high_usd: hi, apr, warnings: [...warnings], placed, perLock: true };
+    S.plan = { legs, start: openTs(), expect_usd: usd, expect_low_usd: lo, expect_high_usd: hi, apr, warnings: [...warnings], placed, perLock: true, cal: calF() };
   } else {
-    S.plan = P.plan(S.D, totalAero(), openTs(), null, S.live, dialOpts());
+    S.plan = calib(P.plan(S.D, totalAero(), openTs(), null, S.live, dialOpts()));
     for (const L of S.locks) L.plan = S.plan;
   }
 }
@@ -420,7 +435,7 @@ function stayVerdict() {
   if (tot <= 0 || base <= 0 || st.unpriced / base > 0.25) return { unknown: true, share: base > 0 ? st.unpriced / base : 1 };
   const unknown = st.unpriced;
   const per = S.D.consts.H47 / 86400;
-  const stayUsd = st.usd, planUsd = S.plan.expect_usd * (tot - elsewhere) / tot;   // compare the Base part only
+  const stayUsd = st.usd * (S.plan.cal || 1), planUsd = S.plan.expect_usd * (tot - elsewhere) / tot;   // Base part only; same calibration both sides
   const gain = planUsd - stayUsd, fees = FEE_PER_LOCK * S.locks.filter(L => !(L.booked === 0n && L.elsewhere.length)).length;
   const pct = stayUsd > 0 ? gain / stayUsd * 100 : Infinity;
   const move = gain - fees >= MOVE_USD_DAY * per && pct >= MOVE_PCT;
@@ -534,7 +549,7 @@ function renderHero() {
   if (S.D && Date.now() / 1000 - S.D.scan_ts > 3 * 3600) pills.push(`<span class="tag warn">Pool data ${esc(ago(S.D.scan_ts))}</span>`);
   h.innerHTML = `<div class="hrow">${ring(first, true)}<div class="hmain"><div class="hk">This window · ${esc(short(S.addr))}</div>
     <div class="hv num">${p ? money(p.expect_usd) : "-"}</div>
-    <div class="hs num">${p ? p.apr.toFixed(0) + "% APR · " : ""}${S.locks.length}${S.total > LOCK_MAX ? ` of ${S.total}` : ""} lock${S.locks.length === 1 ? "" : "s"} · ${fmtA(aero)} AERO</div></div></div>
+    <div class="hs num">${p && p.cal && p.cal < 1 ? `<a href="docs.html#tested" title="Expected dollars x ${p.cal.toFixed(2)}: on past data the planner ran high">calibrated</a> · ` : ""}${p ? p.apr.toFixed(0) + "% APR · " : ""}${S.locks.length}${S.total > LOCK_MAX ? ` of ${S.total}` : ""} lock${S.locks.length === 1 ? "" : "s"} · ${fmtA(aero)} AERO</div></div></div>
     <div class="pills">${pills.join("")}</div>`;
 }
 function poolRow(l) {
@@ -778,6 +793,35 @@ function renderWins() {
     <p class="small mut2" style="margin:8px 0 0">The average is weighted by AERO (what the group's average AERO earned); the median is the typical lock. Read on chain every 3 hours from the last ${Math.round((ST.to - ST.from) / 86400)} days; ${weeks ? `${weeks} weekly snapshot${weeks === 1 ? "" : "s"} kept so far` : "weekly snapshots start accumulating from this week"}. This is how the presets get tuned. <a href="docs.html#wins">How it's measured</a></p></div>`;
   el.querySelectorAll("#winsbr button").forEach(b => b.addEventListener("click", () => { S.winsBr = b.dataset.b; renderWins(); }));
 }
+// ---------- "How each strategy did": every preset replayed on past scans, no look-ahead (data/backtest.json) ----------
+const BT_SIZES = [["1000", "1k"], ["30000", "30k"], ["100000", "100k"], ["1000000", "1M"]];
+const BT_ORDER = ["balanced", "steady", "aggressive", "aggressive_base", "n10", "n6", "n3", "n1", "spike12"];
+const BT_NET = { optimism: "OP", arbitrum: "Arbitrum", ethereum: "Ethereum", ink: "Ink", robinhood: "Robinhood", arc: "Arc" };
+function renderTested() {
+  const el = $("tested"), B = S.BT;
+  if (!B || !B.rows) { el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  if (!S.btSize || !B.rows[S.btSize]) {
+    const a = S.locks.length ? totalAero() : 30000;
+    S.btSize = BT_SIZES.map(x => x[0]).filter(k => B.rows[k]).reduce((b, k) => Math.abs(Math.log(+k / a)) < Math.abs(Math.log(+b / a)) ? k : b, "30000");
+  }
+  const R = B.rows[S.btSize] || {}, mine = S.dial ? S.dial.preset : null;
+  const d2 = x => x == null ? "-" : "$" + x.toFixed(2);
+  const rows = BT_ORDER.filter(k => R[k]).map(k => { const v = R[k];
+    return `<tr${mine === k ? ' style="font-weight:700"' : ""}><td>${esc(B.labels[k] || k)}${mine === k ? ' <span class="tag ok" style="font-size:11px;padding:1px 7px">you</span>' : ""}</td>` +
+      `<td class="num">${d2(v.median)}<br><small class="mut">${v.p25 != null ? v.p25.toFixed(2) + " to " + v.p75.toFixed(2) : ""}</small></td>` +
+      `<td class="num mut">${v.worst.toFixed(2)} to ${v.best.toFixed(2)}</td><td class="num">${k === "balanced" ? "" : (v.bw != null ? v.bw + " of " + v.b : "-")}</td></tr>`; }).join("");
+  const N = (B.networks || {})[S.btSize] || {};
+  const nets = Object.entries(N).filter(([, v]) => v && v.n).map(([c, v]) => `${BT_NET[c] || c} ${Math.round(v.share * 100)}%`).join(" · ");
+  const thin = Object.entries(B.cadence || {}).filter(([, h]) => h && h > 6).map(([c]) => BT_NET[c] || c);
+  const cal = B.calibration || {}, fmtF = k => cal[k] != null ? "x" + Number(cal[k]).toFixed(2) : "none";
+  el.innerHTML = `<h2>How each strategy did <span>${B.n_starts} past starts · about ${B.independent_windows.toFixed(1)} separate windows</span></h2><div class="body">
+    <div class="seg" id="btsize">${BT_SIZES.filter(x => B.rows[x[0]]).map(([k, t]) => `<button type="button" data-s="${k}" class="${S.btSize === k ? "on" : ""}">${t} AERO</button>`).join("")}</div>
+    <p class="small mut" style="margin:0 0 8px">Each strategy planned with only what was known at the time, every 3 hours from ${esc(new Date(B.first * 1000).toLocaleDateString([], { month: "short", day: "numeric" }))} to ${esc(new Date(B.last * 1000).toLocaleDateString([], { month: "short", day: "numeric" }))}, then paid from what the pools really paid over the next 47 hours (real pile-ons in). Dollars per 1,000 AERO per window.</p>
+    <div class="tw"><table><tr><th>Strategy</th><th class="num">Median<br><small>middle half</small></th><th class="num">Worst to best</th><th class="num">Beat Balanced</th></tr>${rows}</table></div>
+    <p class="small mut2" style="margin:8px 0 0">"Beat Balanced" counts separate 2-day stretches. ${nets ? `Best single pool on another network beat Base's best after costs: ${esc(nets)} of the time.` : ""}${thin.length ? ` ${esc(thin.join(", "))} were scanned once a day until Nov 5, so their figures are rough.` : ""} Expected dollars on this page are scaled to match: Balanced ${fmtF("balanced")}, Steady ${fmtF("steady")}, Aggressive ${fmtF("aggressive")}. A small sample, refreshed every 3 hours. <a href="docs.html#tested">How it's tested</a></p></div>`;
+  el.querySelectorAll("#btsize button").forEach(b => b.addEventListener("click", () => { S.btSize = b.dataset.s; renderTested(); }));
+}
 function renderCrowd() {
   const el = $("crowd");
   if (!S.CR || !window.CrowdChart) { el.classList.add("hidden"); return; }
@@ -786,7 +830,7 @@ function renderCrowd() {
   const pins = S.locks.filter(L => L.next && L.next > now - 72 * 3600 && L.next < now + 72 * 3600).map(L => ({ t: L.next, label: "#" + L.id }));
   try { window.CrowdChart.render(el, S.CR, pins); } catch (e) { el.innerHTML = `<h2>When the crowd moves</h2><div class="body small mut2">Chart failed: ${esc(e.message)}</div>`; }
 }
-function render() { renderPill(); renderHero(); renderPlan(); renderLocks(); renderRank(); renderEarn(); renderWins(); renderCrowd(); }
+function render() { renderPill(); renderHero(); renderPlan(); renderLocks(); renderRank(); renderEarn(); renderWins(); renderTested(); renderCrowd(); }
 
 // ---------- dry run (eth_simulateV1 from the lock owner's address; nothing is signed or sent) ----------
 function buildCall(L) {
