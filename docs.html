@@ -1,0 +1,165 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flight Plan Docs</title>
+<meta name="description" content="How Flight Plan works: windows, how the split is made, why yours differs, the rank, what it reads and never does, and the contract addresses.">
+<meta name="theme-color" content="#090e1f">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="Flight Plan">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f7f8fb;--fg:#090e1f;--mut:#505675;--mut2:#80859f;--line:#dbdde4;--line2:#eaeaec;--card:#fff;--card2:#f4f5f8;--acc:#154afa;--accsoft:#e7eeff;
+  --ok:#008d67;--oksoft:#e6f6ef;--warn:#ae5a0e;--warnsoft:#fff6e0;--bad:#c1261b;--badsoft:#fff1f0;--c3:#6b4cf6;
+  --t-fee:#2f6bff;--t-stream:#e8890c;--t-stock:#e2548f;--t-thin:#0f9f92;--shadow:0 1px 3px rgba(9,14,31,.08);--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#090e1f;--fg:#eaeaec;--mut:#b0b4ca;--mut2:#80859f;--line:#222845;--line2:#1a2040;--card:#12172c;--card2:#0d1226;
+  --acc:#8c9fff;--accsoft:#152b6e;--ok:#49ba8f;--oksoft:#0f2a24;--warn:#f9a23e;--warnsoft:#2e2210;--bad:#e66a61;--badsoft:#33171a;--c3:#a996ff;
+  --t-fee:#6f95ff;--t-stream:#f9b64e;--t-stock:#f07aac;--t-thin:#3fd0c0;--shadow:0 1px 3px rgba(0,0,0,.4)}}
+:root[data-theme="dark"]{--bg:#090e1f;--fg:#eaeaec;--mut:#b0b4ca;--mut2:#80859f;--line:#222845;--line2:#1a2040;--card:#12172c;--card2:#0d1226;
+  --acc:#8c9fff;--accsoft:#152b6e;--ok:#49ba8f;--oksoft:#0f2a24;--warn:#f9a23e;--warnsoft:#2e2210;--bad:#e66a61;--badsoft:#33171a;--c3:#a996ff;
+  --t-fee:#6f95ff;--t-stream:#f9b64e;--t-stock:#f07aac;--t-thin:#3fd0c0;--shadow:0 1px 3px rgba(0,0,0,.4)}
+*{box-sizing:border-box} html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;margin:0 auto;padding:14px 16px 40px;max-width:720px;overflow-x:hidden}
+a{color:var(--acc)} b{font-weight:600} .mut{color:var(--mut)}
+code{font:12.5px var(--mono);background:var(--card2);border:1px solid var(--line2);padding:1px 5px;border-radius:5px;word-break:break-all}
+.hdr{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.wm{display:flex;align-items:center;gap:9px;font-weight:800;font-size:21px;letter-spacing:-.5px;color:var(--fg);text-decoration:none} .wm img{width:30px;height:30px;border-radius:8px} .wm span{font-weight:500;color:var(--mut);font-size:16px}
+.sp{flex:1} .back{font-size:13px;text-decoration:none;color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--card);white-space:nowrap}
+.lede{font-size:15px;color:var(--mut);margin:0 0 12px}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 16px} .toc a{font-size:12.5px;text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:4px 10px;background:var(--card);color:var(--mut)}
+.grp{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:12px;box-shadow:var(--shadow);scroll-margin-top:12px}
+.grp>h2{font-size:12.5px;letter-spacing:1.3px;text-transform:uppercase;color:var(--c3);padding:11px 14px;margin:0;border-bottom:1px solid var(--line2);font-weight:700}
+.grp.safe>h2{color:var(--bad)}
+.body{padding:12px 14px;font-size:14.5px} .body p{margin:.55em 0} .body ul,.body ol{padding-left:1.3em;margin:.4em 0} li{margin:.3em 0}
+h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);margin:14px 0 4px;font-weight:700}
+.tw{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:13px} th,td{border-bottom:1px solid var(--line2);padding:6px 8px;text-align:left;vertical-align:top} th{color:var(--mut2);font-size:11px;letter-spacing:.6px;text-transform:uppercase;font-weight:600}
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--c);margin-right:6px;vertical-align:-1px}
+.note{border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px;border:1px solid var(--line);background:var(--card2)} .note.bad{background:var(--badsoft);border-color:var(--bad)} .note.warn{background:var(--warnsoft);border-color:var(--warn)}
+.addr{display:flex;flex-direction:column;gap:2px;padding:8px 0;border-bottom:1px solid var(--line2)} .addr:last-child{border-bottom:0} .addr .k{font-size:12.5px;color:var(--mut);font-weight:600} .addr code{font-size:13.5px;padding:4px 7px;cursor:pointer}
+.ex{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin:8px 0} .ex div{background:var(--card2);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;font-size:13.5px} .ex b{display:block;font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut2)}
+.foot{font-size:12px;color:var(--mut2);margin-top:18px;text-align:center}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+</style></head><body>
+<header class="hdr">
+  <a class="wm" href="./"><img src="icons/icon-192.png" alt="">Flight Plan <span>Docs</span></a>
+  <span class="sp"></span><a class="back" href="./">← Back to the app</a>
+</header>
+<p class="lede">Flight Plan is an unofficial, open-source helper for sAERO voters on Aero. It reads the chain, suggests a split sized to your locks, shows how you rank, and rehearses the vote for free. It never asks you to sign anything. You vote in the Aero app.</p>
+<nav class="toc"><a href="#use">How to use it</a><a href="#window">Windows</a><a href="#plan">How the split is made</a><a href="#pools">How many pools</a><a href="#yours">Why yours differs</a><a href="#rank">Rank</a><a href="#safe">What it reads and never does</a><a href="#blind">Never sign blind</a><a href="#anchors">Addresses</a><a href="#networks">Other networks</a><a href="#fail">When a dry run fails</a><a href="#data">Data</a></nav>
+
+<section class="grp" id="use"><h2>How to use it</h2><div class="body">
+  <ol>
+    <li><b>Paste your wallet address</b> (or connect a wallet, which only fills the address in). Flight Plan finds your sAERO locks on chain.</li>
+    <li><b>Read your split.</b> The big number is what this window is expected to pay. Tap any pool for the detail behind it.</li>
+    <li><b>Dry run.</b> A free rehearsal on the chain from your address: it shows exactly what your votes would become. Nothing is signed or sent.</li>
+    <li><b>Copy the split</b> and vote those percentages in the Aero app.</li>
+  </ol>
+  <h3>Colors</h3>
+  <p><span class="dot" style="--c:var(--t-fee)"></span>Deep fee · big pools paid mainly by trading fees<br>
+     <span class="dot" style="--c:var(--t-stream)"></span>Stream · paid mainly by incentives, which end on a date<br>
+     <span class="dot" style="--c:var(--t-stock)"></span>Stock · tokenized-stock pools (quiet on weekends)<br>
+     <span class="dot" style="--c:var(--t-thin)"></span>Thin token · smaller-token pools paid mainly by fees</p>
+</div></section>
+
+<section class="grp" id="window"><h2>How a window works</h2><div class="body">
+  <p>Each sAERO lock votes for pools. After a vote the lock waits <b>47 hours</b>; then its <b>window</b> opens and it can move again. A vote keeps earning until you change it, so there's no rush the moment a window opens.</p>
+  <p>Locks earn two things from the pools they vote for: <b>fees</b> (a share of trading fees) and <b>streams</b> (incentives paid to voters for a set time). Both are split among everyone voting for that pool, so a well-paid but crowded pool can pay less per AERO than a quiet one.</p>
+</div></section>
+
+<section class="grp" id="plan"><h2>How the split is made</h2><div class="body">
+  <p>A scanner reads every Aero pool on Base every hour and estimates what each pays voters over a 47-hour window:</p>
+  <ul>
+    <li><b>Fees</b> from a blend of the last 12 hours, 24 hours, 2 days and 4 days, with spikes capped and fading pools trusted down. Weekends count at 70% (tokenized stocks at 5%, their markets close).</li>
+    <li><b>Streams</b> for the hours they overlap the window. A stream ending within 8 hours of the open is ignored.</li>
+    <li><b>Crowding.</b> Voters pile into the pools that look best, so each pool is priced for a pile-on, measured after every window.</li>
+    <li><b>Your own size.</b> Your AERO dilutes the pool too: your share = your AERO ÷ (the pool's votes × pile-on + your AERO). The pool's votes are read live when you open the page, with your own current votes taken out.</li>
+  </ul>
+  <p>Then it spreads 100% in 5% steps, each step going where it adds the most expected dollars, under these rules: 6 to 10 pools · at most 25% in one pool · at most 40% in one pool type · at least a third in fee-led pools · your slice at most 10% of any pool · small pools (under 250k votes) at most 10% each · no tokenized stocks when 30% or more of the window is a weekend · any pool whose votes doubled since the last scan is skipped.</p>
+  <p class="mut">"Expected" is the middle case; the low case assumes a heavier pile-on. APR = the window's expected dollars on your AERO, annualized. The split is valued for a window starting at the later of now and your first lock's open.</p>
+</div></section>
+
+<section class="grp" id="pools"><h2>Picking how many pools</h2><div class="body">
+  <p><b>Auto</b> uses the rules above (6 to 10 pools). Pick <b>1 to 10</b> for exactly that many: each pool may then take up to 100 ÷ N percent (rounded up to 5%), and with 3 or fewer the per-type cap is dropped. The 10%-of-a-pool cap always stays, so a big wallet asking for one pool gets a "pick more pools" note instead of a bad bet. Fewer pools can pay more, and can also be hit harder if the crowd follows you in.</p>
+</div></section>
+
+<section class="grp" id="yours"><h2>Why your split differs from someone else's</h2><div class="body">
+  <p>The split is sized to <b>your</b> locks. Your own AERO dilutes the pool and the caps scale with your size.</p>
+  <p>Example: a small pool has 200,000 AERO voting for it and will pay voters $100 this window.</p>
+  <div class="ex">
+    <div><b>A 1,000 AERO lock</b>puts 5% here (50 AERO): 50 ÷ 200,050 of $100, about $0.025. Per AERO that's the pool's full rate, so small wallets happily use small, well-paid pools.</div>
+    <div><b>A 2,000,000 AERO wallet</b>can put at most 10% of the pool here (20,000 AERO), 1% of the wallet: 20,000 ÷ 220,000 of $100, about $9.09. The rest has to go somewhere deeper.</div>
+  </div>
+</div></section>
+
+<section class="grp" id="rank"><h2>Rank: your locks vs everyone</h2><div class="body">
+  <ul>
+    <li><b>All your locks count as one</b>: combined dollars over combined AERO, for now (the last 12 hours), 2 days and 7 days.</li>
+    <li><b>Every lock / Every wallet.</b> Every lock compares you with each sAERO lock on its own. Every wallet groups all of an address's locks into one entry (a contract such as a vault counts as one wallet).</li>
+    <li><b>Size filter</b> (10k+ to 1M+) ranks you among locks or wallets at least that big. It starts on your own size.</li>
+    <li><b>Whole-lock APR.</b> Earnings are divided by everything a lock holds, including AERO parked and not voting anywhere, because parked AERO earns nothing. When that differs from the APR on the voting part alone, the voting APR shows small underneath.</li>
+    <li><b>Average and median</b> are the plain average and middle APR of every lock (or wallet) over 100 AERO in the filter, each counted once.</li>
+  </ul>
+  <p class="mut">Earnings are read on chain for every lock (fees and incentives, claims bridged) and valued at current prices. Rank data refreshes every 3 hours.</p>
+</div></section>
+
+<section class="grp safe" id="safe"><h2>What it reads, and never does</h2><div class="body">
+  <ul>
+    <li><b>Reads only:</b> your locks, their votes, pool sizes, and a dry run (<code>eth_simulateV1</code>, a simulation that changes nothing) through a public Base RPC, straight from your browser.</li>
+    <li><b>Connect</b> asks your wallet for its address and nothing else. There is no Sign or Send button anywhere.</li>
+    <li><b>Never:</b> an approval, a transfer, a claim, or any transaction. Nothing you enter is sent to a server; the page is static files plus public chain reads.</li>
+  </ul>
+  <div class="note bad">If any site claiming to be Flight Plan asks you to sign or approve something, it isn't this one. Close it.</div>
+</div></section>
+
+<section class="grp safe" id="blind"><h2>Never sign blind (when you vote in the Aero app)</h2><div class="body">
+  <ol>
+    <li><b>Dry run here first</b> so you know exactly what your votes should become.</li>
+    <li><b>Network is Base</b>, the <b>To</b> address is the Voter below, and the value is <b>0 ETH</b>.</li>
+    <li>Your wallet's preview should show your sAERO lock re-allocated and <b>no tokens moving</b>.</li>
+  </ol>
+  <div class="note warn"><b>Reject</b> anything that says "setApprovalForAll", "approve" on sAERO, or "transfer", or a value other than 0. Voting moves votes, never tokens.</div>
+  <p class="mut">Hardware wallets show the vote as raw data, so the To address, network and 0 ETH are the checks you can make on the device.</p>
+</div></section>
+
+<section class="grp" id="anchors"><h2>Contract addresses (Base)</h2><div class="body">
+  <p>Tap to copy. Check them once against Aero's published deployment files.</p>
+  <div class="addr"><span class="k">Voter · where every vote goes</span><code data-copy="0x49d7d4f17ec56ef8fa04e464af5d1a4942cc31e6">0x49d7d4f17ec56ef8fa04e464af5d1a4942cc31e6</code></div>
+  <div class="addr"><span class="k">Metarouter · Aero's swap router (for selling rewards in the Aero app)</span><code data-copy="0x0fef9e88a7b76bcdbf451780c6774fe32965ee98">0x0fef9e88a7b76bcdbf451780c6774fe32965ee98</code></div>
+  <div class="addr"><span class="k">sAERO (your locks; never approve it)</span><code data-copy="0xbf7977e1521e9a3032bf7243ee4712f311f13915">0xbf7977e1521e9a3032bf7243ee4712f311f13915</code></div>
+  <div class="addr"><span class="k">LeafVoter (Base)</span><code data-copy="0x382409fad8503fbcdbb27a4211551fa03e884078">0x382409fad8503fbcdbb27a4211551fa03e884078</code></div>
+  <div class="addr"><span class="k">Multicall3 (batched reads)</span><code data-copy="0xcA11bde05977b3631167028862bE2a173976CA11">0xcA11bde05977b3631167028862bE2a173976CA11</code></div>
+  <p class="mut">Source: <a href="https://github.com/dromos-labs/metadex-public/tree/main/deployment-addresses" target="_blank" rel="noopener">dromos-labs/metadex-public, deployment-addresses</a>.</p>
+</div></section>
+
+<section class="grp" id="networks"><h2>Locks voting on other networks</h2><div class="body">
+  <p>Aero runs on several networks (OP, Arbitrum, Ethereum, Ink, Robinhood, Arc) and a lock can vote on any of them. Flight Plan plans and rehearses <b>Base</b> votes. If a lock's votes sit on another network, its card says so and the dry run is skipped; you can still use the suggested percentages for it in the Aero app.</p>
+</div></section>
+
+<section class="grp" id="fail"><h2>When a dry run fails</h2><div class="body">
+  <div class="tw"><table><tr><th>Message</th><th>Meaning</th><th>Do</th></tr>
+  <tr><td>cooldown still running</td><td>the 47 hours haven't passed for that lock</td><td>wait for its ring to read OPEN</td></tr>
+  <tr><td>votes on another network</td><td>the lock votes on OP, Arbitrum or another network</td><td>use the Aero app for that lock</td></tr>
+  <tr><td>pick more pools</td><td>your wallet is too big for that few pools</td><td>pick a higher number or Auto</td></tr>
+  <tr><td>safety check: …</td><td>the rehearsal call failed the same checks a real vote must pass</td><td>reload; if it repeats, open an issue on the source</td></tr></table></div>
+  <p class="mut">A dry run never sends anything, failed or not.</p>
+</div></section>
+
+<section class="grp" id="data"><h2>Data and freshness</h2><div class="body">
+  <p>Pool estimates are published every hour; ranks every 3 hours. How many votes each pool has is read live when you open the page. The footer shows how old the pool data is, and the page warns when it's more than 3 hours old.</p>
+  <p class="mut">Open source under the MIT license. The planning math runs in your browser (<code>planner.js</code>); the dry-run call is built and checked by <code>allocate-lib.js</code>. Prices from DefiLlama. Not financial advice: estimates can be wrong, and pools can change fast.</p>
+</div></section>
+
+<p class="foot">Unofficial. Not affiliated with Aerodrome. <a href="./">← Back to the app</a></p>
+<div class="toast" id="toast">copied</div>
+<script>
+document.querySelectorAll("[data-copy]").forEach(function (el) {
+  el.addEventListener("click", function () {
+    var t = document.getElementById("toast");
+    (navigator.clipboard ? navigator.clipboard.writeText(el.getAttribute("data-copy")) : Promise.reject()).then(function () { t.textContent = "copied"; }, function () { t.textContent = "copy failed"; })
+      .then(function () { t.style.opacity = 1; setTimeout(function () { t.style.opacity = 0; }, 900); });
+  });
+});
+</script>
+<script src="a2hs.js" defer></script>
+</body></html>

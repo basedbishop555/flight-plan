@@ -1,0 +1,445 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flight Plan</title>
+<meta name="description" content="Plan your sAERO votes: see your locks, a split sized to them, how you rank against every lock, and a free dry run. Read-only; it never asks you to sign.">
+<meta name="theme-color" content="#090e1f">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="Flight Plan">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f7f8fb;--fg:#090e1f;--mut:#505675;--mut2:#80859f;--line:#dbdde4;--line2:#eaeaec;--card:#fff;--card2:#f4f5f8;--acc:#154afa;--accsoft:#e7eeff;
+  --ok:#008d67;--oksoft:#e6f6ef;--warn:#ae5a0e;--warnsoft:#fff6e0;--bad:#c1261b;--badsoft:#fff1f0;--track:#eaeaec;
+  --c1:#154afa;--c1s:#e7eeff;--c3:#6b4cf6;--c3s:#efebff;--t-fee:#2f6bff;--t-stream:#e8890c;--t-stock:#e2548f;--t-thin:#0f9f92;
+  --shadow:0 1px 3px rgba(9,14,31,.08);--glowc:rgba(107,76,246,.10);--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#090e1f;--fg:#eaeaec;--mut:#b0b4ca;--mut2:#80859f;--line:#222845;--line2:#1a2040;--card:#12172c;--card2:#0d1226;
+  --acc:#8c9fff;--accsoft:#152b6e;--ok:#49ba8f;--oksoft:#0f2a24;--warn:#f9a23e;--warnsoft:#2e2210;--bad:#e66a61;--badsoft:#33171a;--track:#222845;
+  --c1:#8c9fff;--c1s:#152b6e;--c3:#a996ff;--c3s:#251c55;--t-fee:#6f95ff;--t-stream:#f9b64e;--t-stock:#f07aac;--t-thin:#3fd0c0;--shadow:0 1px 3px rgba(0,0,0,.4);--glowc:rgba(169,150,255,.12)}}
+:root[data-theme="dark"]{--bg:#090e1f;--fg:#eaeaec;--mut:#b0b4ca;--mut2:#80859f;--line:#222845;--line2:#1a2040;--card:#12172c;--card2:#0d1226;
+  --acc:#8c9fff;--accsoft:#152b6e;--ok:#49ba8f;--oksoft:#0f2a24;--warn:#f9a23e;--warnsoft:#2e2210;--bad:#e66a61;--badsoft:#33171a;--track:#222845;
+  --c1:#8c9fff;--c1s:#152b6e;--c3:#a996ff;--c3s:#251c55;--t-fee:#6f95ff;--t-stream:#f9b64e;--t-stock:#f07aac;--t-thin:#3fd0c0;--shadow:0 1px 3px rgba(0,0,0,.4);--glowc:rgba(169,150,255,.12)}
+*{box-sizing:border-box} html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--fg);font:16px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;margin:0 auto;padding:14px 16px 48px;max-width:720px;overflow-x:hidden}
+a{color:var(--acc)} b{font-weight:600} .num{font-variant-numeric:tabular-nums} .mut{color:var(--mut)} .mut2{color:var(--mut2)} .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)} .small{font-size:13px}
+code{font:12px var(--mono);background:var(--card2);border:1px solid var(--line2);padding:1px 5px;border-radius:5px;word-break:break-all}
+.hdr{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.wm{display:flex;align-items:center;gap:9px;font-weight:800;font-size:21px;letter-spacing:-.5px;color:var(--fg);text-decoration:none}
+.wm img{width:30px;height:30px;border-radius:8px} .sp{flex:1}
+.pillink{font-size:13px;text-decoration:none;color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--card)}
+.find{display:flex;gap:8px;margin:0 0 6px}
+.find input{flex:1;min-width:0;font:15px var(--mono);padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--fg)}
+button{font:inherit;font-weight:600;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:disabled{opacity:.45;cursor:not-allowed} button.sm{padding:6px 10px;font-size:13px;border-radius:9px}
+.gbtn{border:0;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 4px 14px var(--gl)}
+.gblue{background:linear-gradient(180deg,#3f78ff,#154afa);--gl:rgba(21,74,250,.4)} .gviolet{background:linear-gradient(180deg,#8b6dff,#5a3be0);--gl:rgba(107,76,246,.45)}
+.hint{font-size:12.5px;color:var(--mut2);margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;margin:0 0 12px;box-shadow:var(--shadow)}
+.card>h2{font-size:12px;letter-spacing:1.3px;text-transform:uppercase;color:var(--c3);padding:12px 14px;margin:0;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;gap:8px;font-weight:700}
+.card>h2 span{color:var(--mut2);font-weight:500;letter-spacing:0;text-transform:none}
+.body{padding:12px 14px}
+.glow{background:linear-gradient(160deg,var(--glowc),transparent 55%),var(--card);border-color:color-mix(in srgb,var(--c3) 45%,var(--line))}
+.hero{padding:16px}
+.hrow{display:flex;align-items:center;gap:14px} .hmain{flex:1;min-width:0}
+.hk{font-size:11.5px;letter-spacing:1px;text-transform:uppercase;color:var(--mut2);font-weight:700}
+.hv{font-size:46px;font-weight:800;letter-spacing:-1.6px;line-height:1.05;margin:2px 0} .hs{font-size:14px;color:var(--mut)}
+.ring{width:48px;height:48px;flex:none;position:relative} .ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .t{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;text-align:center;line-height:1.05}
+.ring circle{fill:none;stroke-width:4} .ring .bgc{stroke:var(--track)} .ring .fgc{stroke:var(--c3);stroke-linecap:round} .ring.open .fgc{stroke:var(--ok)} .ring.open .t{color:var(--ok)}
+.ring.big{width:78px;height:78px} .ring.big .t{font-size:13px}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.pills:empty{display:none}
+.tag{font-size:12.5px;font-weight:600;border-radius:999px;padding:3px 10px;border:1px solid var(--line);background:var(--card2);color:var(--mut);white-space:nowrap}
+.tag.ok{color:var(--ok);border-color:var(--ok);background:var(--oksoft)} .tag.warn{color:var(--warn);border-color:var(--warn);background:var(--warnsoft)} .tag.acc{color:var(--c3);border-color:var(--c3);background:var(--c3s)}
+.seg{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;margin:0 0 10px} .seg::-webkit-scrollbar{display:none}
+.seg button{flex:none;padding:6px 11px;font-size:13px;border-radius:999px;color:var(--mut)} .seg button.on{border-color:var(--c3);background:var(--c3s);color:var(--c3)}
+.seglabel{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut2);font-weight:700;margin:0 0 6px}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--mut);margin:0 0 4px}.legend span{display:inline-flex;align-items:center;gap:5px}
+.pdot{width:10px;height:10px;border-radius:3px;background:var(--c);flex:none;display:inline-block}
+details.pool{border-bottom:1px solid var(--line2)} details.pool:last-child{border-bottom:0}
+details.pool>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 0}
+details.pool>summary::-webkit-details-marker{display:none}
+.pname{flex:1;min-width:0;font-weight:600;font-size:15.5px} .pname small{display:block;font-weight:400;color:var(--mut2);font-size:11.5px}
+.pbar{display:block;height:5px;background:var(--track);border-radius:3px;margin-top:5px;overflow:hidden}.pbar i{display:block;height:100%;background:var(--c);border-radius:3px}
+.ppct{font-size:26px;font-weight:800;letter-spacing:-.8px;text-align:right;line-height:1.05;min-width:3.2em} .ppct small{font-size:13px;color:var(--mut2)} .ppct em{display:block;font-style:normal;font-size:11.5px;font-weight:600;color:var(--mut2);white-space:nowrap}
+.chev{color:var(--mut2);font-size:12px;transition:transform .15s} details.pool[open] .chev{transform:rotate(90deg)}
+.drawer{padding:0 0 12px 20px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:6px 0 8px}
+.tile{background:var(--card2);border:1px solid var(--line2);border-radius:10px;padding:8px 10px;min-width:0}
+.tile .k{font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut2);font-weight:700} .tile .v{font-size:18px;font-weight:700;margin-top:2px} .tile .v small{font-size:12px;font-weight:500;color:var(--mut)}
+.addr{font-size:12px;color:var(--mut);margin-top:4px} .addr code{cursor:pointer}
+.cta{display:block;width:100%;padding:14px 12px;font-size:16.5px;border-radius:14px;margin-top:14px}
+.csub{font-size:12.5px;color:var(--mut2);text-align:center;margin-top:6px}
+.banner{border-radius:10px;padding:10px 12px;margin:10px 0 0;font-size:14px;border:1px solid var(--line);background:var(--card2)}
+.banner.ok{background:var(--oksoft);border-color:var(--ok)} .banner.bad{background:var(--badsoft);border-color:var(--bad)} .banner.warn{background:var(--warnsoft);border-color:var(--warn)}
+.lock{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;background:var(--card2)}
+.lhead{display:flex;align-items:center;gap:10px} .linfo{flex:1;min-width:0} .lid{font-weight:800;font-size:17px} .lmeta{font-size:12.5px;color:var(--mut)}
+.ba .r{display:flex;align-items:center;gap:8px;font-size:13px;margin:5px 0} .ba .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ba .tr{height:6px;background:var(--track);border-radius:3px;position:relative;overflow:hidden;margin:2px 0 6px 18px}
+.ba .tr i{position:absolute;left:0;top:0;bottom:0;border-radius:3px} .ba .now{background:var(--mut2);opacity:.45} .ba .aft{background:var(--c)}
+.rkhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:2px 0 8px}
+.rrow{display:grid;grid-template-columns:5.4em 1fr auto;gap:4px 10px;align-items:center;padding:10px 0;border-top:1px solid var(--line2)}
+.rrow .p{font-size:13px;color:var(--mut);font-weight:600} .rrow .apr{font-size:24px;font-weight:800;letter-spacing:-.6px;line-height:1}
+.rrow .apr small{display:block;font-size:11.5px;font-weight:500;color:var(--mut2);letter-spacing:0;margin-top:3px}
+.rrow .rk{text-align:right;font-size:13px;color:var(--c3);font-weight:700} .rrow .rk .tag{display:inline-block;margin-top:4px}
+.rrow .sub{grid-column:2 / 4;font-size:12px;color:var(--mut2)}
+.foot{font-size:12px;color:var(--mut2);margin-top:22px;text-align:center;line-height:1.6}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+.hidden{display:none!important}
+#log{font:11.5px/1.45 var(--mono);white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;color:var(--mut)}
+@media (max-width:420px){.hv{font-size:40px}.ring.big{width:66px;height:66px}.ppct{font-size:23px}.rrow .apr{font-size:21px}}
+</style></head><body>
+<header class="hdr">
+  <a class="wm" href="./"><img src="icons/icon-192.png" alt="">Flight Plan</a>
+  <span class="sp"></span>
+  <a class="pillink" href="docs.html">Docs</a>
+</header>
+
+<form class="find" id="find">
+  <input id="addr" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Paste a wallet address (0x…)" aria-label="Wallet address">
+  <button type="submit" class="gbtn gblue" id="go">Look up</button>
+</form>
+<p class="hint">Or <a href="#" id="connect">connect a wallet</a> to fill it in. Flight Plan only reads; it never asks you to sign.</p>
+
+<section class="card glow hero" id="hero"></section>
+<section class="card" id="plan"></section>
+<section class="card" id="locks"></section>
+<section class="card" id="rank"></section>
+<details class="card" id="logw"><summary class="body small mut" style="cursor:pointer">Log</summary><div class="body" style="padding-top:0"><div id="log"></div></div></details>
+
+<p class="foot">Unofficial. Not affiliated with Aerodrome. Read-only: no approvals, no signatures.<br>
+<span id="fresh">Loading pool data…</span> · <a href="docs.html">Docs</a> · <a href="https://github.com/basedbishop555/flight-plan">Source</a></p>
+<div class="toast" id="toast">copied</div>
+
+<script>
+window.onerror = function (msg, src, line) { try { var h = document.getElementById("hero"); h.innerHTML = "<div class='banner bad'><b>Something broke:</b> " + String(msg).replace(/</g, "&lt;") + " (line " + line + "). Reload the page.</div>"; } catch (e) {} };
+</script>
+<script src="vendor/ethers-6.13.4.umd.min.js"></script>
+<script src="allocate-lib.js"></script>
+<script src="planner.js"></script>
+<script>
+(() => {
+"use strict";
+const A = window.AeroAlloc, C = A.C, P = window.Planner;
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const short = a => a ? a.slice(0, 6) + "…" + a.slice(-4) : "";
+const fmtA = x => Number(x).toLocaleString(undefined, { maximumFractionDigits: 0 });
+const money = x => x == null ? "–" : "$" + Number(x).toLocaleString(undefined, { minimumFractionDigits: Math.abs(x) >= 100 ? 0 : 2, maximumFractionDigits: Math.abs(x) >= 100 ? 0 : 2 });
+const fmtTs = ts => ts ? new Date(ts * 1000).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }) : "";
+const ago = ts => { const m = Math.max(0, Math.round((Date.now() / 1000 - ts) / 60)); return m < 60 ? `${m} min ago` : `${Math.floor(m / 60)}h ${m % 60}m ago`; };
+const store = { get(k, d) { try { const v = localStorage.getItem("fp:" + k); return v == null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem("fp:" + k, v); } catch (e) {} } };
+const NET = { 10: "OP", 1: "Ethereum", 42161: "Arbitrum", 4663: "Robinhood", 57073: "Ink", 5042: "Arc" };
+const TYPE_NAME = { "deep fee": "Deep fee", "stream-led": "Stream", "tokenized-stock": "Stock", "thin-token": "Thin token" };
+const TYPEC = { "deep fee": "var(--t-fee)", "stream-led": "var(--t-stream)", "tokenized-stock": "var(--t-stock)", "thin-token": "var(--t-thin)" };
+const typeColor = t => TYPEC[t] || "var(--mut2)";
+function log(s, cls) { const d = document.createElement("div"); if (cls) d.className = cls; d.textContent = new Date().toLocaleTimeString() + "  " + s; $("log").appendChild(d); }
+function toast(t) { const el = $("toast"); el.textContent = t || "copied"; el.style.opacity = 1; setTimeout(() => el.style.opacity = 0, 1000); }
+async function copy(t) { try { await navigator.clipboard.writeText(t); toast("copied"); } catch (e) { toast("copy failed"); } }
+
+// ---------- chain reads (public RPC, read-only) ----------
+async function rpc(method, params) {
+  const r = await fetch(C.RPC, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+  const j = await r.json(); if (j.error) throw new Error(method + ": " + JSON.stringify(j.error).slice(0, 200)); return j.result;
+}
+const I = {
+  mc3: new ethers.Interface(A.ABI.mc3), voter: new ethers.Interface(A.ABI.voter), leaf: new ethers.Interface(A.ABI.leaf), saero: new ethers.Interface(A.ABI.saero),
+  en: new ethers.Interface(["function balanceOf(address) view returns (uint256)", "function tokenOfOwnerByIndex(address,uint256) view returns (uint256)"]),
+  ch: new ethers.Interface(["function allocationChainIds(uint256) view returns (uint256[])"]),
+  fr: new ethers.Interface(["function gaugeToRewards(address) view returns (address)"]),
+  ts: new ethers.Interface(["function totalSupply() view returns (uint256)"]),
+};
+async function multicall(calls) {
+  const out = [];
+  for (let i = 0; i < calls.length; i += 60) {
+    const raw = await rpc("eth_call", [{ to: C.MC3, data: I.mc3.encodeFunctionData("tryAggregate", [false, calls.slice(i, i + 60)]) }, "latest"]);
+    out.push(...I.mc3.decodeFunctionResult("tryAggregate", raw)[0].map(r => ({ success: r[0], returnData: r[1] })));
+  }
+  return out;
+}
+const dec = (iface, fn, r) => (r && r.success && r.returnData.length >= 66) ? iface.decodeFunctionResult(fn, r.returnData) : null;
+
+// ---------- state ----------
+const S = { empty: 0, D: null, RK: null, addr: null, locks: [], live: null, plan: null, nPools: Number(store.get("pools", 0)) || 0,
+            mode: store.get("mode", "lock"), bracket: null, busy: false, cool: 169200 };
+
+async function loadData() {
+  const v = Math.floor(Date.now() / 600000);         // refresh at most every 10 min
+  const [d, r] = await Promise.all([fetch("data/plan.json?v=" + v).then(x => x.json()), fetch("data/rank.json?v=" + v).then(x => x.json()).catch(() => null)]);
+  S.D = d; S.RK = r ? decodeRank(r) : null;
+  $("fresh").textContent = `Pool data from ${ago(d.scan_ts)}`;
+  log(`Pool data from ${new Date(d.scan_ts * 1000).toLocaleString()} · ${d.gauges.length} pools · AERO $${d.px.toFixed(4)}`);
+}
+
+async function discover(addr) {
+  const r = await multicall([{ target: C.SAERO, callData: I.en.encodeFunctionData("balanceOf", [addr]) }]);
+  const n = Number(dec(I.en, "balanceOf", r[0])?.[0] ?? 0n);
+  const idx = await multicall(Array.from({ length: Math.min(n, 20) }, (_, i) => ({ target: C.SAERO, callData: I.en.encodeFunctionData("tokenOfOwnerByIndex", [addr, i]) })));
+  const ids = idx.map(x => dec(I.en, "tokenOfOwnerByIndex", x)).filter(Boolean).map(x => Number(x[0]));
+  log(`${short(addr)} holds ${n} sAERO lock${n === 1 ? "" : "s"}${n > 20 ? " (showing the first 20)" : ""}.`);
+  return ids;
+}
+
+async function readLocks(ids) {
+  const calls = ids.flatMap(id => [
+    { target: C.SAERO, callData: I.saero.encodeFunctionData("ownerOf", [id]) },
+    { target: C.SAERO, callData: I.saero.encodeFunctionData("staked", [id]) },
+    { target: C.VOTER, callData: I.voter.encodeFunctionData("allocationChainAmounts", [id, C.CHAIN_ID]) },
+    { target: C.LEAF, callData: I.leaf.encodeFunctionData("tokenStates", [id]) },
+    { target: C.LEAF, callData: I.leaf.encodeFunctionData("allocatedGauges", [id]) },
+    { target: C.VOTER, callData: I.ch.encodeFunctionData("allocationChainIds", [id]) }]);
+  calls.push({ target: C.LEAF, callData: I.leaf.encodeFunctionData("allocationCooldown", []) });
+  const res = await multicall(calls);
+  S.cool = Number(dec(I.leaf, "allocationCooldown", res[res.length - 1])?.[0] ?? 169200);
+  const out = ids.map((id, k) => {
+    const r = res.slice(6 * k, 6 * k + 6);
+    const st = dec(I.saero, "staked", r[1]), ts = dec(I.leaf, "tokenStates", r[3]);
+    const la = ts ? Number(ts[1]) : null;
+    return { id, owner: dec(I.saero, "ownerOf", r[0])?.[0] || null, staked: st ? st[0] : 0n, booked: dec(I.voter, "allocationChainAmounts", r[2])?.[0] ?? 0n,
+             la, next: la ? la + S.cool : null, gauges: (dec(I.leaf, "allocatedGauges", r[4])?.[0] || []).map(g => g.toLowerCase()),
+             elsewhere: (dec(I.ch, "allocationChainIds", r[5])?.[0] || []).map(Number).filter(c => c && c !== C.CHAIN_ID), current: {} };
+  });
+  const q = [], qi = [];
+  for (const L of out) for (const g of L.gauges) { q.push({ target: C.LEAF, callData: I.leaf.encodeFunctionData("allocations", [L.id, g]) }); qi.push([L, g]); }
+  const r2 = q.length ? await multicall(q) : [];
+  r2.forEach((r, i) => { const v = dec(I.leaf, "allocations", r); if (v) qi[i][0].current[qi[i][1]] = v[0]; });
+  return out;
+}
+
+// how crowded each pool is RIGHT NOW (its rewards contract's total voting power), minus your own current votes
+async function readLive() {
+  const gs = S.D.gauges.filter(g => g.gauge);
+  const rw = await multicall(gs.map(g => ({ target: S.D.factory_registry, callData: I.fr.encodeFunctionData("gaugeToRewards", [g.gauge]) })));
+  const rewards = rw.map(r => dec(I.fr, "gaugeToRewards", r)?.[0] || null);
+  const sup = await multicall(rewards.map(a => ({ target: a || C.MC3, callData: I.ts.encodeFunctionData("totalSupply", []) })));
+  const live = {};
+  gs.forEach((g, i) => { const v = rewards[i] ? dec(I.ts, "totalSupply", sup[i]) : null; if (v) live[g.gauge.toLowerCase()] = Number(ethers.formatUnits(v[0], 18)); });
+  for (const L of S.locks) for (const [g, v] of Object.entries(L.current)) if (live[g] != null) live[g] = Math.max(1, live[g] - Number(ethers.formatUnits(v, 18)));
+  log(`Live pool sizes read for ${Object.keys(live).length} pools.`);
+  return live;
+}
+
+const lockAero = L => Number(ethers.formatUnits(L.staked, 18));
+const totalAero = () => S.locks.reduce((n, L) => n + lockAero(L), 0);
+const openTs = () => { const now = Date.now() / 1000, nx = S.locks.map(L => L.next).filter(Boolean); return Math.max(nx.length ? Math.min(...nx) : now, now); };
+function replan() { S.plan = S.locks.length && totalAero() > 0 ? P.plan(S.D, totalAero(), openTs(), S.nPools || null, S.live) : null; for (const L of S.locks) L.dry = null; }
+
+// ---------- rank (every lock / every wallet), computed here from data/rank.json ----------
+function decodeRank(R) {
+  const per = {};
+  for (const [name, p] of Object.entries(R.periods)) {
+    const rows = []; let i = 0;
+    for (let k = 0; k < p.i.length; k++) { i += p.i[k]; const r = p.r[k], a = p.a[k]; rows.push({ i, c: p.c[k] / 100, a, r: r / 1e6, v: (r + p.v[k]) / 1e6, va: a - p.va[k], f: p.f[k] }); }
+    per[name] = { t0: p.t0, t1: p.t1, rows };
+  }
+  const idOf = new Map(R.ids.map((id, i) => [id, i]));
+  return { ...R, per, idOf };
+}
+function stats(list, thr) { const a = list.filter(x => x.a >= thr).map(x => x.r).sort((x, y) => x - y); if (!a.length) return null; const m = a.reduce((s, x) => s + x, 0) / a.length; const md = a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2; return { a, avg: m, med: md }; }
+function wallets(rows, R) {
+  const acc = new Map();
+  for (const x of rows) { const g = R.grp[x.i]; const w = acc.get(g) || { c: 0, a: 0, ra: 0, vv: 0, va: 0 }; w.c += x.c; w.a += x.a; w.ra += x.r * x.a; w.vv += x.v * x.va; w.va += x.va; acc.set(g, w); }
+  const out = [];
+  for (const [g, w] of acc) if (w.va >= R.min_aero && w.a > 0) out.push({ g, c: w.c, a: w.a, r: w.ra / w.a, v: w.va ? w.vv / w.va : null, va: w.va });
+  return out;
+}
+function rankLine(period, ids, mode, thr) {
+  const R = S.RK, p = R && R.per[period]; if (!p) return null;
+  const mine = ids.map(id => R.idOf.get(id)).filter(i => i != null).map(i => p.rows.find(x => x.i === i)).filter(Boolean);
+  if (!mine.length) return null;
+  const a = mine.reduce((s, x) => s + x.a, 0); if (!a) return null;
+  const apr = mine.reduce((s, x) => s + x.r * x.a, 0) / a;
+  const vm = mine.filter(x => x.va > 0), vote = vm.length ? vm.reduce((s, x) => s + x.v * x.va, 0) / vm.reduce((s, x) => s + x.va, 0) : null;
+  const pool = mode === "wallet" ? wallets(p.rows, R) : p.rows.filter(x => x.f);
+  const st = stats(pool, thr); if (!st) return null;
+  let lo = 0, hi = st.a.length; while (lo < hi) { const m = (lo + hi) >> 1; if (st.a[m] <= apr) lo = m + 1; else hi = m; }
+  const better = st.a.length - lo, n = st.a.length;
+  return { apr, vote, usd_day: mine.reduce((s, x) => s + x.c, 0), rank: better + 1, of: n, top: (better + 1) / n * 100, avg: st.avg, med: st.med };
+}
+
+// ---------- render ----------
+function ring(L, big) {
+  const now = Date.now() / 1000, next = L && L.next || 0, la = L && L.la || (next - S.cool);
+  const open = next ? next <= now : !!L;
+  const frac = open ? 1 : Math.max(0, Math.min(1, (now - la) / Math.max(1, next - la)));
+  const r = 20, c = 2 * Math.PI * r, left = next - now;
+  const txt = open ? "OPEN" : !next ? "–" : left >= 3600 ? `${Math.floor(left / 3600)}h<br>${Math.round((left % 3600) / 60)}m` : `${Math.max(0, Math.round(left / 60))}m`;
+  return `<div class="ring${big ? " big" : ""}${open ? " open" : ""}"><svg viewBox="0 0 48 48"><circle class="bgc" cx="24" cy="24" r="${r}"/><circle class="fgc" cx="24" cy="24" r="${r}" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - frac)).toFixed(1)}"/></svg><div class="t">${txt}</div></div>`;
+}
+function renderHero() {
+  const h = $("hero");
+  if (!S.addr) { h.innerHTML = `<div class="hk">Plan your next vote</div><div class="hv" style="font-size:28px;letter-spacing:-.6px">Paste a wallet to start</div><div class="hs">You'll see its sAERO locks, a split sized to them, and how they rank against every lock.</div>`; return; }
+  if (S.busy) { h.innerHTML = `<div class="hk">${esc(short(S.addr))}</div><div class="hv" style="font-size:28px">Reading the chain…</div>`; return; }
+  if (!S.locks.length) { h.innerHTML = `<div class="hk">${esc(short(S.addr))}</div><div class="hv" style="font-size:28px">${S.empty ? "These locks are empty" : "No sAERO locks here"}</div><div class="hs">${S.empty ? `${S.empty} lock${S.empty === 1 ? "" : "s"} found, but none holds any AERO now (withdrawn or merged).` : "Check the address, or try the wallet that holds your locks."}</div>`; return; }
+  const p = S.plan, aero = totalAero(), now = Date.now() / 1000;
+  const first = S.locks.slice().sort((a, b) => (a.next || 0) - (b.next || 0))[0];
+  const pills = [];
+  const ot = openTs();
+  pills.push(ot <= now + 60 ? `<span class="tag ok">Window open</span>` : `<span class="tag">Opens ${esc(fmtTs(ot))}</span>`);
+  if (p) {
+    const crowd = p.legs.filter(l => l.row.rank48 && l.row.rank48 <= 5).length; if (crowd) pills.push(`<span class="tag warn">${crowd} crowded</span>`);
+    const fad = p.legs.filter(l => l.row.fading).length; if (fad) pills.push(`<span class="tag warn">${fad} fading</span>`);
+    if (p.warnings.length) pills.push(`<span class="tag warn" title="${esc(p.warnings.join(" "))}">⚠ ${p.warnings.length} note${p.warnings.length === 1 ? "" : "s"}</span>`);
+  }
+  if (S.D && Date.now() / 1000 - S.D.scan_ts > 3 * 3600) pills.push(`<span class="tag warn">Pool data ${esc(ago(S.D.scan_ts))}</span>`);
+  h.innerHTML = `<div class="hrow">${ring(first, true)}<div class="hmain"><div class="hk">This window · ${esc(short(S.addr))}</div>
+    <div class="hv num">${p ? money(p.expect_usd) : "–"}</div>
+    <div class="hs num">${p ? p.apr.toFixed(0) + "% APR · " : ""}${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} · ${fmtA(aero)} AERO</div></div></div>
+    <div class="pills">${pills.join("")}</div>`;
+}
+function poolRow(l) {
+  const r = l.row, col = typeColor(r.type);
+  const tags = [TYPE_NAME[r.type] || r.type, r.fee_led ? "fee-led" : "", r.rank48 && r.rank48 <= 5 ? "crowded" : "", r.fading ? "fading" : "", l.small ? "small pool" : ""].filter(Boolean).join(" · ");
+  const apr = l.aero && S.D.px ? l.expect_usd / (l.aero * S.D.px) * (365 * 24 / 47) * 100 : null;
+  const st = (r.streams || [])[0];
+  return `<details class="pool"><summary><span class="pdot" style="--c:${col}"></span><span class="pname">${esc(r.name)}<small>${esc(tags)}</small><span class="pbar"><i style="--c:${col};width:${Math.min(100, l.pct * 4)}%"></i></span></span><span class="ppct num">${l.pct}<small>%</small><em>${fmtA(l.aero)} AERO</em></span><span class="chev">▶</span></summary>
+    <div class="drawer"><div class="tiles">
+      <div class="tile"><div class="k">Expected · 47h</div><div class="v num">${money(l.expect_usd)} <small>${money(l.expect_low_usd)}–${money(l.expect_high_usd)}</small></div></div>
+      <div class="tile"><div class="k">APR</div><div class="v num">${apr != null ? apr.toFixed(0) + "%" : "–"}</div></div>
+      <div class="tile"><div class="k">Fees · day</div><div class="v num">${money(r.fee_day)} <small>to voters</small></div></div>
+      <div class="tile"><div class="k">Streams · 47h</div><div class="v num">${money(r.inc_w)}${st ? ` <small>${esc(st.tok)} to ${esc(fmtTs(st.end))}</small>` : ""}</div></div>
+      <div class="tile"><div class="k">Votes in it now</div><div class="v num">${(r.alloc / 1e6).toFixed(2)}M <small>you'd be ${(l.slice * 100).toFixed(1)}%</small></div></div>
+    </div>
+    <div class="addr">pool <code data-copy="${esc(r.pool)}">${esc(r.pool)}</code></div>
+    <div class="addr">gauge <code data-copy="${esc(r.gauge)}">${esc(r.gauge)}</code></div></div></details>`;
+}
+function renderPlan() {
+  const el = $("plan");
+  if (!S.addr || !S.locks.length || !S.plan) { el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  const p = S.plan, types = [...new Set(p.legs.map(l => l.type))];
+  const picks = ["Auto", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => { const v = n === "Auto" ? 0 : n; return `<button type="button" data-n="${v}" class="${S.nPools === v ? "on" : ""}">${n}</button>`; }).join("");
+  const dried = S.locks.filter(L => L.dry).length, sums = p.placed === 100;
+  let cta;
+  if (!sums) cta = `<button class="cta gbtn gviolet" disabled>Pick more pools to place 100%</button>`;
+  else if (dried < S.locks.length) cta = `<button class="cta gbtn gviolet" id="cta" data-act="dry">Dry run ${S.locks.length > 1 ? "all " + S.locks.length + " locks" : "#" + S.locks[0].id}</button><div class="csub">A free rehearsal on the chain · nothing is signed</div>`;
+  else { const ok = S.locks.filter(L => L.dry && L.dry.ok).length; cta = `<button class="cta gbtn gviolet" id="cta" data-act="copy">Copy the split for the Aero app</button><div class="csub">${ok} of ${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} dry-ran OK · then vote these percentages in the Aero app</div>`; }
+  el.innerHTML = `<h2>Your split <span>${esc(fmtTs(p.start))} · 47h</span></h2><div class="body">
+    <div class="seglabel">Pools</div><div class="seg" id="npick">${picks}</div>
+    ${types.length ? `<div class="legend">${types.map(t => `<span><i class="pdot" style="--c:${typeColor(t)}"></i>${esc(TYPE_NAME[t] || t)}</span>`).join("")}</div>` : ""}
+    ${p.legs.map(poolRow).join("")}
+    ${p.warnings.length ? `<div class="banner warn small">${esc(p.warnings.join(" "))}</div>` : ""}
+    ${cta}</div>`;
+  el.querySelectorAll("#npick button").forEach(b => b.addEventListener("click", () => { S.nPools = Number(b.dataset.n); store.set("pools", String(S.nPools)); replan(); render(); }));
+  el.querySelectorAll("[data-copy]").forEach(c => c.addEventListener("click", () => copy(c.dataset.copy)));
+  const c = $("cta"); if (c) c.addEventListener("click", () => c.dataset.act === "dry" ? dryAll() : copy(splitText()));
+}
+function splitText() { return `Flight Plan split, window from ${fmtTs(S.plan.start)}:\n` + S.plan.legs.map(l => `${l.pct}% ${l.label}`).join("\n"); }
+function renderLocks() {
+  const el = $("locks");
+  if (!S.locks.length) { el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  const now = Date.now() / 1000;
+  el.innerHTML = `<h2>Locks <span>${S.locks.length} · ${fmtA(totalAero())} AERO</span></h2><div class="body">` + S.locks.map(L => {
+    const open = L.next ? L.next <= now : true;
+    const net = L.booked === 0n && L.elsewhere.length ? ` · <span class="warn">votes on ${esc(L.elsewhere.map(c => NET[c] || "chain " + c).join(" + "))}</span>` : "";
+    return `<div class="lock"><div class="lhead">${ring(L)}<div class="linfo"><div class="lid">#${L.id}</div><div class="lmeta num">${fmtA(lockAero(L))} AERO · ${open ? `<span class="ok">open</span>` : "opens " + esc(fmtTs(L.next))}${net}</div></div>
+      <button class="sm" data-dry="${L.id}" ${S.plan && S.plan.placed === 100 ? "" : "disabled"}>Dry run</button></div><div class="small">${L.status || ""}</div></div>`;
+  }).join("") + `</div>`;
+  el.querySelectorAll("[data-dry]").forEach(b => b.addEventListener("click", () => dryRun(S.locks.find(L => L.id === Number(b.dataset.dry)))));
+}
+function renderRank() {
+  const el = $("rank");
+  if (!S.locks.length || !S.RK) { el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  const R = S.RK, ids = S.locks.map(L => L.id), aero = totalAero();
+  const br = R.brackets; if (S.bracket == null) { S.bracket = store.get("bracket", null); if (S.bracket == null) { let b = "all"; for (const [k, t] of br) if (aero >= t) b = k; S.bracket = b; } }
+  const thr = (br.find(b => b[0] === S.bracket) || br[0])[1];
+  const names = { now: "Now", "2d": "2 days", "7d": "7 days" };
+  const rows = ["now", "2d", "7d"].map(k => {
+    const x = rankLine(k, ids, S.mode, thr);
+    if (!x) return `<div class="rrow"><div class="p">${names[k]}</div><div class="mut2 small">building history</div><div></div></div>`;
+    const wk = x.apr * 1000 * R.px / 52, good = x.apr >= x.avg;
+    const vote = x.vote != null && Math.abs(x.vote - x.apr) >= 0.005 ? `voting ${(x.vote * 100).toFixed(1)}% · ` : "";
+    return `<div class="rrow"><div class="p">${names[k]}</div>
+      <div class="apr num ${good ? "ok" : "warn"}">${(x.apr * 100).toFixed(1)}%<small>${vote}$${wk.toFixed(2)}/wk per 1k</small></div>
+      <div class="rk num">#${x.rank.toLocaleString()} <span class="mut2" style="font-weight:500">of ${x.of.toLocaleString()}</span><br><span class="tag ${x.top <= 25 ? "ok" : x.top <= 50 ? "acc" : ""}">top ${x.top < 10 ? x.top.toFixed(1) : Math.round(x.top)}%</span></div>
+      <div class="sub">avg ${(x.avg * 100).toFixed(1)}% · median ${(x.med * 100).toFixed(1)}%</div></div>`;
+  }).join("");
+  const label = { all: "All", "10k": "10k+", "50k": "50k+", "100k": "100k+", "250k": "250k+", "500k": "500k+", "1m": "1M+" };
+  el.innerHTML = `<h2>vs every ${S.mode === "wallet" ? "wallet" : "lock"} <span>APR on the whole lock</span></h2><div class="body">
+    <div class="seg" id="mode"><button type="button" data-m="lock" class="${S.mode === "lock" ? "on" : ""}">Every lock</button><button type="button" data-m="wallet" class="${S.mode === "wallet" ? "on" : ""}">Every wallet</button></div>
+    <div class="seg" id="brk">${br.map(([k]) => `<button type="button" data-b="${k}" class="${S.bracket === k ? "on" : ""}">${label[k] || k}</button>`).join("")}</div>
+    ${rows}<p class="small mut2" style="margin:8px 0 0">All your locks counted as one. "Now" is the last 12 hours. <a href="docs.html#rank">How it's measured</a></p></div>`;
+  el.querySelectorAll("#mode button").forEach(b => b.addEventListener("click", () => { S.mode = b.dataset.m; store.set("mode", S.mode); renderRank(); }));
+  el.querySelectorAll("#brk button").forEach(b => b.addEventListener("click", () => { S.bracket = b.dataset.b; store.set("bracket", S.bracket); renderRank(); }));
+}
+function render() { renderHero(); renderPlan(); renderLocks(); renderRank(); }
+
+// ---------- dry run (eth_simulateV1 from the lock owner's address; nothing is signed or sent) ----------
+async function dryRun(L) {
+  if (!L || !S.plan) return;
+  const now = Math.floor(Date.now() / 1000);
+  if (L.booked === 0n && L.elsewhere.length) {
+    L.dry = { ok: false };
+    L.status = `<div class="banner warn">#${L.id} votes on ${esc(L.elsewhere.map(c => NET[c] || "chain " + c).join(" + "))}. Flight Plan rehearses Base votes only; use the percentages in the Aero app for this lock. <a href="docs.html#networks">Why</a></div>`;
+    return render();
+  }
+  try {
+    const split = S.plan.legs.map(l => ({ gauge: l.gauge, pct: l.pct, label: l.label, pool: l.pool }));
+    const call = A.buildAllocate(ethers, { tokenId: L.id, owner: L.owner, staked: L.staked, booked: L.booked, split });
+    const g = A.checkCall(ethers, call, { tokenId: L.id, owner: L.owner, account: L.owner, staked: L.staked, booked: L.booked, allowedGauges: new Set(split.map(s => s.gauge.toLowerCase())) });
+    if (!g.ok) throw new Error("safety check: " + g.why);
+    const at = L.next && L.next > now ? L.next + 5 : now;
+    L.status = `<div class="banner">Rehearsing${at > now ? " at the window open" : ""}…</div>`; render();
+    const calls = [{ from: call.owner, to: call.to, data: call.data, value: "0x0", gas: "0x" + (30_000_000).toString(16) },
+      ...call.legs.map(l => ({ from: call.owner, to: C.LEAF, data: I.leaf.encodeFunctionData("allocations", [L.id, ethers.getAddress(l.gauge)]) })),
+      { from: call.owner, to: C.LEAF, data: I.leaf.encodeFunctionData("allocatedGauges", [L.id]) }];
+    const block = { calls }; if (at > now) block.blockOverrides = { time: "0x" + at.toString(16) };
+    const res = (await rpc("eth_simulateV1", [{ blockStateCalls: [block], validation: false }, "latest"]))[0].calls;
+    if (res[0].status !== "0x1") {
+      const err = JSON.stringify(res[0].error || res[0].returnData || ""), cd = /aa9a98df/.test(err);
+      L.dry = { ok: false };
+      L.status = `<div class="banner bad"><b>Dry run failed:</b> ${cd ? "the 47-hour cooldown is still running" : esc(err.slice(0, 160))}. Nothing was sent. <a href="docs.html#fail">Help</a></div>`;
+      log(`#${L.id} dry run failed: ${err.slice(0, 200)}`, "bad"); return render();
+    }
+    const after = call.legs.map((l, i) => ({ ...l, got: I.leaf.decodeFunctionResult("allocations", res[1 + i].returnData)[0] }));
+    const gl = I.leaf.decodeFunctionResult("allocatedGauges", res[res.length - 1].returnData)[0].map(x => x.toLowerCase());
+    const total = after.reduce((s, x) => s + x.got, 0n), extra = gl.filter(x => !after.some(a => a.gauge === x));
+    const ok = total === L.staked && !extra.length && after.every(a => a.got === a.allocated);
+    const tot = Number(ethers.formatUnits(L.staked, 18)) || 1, gas = parseInt(res[0].gasUsed, 16);
+    const nowW = g2 => Number(ethers.formatUnits(L.current[g2] || 0n, 18));
+    const leg = Object.fromEntries(S.plan.legs.map(l => [l.gauge.toLowerCase(), l]));
+    const line = (name, col, a, b) => `<div class="r"><span class="pdot" style="--c:${col}"></span><span class="nm">${esc(name)}</span><span class="num">${(100 * a / tot).toFixed(0)}% → <b>${(100 * b / tot).toFixed(0)}%</b></span></div><div class="tr"><i class="now" style="width:${(100 * a / tot).toFixed(1)}%"></i><i class="aft" style="--c:${col};width:${(100 * b / tot).toFixed(1)}%"></i></div>`;
+    let bars = after.map(a => line(a.label, typeColor((leg[a.gauge] || {}).type), nowW(a.gauge), Number(ethers.formatUnits(a.got, 18)))).join("");
+    for (const g2 of Object.keys(L.current)) if (!after.some(a => a.gauge === g2)) bars += line(short(g2) + " (cleared)", "var(--mut2)", nowW(g2), 0);
+    L.dry = { ok };
+    L.status = `<div class="banner ${ok ? "ok" : "bad"}"><b>${ok ? "Dry run OK" : "Result doesn't match the plan"}</b> · network fee about $${(gas * 0.006e-9 * 2400).toFixed(3)}</div><div class="ba" style="margin-top:8px">${bars}</div>`;
+    log(`#${L.id} dry run ${ok ? "OK" : "mismatch"} · gas ${gas.toLocaleString()}`, ok ? "" : "bad");
+  } catch (e) { L.dry = { ok: false }; L.status = `<div class="banner bad">Dry run failed: ${esc(e.message || e)}</div>`; log(`#${L.id}: ${e.message || e}`, "bad"); }
+  render();
+}
+async function dryAll() { for (const L of S.locks) if (!L.dry) await dryRun(L); }
+
+// ---------- look up ----------
+async function lookup(raw) {
+  let a = String(raw || "").trim();
+  if (!/^0x[0-9a-fA-F]{40}$/.test(a)) { toast("that isn't a wallet address"); return; }
+  a = ethers.getAddress(a); S.addr = a; S.locks = []; S.plan = null; S.bracket = null; S.busy = true; $("addr").value = a; render();
+  try { history.replaceState(null, "", "?addr=" + a); } catch (e) {}
+  try {
+    if (!S.D) await loadData();
+    const ids = await discover(a);
+    const all = ids.length ? await readLocks(ids) : [];
+    S.locks = all.filter(L => L.staked > 0n); S.empty = all.length - S.locks.length;
+    S.live = S.locks.length ? await readLive().catch(e => { log("Live pool sizes unavailable, using the last scan: " + e.message, "warn"); return null; }) : null;
+    replan();
+    if (S.plan) log(`Plan: ${S.plan.legs.length} pools, ~${money(S.plan.expect_usd)} this window.`);
+  } catch (e) { log("Lookup failed: " + (e.message || e), "bad"); toast("lookup failed, try again"); }
+  S.busy = false; render();
+}
+$("find").addEventListener("submit", e => { e.preventDefault(); lookup($("addr").value); });
+$("connect").addEventListener("click", async e => {
+  e.preventDefault();
+  if (!window.ethereum) { toast("no wallet in this browser"); return; }
+  try { const accs = await window.ethereum.request({ method: "eth_requestAccounts" }); if (accs && accs[0]) lookup(accs[0]); } catch (er) { toast("connect cancelled"); }
+});
+setInterval(() => { if (!document.hidden && S.locks.length) renderHero(); }, 30000);
+
+render();
+loadData().then(() => { const q = new URLSearchParams(location.search).get("addr"); if (q) lookup(q); }).catch(e => { $("fresh").textContent = "Pool data unavailable"; log("Data load failed: " + e.message, "bad"); });
+})();
+</script>
+<script src="a2hs.js" defer></script>
+</body></html>
