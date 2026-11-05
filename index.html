@@ -486,6 +486,7 @@ function renderLocks() {
   }).join("") + `${S.account ? "" : `<p class="small mut2" style="margin:8px 0 0">Paste-only is read-only. Connect the wallet that owns these locks to sign here.</p>`}</div>`;
   el.querySelectorAll("[data-dry]").forEach(b => b.addEventListener("click", () => dryRun(S.locks.find(L => L.id === Number(b.dataset.dry)))));
   el.querySelectorAll("[data-send]").forEach(b => b.addEventListener("click", () => send(S.locks.find(L => L.id === Number(b.dataset.send)))));
+  el.querySelectorAll("[data-copy]").forEach(c => c.addEventListener("click", () => copy(c.dataset.copy)));
 }
 const voteTxt = x => x.vote != null && Math.abs(x.vote - x.apr) >= 0.005 ? `voting ${(x.vote * 100).toFixed(1)}%` : "";
 function rankRows(idxs, thr, compact) {
@@ -556,12 +557,12 @@ function renderEarn() {
     const i = Rk.idOf.get(L.id), e = i != null ? Rk.earn.get(i) : null, r1 = i != null && p1 ? p1.byI.get(i) : null, r7 = i != null && p7 ? p7.byI.get(i) : null;
     T.aero += lockAero(L);
     if (e) { T.usd += e.usd; T.unc += e.unclaimed; T.known++; since = since == null ? e.since : Math.min(since, e.since); if (e.since > Rk.store_from + 3600) partial = true; }
-    return `<tr><td>#${L.id}</td><td class="num">${fmtA(lockAero(L))}</td><td class="num">${r1 ? pct(r1.r) : "-"}</td><td class="num">${r7 ? pct(r7.r) : "-"}</td><td class="num">${e ? money(e.usd) : "-"}</td><td class="num">${e ? money(e.unclaimed) : "-"}</td><td class="mut2">${e ? new Date(e.since * 1000).toLocaleDateString([], { month: "numeric", day: "numeric" }) : "not tracked yet"}</td></tr>`;
+    return `<tr><td>#${L.id}<br><small class="mut2">${fmtA(lockAero(L))} AERO</small></td><td class="num">${r1 ? pct(r1.r) : "-"}</td><td class="num">${r7 ? pct(r7.r) : "-"}</td><td class="num">${e ? money(e.usd) + `<br><small class="mut2">since ${new Date(e.since * 1000).toLocaleDateString([], { month: "numeric", day: "numeric" })}</small>` : `<span class="mut2">not tracked yet</span>`}</td><td class="num">${e ? money(e.unclaimed) : "-"}</td></tr>`;
   }).join("");
   const l1 = idxLine(p1), l7 = idxLine(p7);
-  const tot = S.locks.length > 1 ? `<tr style="font-weight:600"><td>All</td><td class="num">${fmtA(T.aero)}</td><td class="num">${pct(l1)}</td><td class="num">${pct(l7)}</td><td class="num">${T.known ? money(T.usd) : "-"}</td><td class="num">${T.known ? money(T.unc) : "-"}</td><td></td></tr>` : "";
+  const tot = S.locks.length > 1 ? `<tr style="font-weight:600"><td>All<br><small class="mut2" style="font-weight:400">${fmtA(T.aero)} AERO</small></td><td class="num">${pct(l1)}</td><td class="num">${pct(l7)}</td><td class="num">${T.known ? money(T.usd) : "-"}</td><td class="num">${T.known ? money(T.unc) : "-"}</td></tr>` : "";
   el.innerHTML = `<h2>Earnings <span>read ${esc(ago(Rk.ts))}</span></h2><div class="body">
-    <div class="tw"><table><tr><th>Lock</th><th class="num">AERO</th><th class="num">APR 24h</th><th class="num">APR 7d</th><th class="num">Earned</th><th class="num">Unclaimed</th><th>Since</th></tr>${rows}${tot}</table></div>
+    <div class="tw"><table><tr><th>Lock</th><th class="num">APR 24h</th><th class="num">APR 7d</th><th class="num">Earned</th><th class="num">Unclaimed</th></tr>${rows}${tot}</table></div>
     <p class="small mut2" style="margin:8px 0 0">APR = fees and incentives earned over the period on the whole lock, at today's AERO price, annualized. Earned = what the tracker has seen each lock earn since it first read it (claims bridged, every network), at most about 8 days back; it is not lifetime earnings.${partial ? " One or more of these locks were first read after the tracker's window started, so their Earned covers fewer days." : ""} Unclaimed is what the last read saw waiting, every network. <a href="docs.html#earn">More</a></p></div>`;
   function idxLine(p) { if (!p) return null; const mine = S.locks.map(L => Rk.idOf.get(L.id)).filter(i => i != null).map(i => p.byI.get(i)).filter(Boolean); const c = combine(mine); return c ? c.apr : null; }
 }
@@ -991,7 +992,7 @@ async function lookup(raw) {
   if ($("sweep").open && S.addr) swScan().catch(e => log("Scan failed: " + e.message, "bad"));
 }
 $("find").addEventListener("submit", e => { e.preventDefault(); lookup($("addr").value); });
-setInterval(() => { if (!document.hidden && S.locks.length) { renderHero(); renderLocks(); renderPlan(); } }, 30000);
+setInterval(() => { if (!document.hidden && S.locks.length) { renderHero(); renderLocks(); } }, 30000);
 
 render();
 loadData().then(() => { const q = new URLSearchParams(location.search).get("addr"); if (q) lookup(q); }).catch(e => { $("fresh").textContent = "Pool data unavailable"; log("Data load failed: " + e.message, "bad"); });
