@@ -46,7 +46,7 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
   <span class="sp"></span><a class="back" href="./">← Back to the app</a>
 </header>
 <p class="lede">Flight Plan is an unofficial, open-source helper for sAERO voters on Aero. It reads the chain, suggests a split sized to your locks, shows how you rank, rehearses every signature for free, and (when you connect the wallet that owns the locks) signs one vote per lock and one sweep of your rewards into USDC. Nothing you enter reaches a server: the page is static files plus public chain reads.</p>
-<nav class="toc"><a href="#use">How to use it</a><a href="#window">Windows</a><a href="#plan">How the split is made</a><a href="#pools">How many pools</a><a href="#dial">The strategy dial</a><a href="#yours">Why yours differs</a><a href="#rank">Rank</a><a href="#history">By week, by day</a><a href="#earn">Earnings</a><a href="#sweep">Sweep</a><a href="#crowd">The crowd chart</a><a href="#safe">What it signs and never signs</a><a href="#blind">Never sign blind</a><a href="#hardware">Hardware wallets</a><a href="#anchors">Addresses</a><a href="#networks">Other networks</a><a href="#fail">When something fails</a><a href="#data">Data</a><a href="#tip">Tips</a></nav>
+<nav class="toc"><a href="#use">How to use it</a><a href="#window">Windows</a><a href="#plan">How the split is made</a><a href="#pools">How many pools</a><a href="#dial">The strategy dial</a><a href="#yours">Why yours differs</a><a href="#rank">Rank</a><a href="#history">By week, by day</a><a href="#earn">Earnings</a><a href="#sweep">Sweep</a><a href="#crowd">The crowd chart</a><a href="#wins">What actually wins</a><a href="#safe">What it signs and never signs</a><a href="#blind">Never sign blind</a><a href="#hardware">Hardware wallets</a><a href="#anchors">Addresses</a><a href="#networks">Other networks</a><a href="#fail">When something fails</a><a href="#data">Data</a><a href="#tip">Tips</a></nav>
 
 <section class="grp" id="use"><h2>How to use it</h2><div class="body">
   <ol>
@@ -156,6 +156,17 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 <section class="grp" id="crowd"><h2>When the crowd moves</h2><div class="body">
   <p>Every sAERO vote since launch is read from the chain. The chart shows sAERO moved per 2 hours over the last 72 hours, sAERO coming off its 47-hour cooldown over the next 72 hours, and how much of it is likely to move (from how quickly locks have historically moved after their window opened). The shaded band is when the Aero team's incentive batch usually lands; your own lock windows are pinned with a dashed line.</p>
   <p class="mut">The edge: a vote keeps earning past its window until you change it, so waiting for a big wave to move (its dilution is then known) and for the team's batch to land is free.</p>
+</div></section>
+
+<section class="grp" id="wins"><h2>What actually wins</h2><div class="body">
+  <p>Flight Plan collects nothing from the people who use it: there is no server. It doesn't need to. Every sAERO vote and every lock's earnings are on the chain, and the scanner reads all of them every 3 hours. So instead of learning from a few users, the page learns from every lock.</p>
+  <ul>
+    <li>Each ranked lock is grouped by what it did: <b>how many pools</b> it votes right now (1, 2 to 3, 4 to 6, 7 or more), <b>how many times it moved</b> in the last 7 days, and whether its votes sit mostly in <b>fee-led</b> pools (fees out-pay incentives), <b>stream-led</b> pools, or a mix. Pool kind comes from the latest Base scan; votes on other networks are left out of the mix share.</li>
+    <li>Each group shows how many locks it holds and its 7-day whole-lock APR, average and median. The average is pulled up by a few big winners; the median is the typical lock in that group. The size filter works like the rank card's.</li>
+    <li>Your own group is marked "you" (your pools and your fee/stream mix, from your current votes).</li>
+    <li>A snapshot of the table is kept at the end of every Aero week, so the view will reach back past the scanner's 8-day memory as weeks accumulate. The presets on the strategy dial get tuned from this table, not from guesses.</li>
+  </ul>
+  <p class="mut">Counts and averages only are published: nothing per lock or per wallet leaves the scanner.</p>
 </div></section>
 
 <section class="grp safe" id="safe"><h2>What it signs, and never signs</h2><div class="body">
