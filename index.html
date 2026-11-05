@@ -872,7 +872,7 @@ async function send(L) {
     const [after] = await readLocks([L.id]); Object.assign(L, after);
     const tot = Number(ethers.formatUnits(L.staked, 18)) || 1, leg = Object.fromEntries(planFor(L).legs.map(l => [l.gauge.toLowerCase(), l]));
     const chips = Object.entries(L.current).map(([g2, v]) => `<span class="chip"><span class="pdot" style="--c:${typeColor((leg[g2] || {}).type)}"></span>${esc((leg[g2] || {}).label || short(g2))} <b class="num">${(100 * Number(ethers.formatUnits(v, 18)) / tot).toFixed(0)}%</b></span>`).join("");
-    L.status = `<div class="banner ok"><div class="big">Allocated ✓</div><span class="small">Block ${parseInt(rc.blockNumber, 16).toLocaleString()} · <a href="https://basescan.org/tx/${hash}" target="_blank" rel="noopener">view on Basescan</a> · next change <b>${esc(fmtTs(L.next))}</b></span><div class="chips">${chips}</div></div>`;
+    L.status = `<div class="banner ok"><div class="big">Allocated ✓</div><span class="small">Block ${parseInt(rc.blockNumber, 16).toLocaleString()} · <a href="https://basescan.org/tx/${hash}" target="_blank" rel="noopener">view on Basescan</a> · next change <b>${esc(fmtTs(L.next))}</b></span><div class="chips">${chips}</div>${tipLine()}</div>`;
     store.set("sent:" + L.id, hash);
   } catch (e) { log("Stopped: " + (e.message || e), "bad"); L.status = `<div class="banner bad">Stopped: ${esc(e.message || e)}</div>`; }
   render();
@@ -910,6 +910,9 @@ function showSafety(thenConnect) { safetyThenConnect = !!thenConnect; $("safety"
 $("safeok").addEventListener("click", () => { store.set("safety", "1"); $("safety").classList.add("hidden"); if (safetyThenConnect) { safetyThenConnect = false; connect().catch(e => log("Connect failed: " + (e.message || e), "bad")); } });
 for (const id of ["safelink", "safelink2"]) $(id).addEventListener("click", e => { e.preventDefault(); showSafety(false); });
 $("tip").addEventListener("click", () => copy($("tip").dataset.copy));
+const TIP = $("tip").dataset.copy;
+const tipLine = () => `<div class="small" style="margin-top:8px;color:var(--mut)">Flight Plan is free. Tips: <code class="tipcopy" title="Tap to copy">${TIP.slice(0, 6)}…${TIP.slice(-4)}</code> <span class="mut2">(tap to copy; send it from your own wallet)</span></div>`;
+document.addEventListener("click", e => { const t = e.target.closest && e.target.closest(".tipcopy"); if (t) copy(TIP); });
 if (!store.get("safety")) showSafety(false);
 
 /* ======================================================================================
@@ -1175,7 +1178,7 @@ async function swSend() {
     const b = BigInt(await ethCall(USDC, I.erc20.encodeFunctionData("balanceOf", [S.account])));
     SW.done = { usdc: Number(b) / 1e6, txs };
     log(`Sweep done. USDC balance now ${fmt(Number(b) / 1e6, 2)}.`, "ok");
-    $("swOut").innerHTML = `<div class="banner ok"><div class="big num">Swept ✓ · ${fmt(Number(b) / 1e6, 2)} USDC in the wallet</div><span class="small">${txs.length ? txs.map(h => `<a href="https://basescan.org/tx/${h}" target="_blank" rel="noopener">${h.slice(0, 10)}…</a>`).join(" · ") : ""} · <a href="#" id="swAgain">re-scan</a> to confirm the reward tokens are gone</span></div>`;
+    $("swOut").innerHTML = `<div class="banner ok"><div class="big num">Swept ✓ · ${fmt(Number(b) / 1e6, 2)} USDC in the wallet</div><span class="small">${txs.length ? txs.map(h => `<a href="https://basescan.org/tx/${h}" target="_blank" rel="noopener">${h.slice(0, 10)}…</a>`).join(" · ") : ""} · <a href="#" id="swAgain">re-scan</a> to confirm the reward tokens are gone</span>${tipLine()}</div>`;
     const ag = $("swAgain"); if (ag) ag.addEventListener("click", e => { e.preventDefault(); swScan().catch(er => log(er.message, "bad")); });
     $("swk").textContent = "done";
   } catch (e) { log("Stopped: " + (e.message || e), "bad"); $("swOut").innerHTML = `<div class="banner bad">Stopped: ${esc(e.message || e)}. ${txs.length ? "Sent so far: " + txs.map(h => h.slice(0, 10) + "…").join(", ") + ". " : ""}Re-scan before trying again.</div>`; }
