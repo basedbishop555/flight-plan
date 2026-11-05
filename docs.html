@@ -46,7 +46,7 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
   <span class="sp"></span><a class="back" href="./">← Back to the app</a>
 </header>
 <p class="lede">Flight Plan is an unofficial, open-source helper for sAERO voters on Aero. It reads the chain, suggests a split sized to your locks, shows how you rank, rehearses every signature for free, and (when you connect the wallet that owns the locks) signs one vote per lock and one sweep of your rewards into USDC. Nothing you enter reaches a server: the page is static files plus public chain reads.</p>
-<nav class="toc"><a href="#use">How to use it</a><a href="#window">Windows</a><a href="#plan">How the split is made</a><a href="#pools">How many pools</a><a href="#yours">Why yours differs</a><a href="#rank">Rank</a><a href="#history">By week, by day</a><a href="#earn">Earnings</a><a href="#sweep">Sweep</a><a href="#crowd">The crowd chart</a><a href="#safe">What it signs and never signs</a><a href="#blind">Never sign blind</a><a href="#hardware">Hardware wallets</a><a href="#anchors">Addresses</a><a href="#networks">Other networks</a><a href="#fail">When something fails</a><a href="#data">Data</a></nav>
+<nav class="toc"><a href="#use">How to use it</a><a href="#window">Windows</a><a href="#plan">How the split is made</a><a href="#pools">How many pools</a><a href="#yours">Why yours differs</a><a href="#rank">Rank</a><a href="#history">By week, by day</a><a href="#earn">Earnings</a><a href="#sweep">Sweep</a><a href="#crowd">The crowd chart</a><a href="#safe">What it signs and never signs</a><a href="#blind">Never sign blind</a><a href="#hardware">Hardware wallets</a><a href="#anchors">Addresses</a><a href="#networks">Other networks</a><a href="#fail">When something fails</a><a href="#data">Data</a><a href="#tip">Tips</a></nav>
 
 <section class="grp" id="use"><h2>How to use it</h2><div class="body">
   <ol>
@@ -200,6 +200,12 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 <section class="grp" id="data"><h2>Data and freshness</h2><div class="body">
   <p>Pool estimates are published every hour; ranks, history and earnings every 3 hours; the crowd chart every hour. How many votes each pool has is read live when you open the page. The footer shows how old the pool data is, and the page warns when it's more than 3 hours old.</p>
   <p class="mut">Open source under the MIT license. The planning math runs in your browser (<code>planner.js</code>); the vote call is built and checked by <code>allocate-lib.js</code>; sweep routes come from <code>sweep-routes.js</code> and are re-quoted live. Prices from DefiLlama. Not financial advice: estimates can be wrong, and pools can change fast.</p>
+</div></section>
+
+<section class="grp" id="tip"><h2>Tips</h2><div class="body">
+  <p>Flight Plan is free and open source. If it earns you something, tips are welcome at this address (tap to copy):</p>
+  <div class="addr"><span class="k">Tip address · a plain wallet, any EVM network (Base preferred)</span><code data-copy="0xbe46e9dD6f22b5578529385F2e0Ee25840110196">0xbe46e9dD6f22b5578529385F2e0Ee25840110196</code></div>
+  <p class="mut">Send it from your own wallet. Flight Plan never asks you to sign or send a tip: a tip request on this page would be a fourth kind of signature, and there are only three.</p>
 </div></section>
 
 <p class="foot">Unofficial. Not affiliated with Aerodrome. <a href="./">← Back to the app</a></p>

@@ -37,4 +37,6 @@ than 0. Check the address bar says flight-plan.app. Details: `docs.html#safe`.
 
 Not financial advice. Estimates can be wrong and pools change fast.
 
+Tips (a plain wallet, any EVM network, Base preferred): `0xbe46e9dD6f22b5578529385F2e0Ee25840110196`. The page never asks you to send one.
+
 MIT licensed.

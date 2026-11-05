@@ -177,7 +177,8 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
 
 <p class="foot">Unofficial. Not affiliated with Aerodrome. Signs only: one vote per lock you own, exact-amount sweep approvals, one sweep swap. Never an approval on sAERO.<br>
 <b>Check the address bar says flight-plan.app.</b><br>
-<span id="fresh">Loading pool data…</span> · <a href="#" id="safelink2">Safety</a> · <a href="docs.html">Docs</a> · <a href="https://github.com/basedbishop555/flight-plan">Source</a></p>
+<span id="fresh">Loading pool data…</span> · <a href="#" id="safelink2">Safety</a> · <a href="docs.html">Docs</a> · <a href="https://github.com/basedbishop555/flight-plan">Source</a><br>
+Free and open source. Tips welcome: <code data-copy="0xbe46e9dD6f22b5578529385F2e0Ee25840110196" id="tip" title="Tap to copy">0xbe46…0196</code> <a href="docs.html#tip">more</a></p>
 <div class="toast" id="toast">copied</div>
 
 <div class="modal hidden" id="safety" role="dialog" aria-modal="true" aria-labelledby="safetyh"><div class="sheet">
@@ -700,6 +701,7 @@ let safetyThenConnect = false;
 function showSafety(thenConnect) { safetyThenConnect = !!thenConnect; $("safety").classList.remove("hidden"); }
 $("safeok").addEventListener("click", () => { store.set("safety", "1"); $("safety").classList.add("hidden"); if (safetyThenConnect) { safetyThenConnect = false; connect().catch(e => log("Connect failed: " + (e.message || e), "bad")); } });
 for (const id of ["safelink", "safelink2"]) $(id).addEventListener("click", e => { e.preventDefault(); showSafety(false); });
+$("tip").addEventListener("click", () => copy($("tip").dataset.copy));
 if (!store.get("safety")) showSafety(false);
 
 /* ======================================================================================
