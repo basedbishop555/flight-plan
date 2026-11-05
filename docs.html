@@ -46,7 +46,7 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
   <span class="sp"></span><a class="back" href="./">← Back to the app</a>
 </header>
 <p class="lede">Flight Plan is an unofficial, open-source helper for sAERO voters on Aero. It reads the chain, suggests a split sized to your locks, shows how you rank, rehearses every signature for free, and (when you connect the wallet that owns the locks) signs one vote per lock and one sweep of your rewards into USDC. Nothing you enter reaches a server: the page is static files plus public chain reads.</p>
-<nav class="toc"><a href="#use">How to use it</a><a href="#window">Windows</a><a href="#plan">How the split is made</a><a href="#pools">How many pools</a><a href="#yours">Why yours differs</a><a href="#rank">Rank</a><a href="#history">By week, by day</a><a href="#earn">Earnings</a><a href="#sweep">Sweep</a><a href="#crowd">The crowd chart</a><a href="#safe">What it signs and never signs</a><a href="#blind">Never sign blind</a><a href="#hardware">Hardware wallets</a><a href="#anchors">Addresses</a><a href="#networks">Other networks</a><a href="#fail">When something fails</a><a href="#data">Data</a><a href="#tip">Tips</a></nav>
+<nav class="toc"><a href="#use">How to use it</a><a href="#window">Windows</a><a href="#plan">How the split is made</a><a href="#pools">How many pools</a><a href="#dial">The strategy dial</a><a href="#yours">Why yours differs</a><a href="#rank">Rank</a><a href="#history">By week, by day</a><a href="#earn">Earnings</a><a href="#sweep">Sweep</a><a href="#crowd">The crowd chart</a><a href="#safe">What it signs and never signs</a><a href="#blind">Never sign blind</a><a href="#hardware">Hardware wallets</a><a href="#anchors">Addresses</a><a href="#networks">Other networks</a><a href="#fail">When something fails</a><a href="#data">Data</a><a href="#tip">Tips</a></nav>
 
 <section class="grp" id="use"><h2>How to use it</h2><div class="body">
   <ol>
@@ -82,6 +82,25 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 
 <section class="grp" id="pools"><h2>Picking how many pools</h2><div class="body">
   <p><b>Auto</b> uses the rules above (6 to 10 pools). Pick <b>1 to 10</b> for exactly that many: each pool may then take up to 100 ÷ N percent (rounded up to 5%), and with 3 or fewer the per-type cap is dropped. The 10%-of-a-pool cap always stays, so a big wallet asking for one pool gets a "pick more pools" note instead of a bad bet. Fewer pools can pay more, and can also be hit harder if the crowd follows you in.</p>
+</div></section>
+
+<section class="grp" id="dial"><h2>The strategy dial</h2><div class="body">
+  <p>The split comes from four dials the model already measures. Three presets set them for you; drag any slider and the preset becomes <b>Custom</b>, the split recalculates at once, and your dials are remembered on this device. Under each slider the page says in words what the setting does and, when it differs, what Balanced would do.</p>
+  <h3>The presets</h3>
+  <div class="tw"><table><tr><th></th><th>Steady</th><th>Balanced</th><th>Aggressive</th></tr>
+  <tr><td>Pools</td><td>Auto (6 to 10)</td><td>Auto (6 to 10)</td><td>1 per lock</td></tr>
+  <tr><td>Fee memory</td><td>longer (about 20% last 12h)</td><td>the fitted mix (40% last 12h)</td><td>last 12h only, spikes trusted</td></tr>
+  <tr><td>Crowd caution</td><td>1.4x</td><td>1.0x (as measured)</td><td>0.5x</td></tr>
+  <tr><td>Streams</td><td>in full</td><td>in full</td><td>fees only</td></tr></table></div>
+  <p><b>Balanced</b> is the scanner's own model, the same split its auto plan uses. <b>Aggressive</b> is the fee-chaser's method: one pool per lock, the pool with the biggest fee rate over the last 12 hours, incentives ignored. With several locks each lock takes the next best pool, biggest lock first, so a wallet isn't all in one bet. Its expected number is usually higher and so are the swings: a pool whose fees spiked today can fade tomorrow, and the model's own low case shows that.</p>
+  <h3>The dials</h3>
+  <ul>
+    <li><b>Pools.</b> Auto, or exactly 1 to 10 (see <a href="#pools">how many pools</a>).</li>
+    <li><b>Fee memory.</b> Each pool's fees are read over the last 12 hours, 24 hours, 2 days and 4 days. The slider sets how those reads are weighted: left = long memory (4 days count most), middle = the fitted mix the scanner uses, right = the last 12 hours only. <b>Trust fresh spikes</b> drops two safety rails: the cap on any one reading at 10x the pool's typical rate, and the rule that a fading pool (last 12 hours under 30% of its longest read) counts only at its 12-hour rate.</li>
+    <li><b>Crowd caution.</b> Voters pile into the pools that look best, so each pool's votes are priced at a measured pile-on factor (fitted after every window, higher for crowded pools and small pools). The slider scales that factor: 1.0x = as measured; 0.5x assumes the crowd follows half as much; 1.5x assumes a heavier pile-on.</li>
+    <li><b>Streams.</b> How much incentive streams count next to fees: in full, part, or not at all (fees only).</li>
+  </ul>
+  <p class="mut">The caps that protect you never move with the dial: your slice stays at most 10% of any pool, small pools stay capped, a pool whose votes doubled since the last scan stays out, and the dry run and the signing guard are the same for every preset.</p>
 </div></section>
 
 <section class="grp" id="yours"><h2>Why your split differs from someone else's</h2><div class="body">

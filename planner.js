@@ -1,8 +1,9 @@
 /* planner.js: the vote planner, run in your browser.
- * A line-for-line port of the planning model (optimize / value / chase / caps) that sizes a split of your sAERO
- * across Aero pools for one 47-hour window. Inputs come from data/plan.json, which a scanner publishes every hour:
- * each pool's expected fees and incentives for a window starting at each hour of the next two days. Nothing you
- * enter leaves your browser. MIT licensed; tools/check.js proves the port matches the reference plans.
+ * A line-for-line port of the planning model (fee estimate / optimize / value / chase / caps) that sizes a split of
+ * your sAERO across Aero pools for one 47-hour window. Inputs come from data/plan.json, which a scanner publishes
+ * every hour: each pool's raw fee rates per horizon and, for a window starting at each hour of the next two days, the
+ * window hour factor and incentive dollars. The strategy dial (DEFAULTS) re-blends those in your browser. Nothing you
+ * enter leaves your browser. MIT licensed; tools/check.js proves the defaults match the reference plans.
  */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
@@ -18,14 +19,43 @@
     return [n, n, Math.min(100, cap), n <= 3 ? null : C.TYPE_MAX];
   }
 
-  function chaseFor(C, row, chase) {
+  function chaseFor(C, row, chase, caution) {
     let base;
     if (row.alloc < C.SMALL_POOL && chase.small) base = chase.small;
     else base = row.type === "stream-led" ? chase.stream : chase.fee;
     const k = row.rank48, crowd = chase.crowd || {};
     const key = k && k <= 5 ? "top5" : k && k <= 20 ? "top20" : "";
     const f = key in crowd ? crowd[key] : 1.0;
-    return base.map(c => c * f);
+    const cau = caution == null ? 1 : caution;          // the Crowd caution dial scales the pile-on above 1x
+    return base.map(c => 1 + (c * f - 1) * cau);
+  }
+
+  /* ---- the strategy dial (11/5/2026) ----
+     memory  0..1  how much recent fees count: 0 = long memory, 0.5 = the fitted weights (today's plan), 1 = last 12h only
+     trust   bool  trust a fresh spike: the uncapped 12h rate, and a fading pool is not clipped to its 12h rate
+     caution 0..2  pile-on priced at this x the measured factor (1 = measured)
+     streams 0..1  how much incentive streams count (1 = in full, 0 = fees only)
+     n       pool count (null = Auto); exclude = a Set of gids to leave out (one pool per lock) */
+  const DEFAULTS = { n: null, memory: 0.5, trust: false, caution: 1, streams: 1, exclude: null };
+  const LONG = { "12": 0.05, "24": 0.15, "48": 0.30, "96": 0.50 }, SHORT = { "12": 1, "24": 0, "48": 0, "96": 0 };
+  function weightsFor(D, m) {
+    const F = D.tun.fee_weights, out = {};
+    for (const h of ["12", "24", "48", "96"]) { const f = F[h] || 0; out[h] = m <= 0.5 ? LONG[h] + (f - LONG[h]) * (m / 0.5) : f + (SHORT[h] - f) * ((m - 0.5) / 0.5); }
+    return out;
+  }
+  /** Fee $/day for one pool under the dial: the fitted estimator (weighted mix of the horizons that exist, fading
+   *  clipped to the 12h rate) x realism x confidence. With the defaults this is the scanner's own number. */
+  function feeDay(D, g, o) {
+    const have = Object.assign({}, g.rates || {});
+    if (o.trust && g.raw12 != null) have["12"] = g.raw12;
+    const hs = Object.keys(have); if (!hs.length) return { fee: 0, fading: false };
+    const W = weightsFor(D, o.memory);
+    let wsum = 0; for (const h of hs) wsum += W[h] || 0;
+    const longest = hs.reduce((a, b) => (+a > +b ? a : b));
+    let e = wsum > 0 ? hs.reduce((acc, h) => acc + (W[h] || 0) * have[h], 0) / wsum : have[longest];
+    let fading = false;
+    if (!o.trust && "12" in have && have[longest] > 0 && longest !== "12" && have["12"] < D.tun.fade * have[longest]) { e = Math.min(e, have["12"]); fading = true; }
+    return { fee: e * D.tun.fee_realism * (g.conf == null ? 1 : g.conf), fading };
   }
 
   // your share of what the pool pays over the window, with your own AERO diluting it
@@ -37,7 +67,7 @@
   function optimize(C, rows, aero, chase, smallMax, n) {
     const [minPools, maxPools, maxPct, typeMax] = poolRules(C, n);
     const STEP = C.STEP;
-    const fac = (r, k) => chaseFor(C, r, chase)[k];
+    const fac = (r, k) => chaseFor(C, r, chase, chase.caution)[k];
     let live = rows.filter(r => !r.cut);
     const cap = new Map();
     for (const r of live) {
@@ -102,22 +132,38 @@
     return k;
   }
 
-  /** Rows for one start; `live` = {gauge address (lowercase): AERO allocated right now} replaces the scan's figure. */
-  function rowsAt(D, si, live) {
-    return D.rows[si].map(([gi, feeW, incW, t, fl]) => {
+  /** Rows for one start under the dial `o`; `live` = {gauge address (lowercase): AERO allocated right now} replaces
+   *  the scan's figure. Fee $ over the window = fee $/day x the window hour factor (hf) x the synth haircut; the pool
+   *  type and fee-led flag follow the blend, as in the scanner. */
+  function rowsAt(D, si, live, o) {
+    o = Object.assign({}, DEFAULTS, o || {});
+    const C = D.consts, out = [];
+    for (const [gi, hf, incW] of D.rows[si]) {
       const g = D.gauges[gi];
+      if (o.exclude && o.exclude.has(g.gid)) continue;
       const la = live && g.gauge ? live[g.gauge.toLowerCase()] : undefined;
-      return { gid: g.gid, gauge: g.gauge, name: g.name, pool: g.pool, kind: g.kind, cut: g.cut, rank48: g.rank48,
-               fading: g.fading, fee_day: g.fee_day, streams: g.streams, alloc: la != null && la > 0 ? la : g.alloc, scanAlloc: g.alloc,
-               fee_w: feeW, inc_w: incW, type: D.types[t] || "thin-token", fee_led: !!fl };
-    });
+      const fd = feeDay(D, g, o);
+      const fee_w = fd.fee * hf * (1 - (g.synth || 0) / 2 * (1 - C.SYNTH_HAIRCUT));
+      const inc_w = incW * o.streams;
+      if (fee_w + inc_w < C.MIN_WINDOW_USD) continue;
+      const type = g.stock ? "tokenized-stock" : inc_w > fee_w ? "stream-led" : g.alloc >= C.DEEP ? "deep fee" : "thin-token";
+      out.push({ gid: g.gid, gauge: g.gauge, name: g.name, pool: g.pool, kind: g.kind, cut: g.cut, rank48: g.rank48,
+                 fading: fd.fading, fee_day: fd.fee, streams: g.streams, alloc: la != null && la > 0 ? la : g.alloc, scanAlloc: g.alloc,
+                 fee_w, inc_w, type, fee_led: fee_w >= inc_w });
+    }
+    return out;
   }
 
-  /** The plan for `aero` AERO allocated at `startTs`. Returns legs + expected / low / high dollars + APR + warnings. */
-  function plan(D, aero, startTs, n, live) {
+  /** The plan for `aero` AERO allocated at `startTs`. `n` = pool count (null/0 = Auto); `opts` = the dial (see DEFAULTS).
+   *  Returns legs + expected / low / high dollars + APR + warnings. */
+  function plan(D, aero, startTs, n, live, opts) {
+    const o = Object.assign({}, DEFAULTS, opts || {});
+    if (n) o.n = n;
     const C = D.consts, si = startIndex(D, startTs);
-    const rows = rowsAt(D, si, live);
-    const { split, placed, relaxed } = optimize(C, rows, aero, D.chase, D.small_max, n || null);
+    const rows = rowsAt(D, si, live, o);
+    const chase = { stream: D.chase.stream, fee: D.chase.fee, small: D.chase.small, crowd: D.chase.crowd, caution: o.caution };
+    const { split, placed, relaxed } = optimize(C, rows, aero, chase, D.small_max, o.n || null);
+    n = o.n || null;
     const minPools = poolRules(C, n || null)[0];
     const warnings = [];
     if (placed < 100) warnings.push(!n ? `Only ${placed}% could be placed under the rules.` :
@@ -125,7 +171,7 @@
     if (relaxed) warnings.push(`The ${C.TYPE_MAX}% per pool type cap was relaxed to place everything.`);
     const tot = { high: 0, expected: 0, low: 0 };
     const legs = split.map(([r, p]) => {
-      const x = aero * p / 100, f = chaseFor(C, r, D.chase);
+      const x = aero * p / 100, f = chaseFor(C, r, chase, chase.caution);
       const hi = value(r, x, f[0]), ex = value(r, x, f[1]), lo = value(r, x, f[2]);
       tot.high += hi; tot.expected += ex; tot.low += lo;
       return { pct: p, aero: x, row: r, label: r.name, gauge: r.gauge, pool: r.pool, type: r.type, fee_led: r.fee_led,
@@ -135,8 +181,8 @@
     if (feeShare < C.FEE_LED_MIN * 100 - 1) warnings.push(`Only ${feeShare}% sits in fee-led pools (the rule is at least a third).`);
     if (legs.length < minPools) warnings.push(`Only ${legs.length} pools passed the filters.`);
     const apr = aero && D.px ? tot.expected / (aero * D.px) * 365 / (C.H47 / 86400) * 100 : 0;
-    return { legs, start: D.starts[si], expect_usd: tot.expected, expect_low_usd: tot.low, expect_high_usd: tot.high, apr, warnings, placed };
+    return { legs, start: D.starts[si], expect_usd: tot.expected, expect_low_usd: tot.low, expect_high_usd: tot.high, apr, warnings, placed, opts: o };
   }
 
-  return { poolRules, chaseFor, value, optimize, rowsAt, startIndex, plan };
+  return { poolRules, chaseFor, value, optimize, rowsAt, startIndex, plan, weightsFor, feeDay, DEFAULTS };
 });

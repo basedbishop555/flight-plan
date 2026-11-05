@@ -64,6 +64,14 @@ button:disabled{opacity:.45;cursor:not-allowed} button.sm{padding:6px 10px;font-
 .seg button{flex:none;padding:6px 11px;font-size:13px;border-radius:999px;color:var(--mut)} .seg button.on{border-color:var(--c3);background:var(--c3s);color:var(--c3)}
 .seg.tight{margin:0;display:inline-flex} .seg.tight button{padding:4px 9px;font-size:12px}
 .seglabel{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut2);font-weight:700;margin:0 0 6px}
+.dial{border:1px solid var(--line2);background:var(--card2);border-radius:12px;padding:10px 12px 6px;margin:0 0 12px}
+.dial .seg{margin:0 0 8px;flex-wrap:wrap;overflow:visible} .dial .seg button.on{border-color:var(--c3);background:var(--c3s);color:var(--c3)} .dial .seg button.on.agg{border-color:var(--warn);background:var(--warnsoft);color:var(--warn)}
+.pnote{font-size:12.5px;color:var(--mut);margin:0 0 10px}
+.sl{padding:7px 0;border-top:1px dashed var(--line2)} .slh{display:flex;justify-content:space-between;align-items:baseline;font-size:13.5px;font-weight:600} .slh b{font-weight:800;color:var(--c3);font-variant-numeric:tabular-nums}
+.sl input[type=range]{width:100%;margin:6px 0 2px;accent-color:var(--c3);height:22px}
+.sl small{display:block;font-size:11.5px;color:var(--mut2);line-height:1.4} .sl small .was{color:var(--mut2);opacity:.8}
+.sw{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--mut);margin:2px 0 2px;cursor:pointer} .sw input{accent-color:var(--c3);width:16px;height:16px}
+.lockhead{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:700;margin:10px 0 0;padding-top:8px;border-top:1px solid var(--line2)} .lockhead span{color:var(--mut2);font-weight:500}
 .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--mut);margin:0 0 4px}.legend span{display:inline-flex;align-items:center;gap:5px}
 .pdot{width:10px;height:10px;border-radius:3px;background:var(--c);flex:none;display:inline-block}
 details.pool{border-bottom:1px solid var(--line2)} details.pool:last-child{border-bottom:0}
@@ -258,19 +266,28 @@ async function waitReceipt(hash) {
 
 // ---------- state ----------
 const S = { empty: 0, D: null, RK: null, H: null, histBusy: false, CR: null, addr: null, account: null, provider: null, locks: [], live: null, plan: null,
-            nPools: Number(store.get("pools", 0)) || 0, mode: store.get("mode", "lock"), logv: store.get("logv", "week") === "day" ? "day" : "week",
+            dial: null, mode: store.get("mode", "lock"), logv: store.get("logv", "week") === "day" ? "day" : "week",
             bracket: null, busy: false, cool: 169200 };
 const viewer = () => S.addr;
 const owns = L => !!(S.account && L.owner && L.owner.toLowerCase() === S.account.toLowerCase());
 
 async function loadData() {
   const v = Math.floor(Date.now() / 600000);         // refresh at most every 10 min
-  const [d, r, c] = await Promise.all([fetch("data/plan.json?v=" + v).then(x => x.json()),
-    fetch("data/rank.json?v=" + v).then(x => x.json()).catch(() => null), fetch("data/crowd.json?v=" + v).then(x => x.json()).catch(() => null)]);
-  S.D = d; S.RK = r ? decodeRank(r) : null; S.CR = c;
+  // open-time load is plan + crowd only (~55KB gz); the every-lock rank file (~480KB gz) and history (~620KB gz)
+  // are fetched only once someone looks a wallet up, in parallel with the chain reads
+  const [d, c] = await Promise.all([fetch("data/plan.json?v=" + v).then(x => x.json()),
+    fetch("data/crowd.json?v=" + v).then(x => x.json()).catch(() => null)]);
+  S.D = d; S.CR = c;
   $("fresh").textContent = `Pool data from ${ago(d.scan_ts)}`;
   log(`Pool data from ${new Date(d.scan_ts * 1000).toLocaleString()} · ${d.gauges.length} pools · AERO $${d.px.toFixed(4)}`);
   renderCrowd();
+}
+function loadRank() {
+  if (!S.rankP) {
+    const v = Math.floor(Date.now() / 600000);
+    S.rankP = fetch("data/rank.json?v=" + v).then(x => x.json()).then(r => { S.RK = decodeRank(r); }).catch(e => { S.rankP = null; log("Rank unavailable: " + e.message, "warn"); });
+  }
+  return S.rankP;
 }
 async function loadHist() {
   if (S.H || S.histBusy) return;
@@ -331,11 +348,49 @@ async function readLive() {
 const lockAero = L => Number(ethers.formatUnits(L.staked, 18));
 const totalAero = () => S.locks.reduce((n, L) => n + lockAero(L), 0);
 const openTs = () => { const now = Date.now() / 1000, nx = S.locks.map(L => L.next).filter(Boolean); return Math.max(nx.length ? Math.min(...nx) : now, now); };
-function replan() { S.plan = S.locks.length && totalAero() > 0 ? P.plan(S.D, totalAero(), openTs(), S.nPools || null, S.live) : null; for (const L of S.locks) { L.dry = null; L.call = null; if (!L.sent) L.status = ""; } }
-const planSplit = () => S.plan.legs.map(l => ({ gauge: l.gauge, pct: l.pct, label: l.label, pool: l.pool }));
-const planGauges = () => new Set(S.plan.legs.map(l => l.gauge.toLowerCase()));
+/* ---------- the strategy dial: presets move four sliders; any drag = Custom; the split recalculates ---------- */
+const PRESETS = {
+  steady:     { n: 0, memory: 0.25, trust: false, caution: 1.4, streams: 1 },
+  balanced:   { n: 0, memory: 0.5,  trust: false, caution: 1,   streams: 1 },
+  aggressive: { n: 1, memory: 1,    trust: true,  caution: 0.5, streams: 0 },
+};
+const PRESET_NAME = { steady: "Steady", balanced: "Balanced", aggressive: "Aggressive", custom: "Custom" };
+function loadDial() {
+  let d = null; try { d = JSON.parse(store.get("dial", "null")); } catch (e) {}
+  if (!d || typeof d !== "object") { d = { ...PRESETS.balanced }; const old = Number(store.get("pools", 0)) || 0; if (old) d.n = old; }
+  const v = { n: Math.max(0, Math.min(10, Math.round(Number(d.n) || 0))), memory: clamp(d.memory, 0, 1, 0.5), trust: !!d.trust, caution: clamp(d.caution, 0, 2, 1), streams: clamp(d.streams, 0, 1, 1) };
+  v.preset = matchPreset(v); return v;
+}
+function clamp(x, lo, hi, dflt) { x = Number(x); return Number.isFinite(x) ? Math.max(lo, Math.min(hi, x)) : dflt; }
+function matchPreset(v) { for (const [k, q] of Object.entries(PRESETS)) if (q.n === v.n && Math.abs(q.memory - v.memory) < 1e-9 && q.trust === v.trust && Math.abs(q.caution - v.caution) < 1e-9 && Math.abs(q.streams - v.streams) < 1e-9) return k; return "custom"; }
+function setDial(v) { S.dial = { ...v, preset: matchPreset(v) }; store.set("dial", JSON.stringify(S.dial)); replan(); render(); }
+const dialOpts = () => ({ n: S.dial.n || null, memory: S.dial.memory, trust: S.dial.trust, caution: S.dial.caution, streams: S.dial.streams });
+const perLock = () => S.dial.n === 1 && S.locks.length > 1;      // Aggressive with several locks: each lock to a different top pool
+function replan() {
+  if (!S.dial) S.dial = loadDial();
+  for (const L of S.locks) { L.dry = null; L.call = null; L.plan = null; if (!L.sent) L.status = ""; }
+  S.plan = null;
+  if (!S.locks.length || totalAero() <= 0) return;
+  const now = Date.now() / 1000;
+  if (perLock()) {
+    const taken = new Set(), legs = [], warnings = new Set(); let usd = 0, lo = 0, hi = 0, placed = 100;
+    for (const L of S.locks.slice().sort((a, b) => lockAero(b) - lockAero(a))) {    // biggest lock picks first
+      const pl = P.plan(S.D, lockAero(L), Math.max(now, L.next || now), 1, S.live, { ...dialOpts(), exclude: taken });
+      L.plan = pl; for (const l of pl.legs) { taken.add(l.row.gid); legs.push({ ...l, lock: L.id }); }
+      usd += pl.expect_usd; lo += pl.expect_low_usd; hi += pl.expect_high_usd; placed = Math.min(placed, pl.placed); pl.warnings.forEach(w => warnings.add(w));
+    }
+    const aero = totalAero(), apr = aero && S.D.px ? usd / (aero * S.D.px) * 365 / (S.D.consts.H47 / 86400) * 100 : 0;
+    S.plan = { legs, start: openTs(), expect_usd: usd, expect_low_usd: lo, expect_high_usd: hi, apr, warnings: [...warnings], placed, perLock: true };
+  } else {
+    S.plan = P.plan(S.D, totalAero(), openTs(), null, S.live, dialOpts());
+    for (const L of S.locks) L.plan = S.plan;
+  }
+}
+const planFor = L => (L && L.plan) || S.plan;
+const planSplit = L => planFor(L).legs.map(l => ({ gauge: l.gauge, pct: l.pct, label: l.label, pool: l.pool }));
+const planGauges = L => new Set(planFor(L).legs.map(l => l.gauge.toLowerCase()));
 const isOpen = L => L.next ? L.next <= Date.now() / 1000 : true;
-const canSend = L => owns(L) && !!(L.dry && L.dry.ok) && isOpen(L) && !!S.plan && S.plan.placed === 100 && !L.sent;
+const canSend = L => owns(L) && !!(L.dry && L.dry.ok) && isOpen(L) && !!planFor(L) && planFor(L).placed === 100 && !L.sent;
 
 // ---------- rank (every lock / every wallet), computed here from data/rank.json ----------
 function decodeRank(Rk) {
@@ -446,12 +501,61 @@ function poolRow(l) {
     <div class="addr">pool <code data-copy="${esc(r.pool)}">${esc(r.pool)}</code></div>
     <div class="addr">gauge <code data-copy="${esc(r.gauge)}">${esc(r.gauge)}</code></div></div></details>`;
 }
+function dialText() {
+  const d = S.dial, W = P.weightsFor(S.D, d.memory), pc = x => Math.round(x * 100) + "%";
+  const nText = v => !v ? "Auto: 6 to 10 pools, at most 25% in one" : v === 1 && S.locks.length > 1 ? "one pool per lock: each lock takes the next best pool" : `exactly ${v} pool${v === 1 ? "" : "s"}, up to ${P.poolRules(S.D.consts, v)[2]}% each`;
+  const mText = (m, t) => { const w = P.weightsFor(S.D, m); return `fees weighted 12h ${pc(w["12"])} · 24h ${pc(w["24"])} · 2d ${pc(w["48"])} · 4d ${pc(w["96"])}` + (t ? "; fresh spikes trusted (uncapped 12h rate, fading pools not clipped)" : "; spikes capped, a fading pool counts at its 12h rate"); };
+  const cText = k => `pile-on priced at ${k.toFixed(1)}x the measured factor` + (Math.abs(k - 1) < 0.05 ? " (fitted after every window)" : k < 1 ? ": assumes the crowd follows less than measured" : ": assumes a heavier pile-on than measured");
+  const sText = v => v >= 0.999 ? "incentive streams count in full" : v <= 0.001 ? "fees only: incentive streams ignored" : `incentive streams count at ${pc(v)}`;
+  const B = PRESETS.balanced, was = (cur, bal) => cur === bal ? "" : ` <span class="was">(Balanced: ${bal})</span>`;
+  return {
+    n: { v: d.n ? String(d.n) : "Auto", t: nText(d.n) + was(nText(d.n), nText(B.n)) },
+    memory: { v: `${pc(W["12"])} last 12h`, t: mText(d.memory, d.trust) + was(mText(d.memory, d.trust), mText(B.memory, B.trust)) },
+    caution: { v: `${d.caution.toFixed(1)}x`, t: cText(d.caution) + was(cText(d.caution), cText(B.caution)) },
+    streams: { v: pc(d.streams), t: sText(d.streams) + was(sText(d.streams), sText(B.streams)) },
+  };
+}
+function presetNote() {
+  const p = S.plan, lo = p ? money(p.expect_low_usd) : "-";
+  return { steady: "Longer fee memory and more crowd caution. Smaller swings.",
+    balanced: "The fitted model: the same split the scanner's own plan uses.",
+    aggressive: `One pool per lock, the last 12 hours of fees with spikes trusted, fees only, half the crowd caution. Higher swings: a fading spike can land well under average for a window. Low case ${lo}.`,
+    custom: "Your own dials. Drag any slider and the split recalculates; it is remembered on this device." }[S.dial.preset];
+}
+function dialHtml() {
+  return `<div class="dial"><div class="seglabel">Strategy</div>
+    <div class="seg" id="presets">${["steady", "balanced", "aggressive", "custom"].map(k => `<button type="button" data-preset="${k}">${PRESET_NAME[k]}</button>`).join("")}</div>
+    <p class="pnote" id="pnote"></p>
+    <div class="sl"><div class="slh"><span>Pools</span><b id="v-n"></b></div><input type="range" id="d-n" min="0" max="10" step="1" aria-label="Pools"><small id="t-n"></small></div>
+    <div class="sl"><div class="slh"><span>Fee memory</span><b id="v-memory"></b></div><input type="range" id="d-memory" min="0" max="100" step="5" aria-label="Fee memory"><label class="sw"><input type="checkbox" id="d-trust"> trust fresh spikes</label><small id="t-memory"></small></div>
+    <div class="sl"><div class="slh"><span>Crowd caution</span><b id="v-caution"></b></div><input type="range" id="d-caution" min="0" max="200" step="10" aria-label="Crowd caution"><small id="t-caution"></small></div>
+    <div class="sl"><div class="slh"><span>Streams</span><b id="v-streams"></b></div><input type="range" id="d-streams" min="0" max="100" step="25" aria-label="Streams"><small id="t-streams"></small></div>
+    <p class="small mut2" style="margin:8px 0 2px"><a href="docs.html#dial">What each dial does</a></p></div>`;
+}
+function readSliders() {
+  return { n: Number($("d-n").value), memory: Number($("d-memory").value) / 100, trust: $("d-trust").checked, caution: Number($("d-caution").value) / 100, streams: Number($("d-streams").value) / 100 };
+}
+function updateDial() {
+  const d = S.dial, T = dialText();
+  $("d-n").value = d.n; $("d-memory").value = Math.round(d.memory * 100); $("d-trust").checked = d.trust; $("d-caution").value = Math.round(d.caution * 100); $("d-streams").value = Math.round(d.streams * 100);
+  for (const k of ["n", "memory", "caution", "streams"]) { $("v-" + k).textContent = T[k].v; $("t-" + k).innerHTML = T[k].t; }
+  document.querySelectorAll("#presets button").forEach(b => { b.classList.toggle("on", b.dataset.preset === d.preset); b.classList.toggle("agg", b.dataset.preset === "aggressive"); });
+  $("pnote").textContent = presetNote();
+}
 function renderPlan() {
   const el = $("plan");
   if (!S.addr || !S.locks.length || !S.plan) { el.classList.add("hidden"); return; }
   el.classList.remove("hidden");
-  const p = S.plan, types = [...new Set(p.legs.map(l => l.type))];
-  const picks = ["Auto", 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => { const v = n === "Auto" ? 0 : n; return `<button type="button" data-n="${v}" class="${S.nPools === v ? "on" : ""}">${n}</button>`; }).join("");
+  const p = S.plan;
+  if (!$("dial")) {
+    el.innerHTML = `<h2>Your split <span id="planHead"></span></h2><div class="body"><div id="dial">${dialHtml()}</div><div id="legs"></div></div>`;
+    document.querySelectorAll("#presets button").forEach(b => b.addEventListener("click", () => { if (b.dataset.preset !== "custom") setDial({ ...PRESETS[b.dataset.preset] }); }));
+    for (const id of ["d-n", "d-memory", "d-caution", "d-streams"]) $(id).addEventListener("input", () => setDial(readSliders()));
+    $("d-trust").addEventListener("change", () => setDial(readSliders()));
+  }
+  updateDial();
+  $("planHead").textContent = `${PRESET_NAME[S.dial.preset]} · ${fmtTs(p.start)} · 47h`;
+  const types = [...new Set(p.legs.map(l => l.type))];
   const dried = S.locks.filter(L => L.dry || L.sent).length, sums = p.placed === 100, mine = S.locks.filter(owns), ready = S.locks.filter(canSend), sent = S.locks.filter(L => L.sent);
   let cta;
   if (!sums) cta = `<button class="cta gbtn gviolet" disabled>Pick more pools to place 100%</button>`;
@@ -460,17 +564,15 @@ function renderPlan() {
   else if (mine.length && sent.length === mine.length) cta = `<button class="cta gbtn ggreen" disabled>Allocated ✓</button><div class="csub">${sent.length} lock${sent.length === 1 ? "" : "s"} voted this window</div>`;
   else if (mine.length && mine.some(L => L.dry && L.dry.ok && !isOpen(L))) cta = `<button class="cta gbtn gviolet" disabled>Opens ${esc(fmtTs(Math.min(...mine.filter(L => !isOpen(L)).map(L => L.next))))}</button><div class="csub">Dry run OK · the Allocate button unlocks when the window opens</div>`;
   else { const ok = S.locks.filter(L => L.dry && L.dry.ok).length; cta = `<button class="cta gbtn gviolet" id="cta" data-act="copy">Copy the split for the Aero app</button><div class="csub">${ok} of ${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} dry-ran OK · ${S.account ? "connect the wallet that owns these locks to sign here, or" : "connect to sign here, or"} vote these percentages in the Aero app</div>`; }
-  el.innerHTML = `<h2>Your split <span>${esc(fmtTs(p.start))} · 47h</span></h2><div class="body">
-    <div class="seglabel">Pools</div><div class="seg" id="npick">${picks}</div>
-    ${types.length ? `<div class="legend">${types.map(t => `<span><i class="pdot" style="--c:${typeColor(t)}"></i>${esc(TYPE_NAME[t] || t)}</span>`).join("")}</div>` : ""}
-    ${p.legs.map(poolRow).join("")}
-    ${p.warnings.length ? `<div class="banner warn small">${esc(p.warnings.join(" "))}</div>` : ""}
-    ${cta}</div>`;
-  el.querySelectorAll("#npick button").forEach(b => b.addEventListener("click", () => { S.nPools = Number(b.dataset.n); store.set("pools", String(S.nPools)); replan(); render(); }));
+  const legend = types.length ? `<div class="legend">${types.map(t => `<span><i class="pdot" style="--c:${typeColor(t)}"></i>${esc(TYPE_NAME[t] || t)}</span>`).join("")}</div>` : "";
+  const rows = p.perLock
+    ? S.locks.map(L => `<div class="lockhead">#${L.id} <span class="num">${fmtA(lockAero(L))} AERO · ${isOpen(L) ? "open" : "opens " + esc(fmtTs(L.next))} · ${money(L.plan.expect_usd)}</span></div>` + (L.plan.legs.length ? L.plan.legs.map(poolRow).join("") : `<div class="small warn">No pool fits this lock under the rules.</div>`)).join("")
+    : p.legs.map(poolRow).join("");
+  $("legs").innerHTML = legend + rows + (p.warnings.length ? `<div class="banner warn small">${esc(p.warnings.join(" "))}</div>` : "") + cta;
   el.querySelectorAll("[data-copy]").forEach(c => c.addEventListener("click", () => copy(c.dataset.copy)));
   const c = $("cta"); if (c) c.addEventListener("click", () => c.dataset.act === "dry" ? dryAll() : c.dataset.act === "send" ? sendAll() : copy(splitText()));
 }
-function splitText() { return `Flight Plan split, window from ${fmtTs(S.plan.start)}:\n` + S.plan.legs.map(l => `${l.pct}% ${l.label}`).join("\n"); }
+function splitText() { return `Flight Plan split (${PRESET_NAME[S.dial.preset]}), window from ${fmtTs(S.plan.start)}:\n` + (S.plan.perLock ? S.locks.map(L => `#${L.id}: ` + L.plan.legs.map(l => `${l.pct}% ${l.label}`).join(", ")).join("\n") : S.plan.legs.map(l => `${l.pct}% ${l.label}`).join("\n")); }
 function renderLocks() {
   const el = $("locks");
   if (!S.locks.length) { el.classList.add("hidden"); return; }
@@ -480,7 +582,7 @@ function renderLocks() {
     const open = L.next ? L.next <= now : true, mine = owns(L);
     const net = L.booked === 0n && L.elsewhere.length ? ` · <span class="warn">votes on ${esc(L.elsewhere.map(c => NET[c] || "chain " + c).join(" + "))}</span>` : "";
     const who = S.account ? (mine ? ` · <span class="ok">yours</span>` : ` · <span class="mut2">not the connected wallet</span>`) : "";
-    const planOk = S.plan && S.plan.placed === 100;
+    const planOk = planFor(L) && planFor(L).placed === 100;
     const btns = L.sent ? "" : `<button class="sm" data-dry="${L.id}" ${planOk ? "" : "disabled"}>Dry run</button>` + (mine ? `<button class="sm gbtn gviolet" data-send="${L.id}" ${canSend(L) ? "" : "disabled"}>Allocate</button>` : "");
     return `<div class="lock"><div class="lhead">${ring(L)}<div class="linfo"><div class="lid">#${L.id}</div><div class="lmeta num">${fmtA(lockAero(L))} AERO · ${open ? `<span class="ok">open</span>` : "opens " + esc(fmtTs(L.next))}${net}${who}</div></div>
       <div class="lbtns">${btns}</div></div><div class="small">${L.status || ""}</div></div>`;
@@ -579,14 +681,14 @@ function render() { renderPill(); renderHero(); renderPlan(); renderLocks(); ren
 
 // ---------- dry run (eth_simulateV1 from the lock owner's address; nothing is signed or sent) ----------
 function buildCall(L) {
-  const split = planSplit();
+  const split = planSplit(L);
   const call = A.buildAllocate(ethers, { tokenId: L.id, owner: L.owner, staked: L.staked, booked: L.booked, split });
-  const g = A.checkCall(ethers, call, { tokenId: L.id, owner: L.owner, account: L.owner, staked: L.staked, booked: L.booked, allowedGauges: planGauges() });
+  const g = A.checkCall(ethers, call, { tokenId: L.id, owner: L.owner, account: L.owner, staked: L.staked, booked: L.booked, allowedGauges: planGauges(L) });
   if (!g.ok) throw new Error("safety check: " + g.why);
   return call;
 }
 async function dryRun(L) {
-  if (!L || !S.plan || L.sent) return;
+  if (!L || !planFor(L) || L.sent) return;
   const now = Math.floor(Date.now() / 1000);
   if (L.booked === 0n && L.elsewhere.length) {
     L.dry = { ok: false };
@@ -616,7 +718,7 @@ async function dryRun(L) {
     const ok = total === L.staked && !extra.length && after.every(a => a.got === a.allocated);
     const tot = Number(ethers.formatUnits(L.staked, 18)) || 1, gas = parseInt(res[0].gasUsed, 16);
     const nowW = g2 => Number(ethers.formatUnits(L.current[g2] || 0n, 18));
-    const leg = Object.fromEntries(S.plan.legs.map(l => [l.gauge.toLowerCase(), l]));
+    const leg = Object.fromEntries(planFor(L).legs.map(l => [l.gauge.toLowerCase(), l]));
     const line = (name, col, a, b) => `<div class="r"><span class="pdot" style="--c:${col}"></span><span class="nm">${esc(name)}</span><span class="num">${(100 * a / tot).toFixed(0)}% → <b>${(100 * b / tot).toFixed(0)}%</b></span></div><div class="tr"><i class="now" style="width:${(100 * a / tot).toFixed(1)}%"></i><i class="aft" style="--c:${col};width:${(100 * b / tot).toFixed(1)}%"></i></div>`;
     let bars = after.map(a => line(a.label, typeColor((leg[a.gauge] || {}).type), nowW(a.gauge), Number(ethers.formatUnits(a.got, 18)))).join("");
     for (const g2 of Object.keys(L.current)) if (!after.some(a => a.gauge === g2)) bars += line(short(g2) + " (cleared)", "var(--mut2)", nowW(g2), 0);
@@ -643,7 +745,7 @@ async function send(L) {
     if (!S.account || !S.provider) throw new Error("connect the wallet first");
     if (!owns(L)) throw new Error("this lock is not owned by the connected wallet");
     if (!L.dry || !L.dry.ok) throw new Error("dry run first");
-    if (!S.plan || S.plan.placed !== 100) throw new Error("the split does not place 100%");
+    if (!planFor(L) || planFor(L).placed !== 100) throw new Error("the split does not place 100%");
     const call = buildCall(L);                                    // rebuild from the plan
     if (call.data !== L.dry.data) throw new Error("the plan changed since the dry run; dry-run again");
     await ensureChain();
@@ -651,7 +753,7 @@ async function send(L) {
     Object.assign(L, fresh);
     if (!L.owner || L.owner.toLowerCase() !== S.account.toLowerCase()) throw new Error("the lock is not owned by the connected account");
     if (L.next && L.next > Date.now() / 1000 + 2) throw new Error(`the window opens ${fmtTs(L.next)}; not yet`);
-    const g = A.checkCall(ethers, call, { tokenId: L.id, owner: L.owner, account: S.account, staked: L.staked, booked: L.booked, allowedGauges: planGauges() });
+    const g = A.checkCall(ethers, call, { tokenId: L.id, owner: L.owner, account: S.account, staked: L.staked, booked: L.booked, allowedGauges: planGauges(L) });
     if (!g.ok) throw new Error("guard tripped: " + g.why);
     L.status = `<div class="banner">Waiting for your signature… check the To address (the Aero Voter) and 0 ETH.</div>`; render();
     log(`Sending allocate #${L.id} (${call.legs.length} gauges) for signature…`);
@@ -662,7 +764,7 @@ async function send(L) {
     if (rc.status !== "0x1") { L.sent = null; L.dry = null; throw new Error(`transaction ${hash.slice(0, 12)}… reverted on chain`); }
     log(`#${L.id} confirmed in block ${parseInt(rc.blockNumber, 16)}`, "ok");
     const [after] = await readLocks([L.id]); Object.assign(L, after);
-    const tot = Number(ethers.formatUnits(L.staked, 18)) || 1, leg = Object.fromEntries(S.plan.legs.map(l => [l.gauge.toLowerCase(), l]));
+    const tot = Number(ethers.formatUnits(L.staked, 18)) || 1, leg = Object.fromEntries(planFor(L).legs.map(l => [l.gauge.toLowerCase(), l]));
     const chips = Object.entries(L.current).map(([g2, v]) => `<span class="chip"><span class="pdot" style="--c:${typeColor((leg[g2] || {}).type)}"></span>${esc((leg[g2] || {}).label || short(g2))} <b class="num">${(100 * Number(ethers.formatUnits(v, 18)) / tot).toFixed(0)}%</b></span>`).join("");
     L.status = `<div class="banner ok"><div class="big">Allocated ✓</div><span class="small">Block ${parseInt(rc.blockNumber, 16).toLocaleString()} · <a href="https://basescan.org/tx/${hash}" target="_blank" rel="noopener">view on Basescan</a> · next change <b>${esc(fmtTs(L.next))}</b></span><div class="chips">${chips}</div></div>`;
     store.set("sent:" + L.id, hash);
@@ -988,13 +1090,15 @@ async function lookup(raw) {
   try { history.replaceState(null, "", "?addr=" + a); } catch (e) {}
   try {
     if (!S.D) await loadData();
+    loadRank();                                   // in parallel with the chain reads below
     const ids = await discover(a);
     const all = ids.length ? await readLocks(ids) : [];
     S.locks = all.filter(L => L.staked > 0n); S.empty = all.length - S.locks.length;
     for (const L of S.locks) { const h = store.get("sent:" + L.id); if (h && L.la && Date.now() / 1000 - L.la < 600) L.sent = h; }
     S.live = S.locks.length ? await readLive().catch(e => { log("Live pool sizes unavailable, using the last scan: " + e.message, "warn"); return null; }) : null;
     replan();
-    if (S.plan) log(`Plan: ${S.plan.legs.length} pools, ~${money(S.plan.expect_usd)} this window.`);
+    if (S.plan) log(`Plan (${PRESET_NAME[S.dial.preset]}): ${S.plan.legs.length} pool${S.plan.legs.length === 1 ? "" : "s"}, ~${money(S.plan.expect_usd)} this window.`);
+    await loadRank();
     if (S.locks.length) loadHist();
   } catch (e) { log("Lookup failed: " + (e.message || e), "bad"); toast("lookup failed, try again"); }
   S.busy = false; render();
