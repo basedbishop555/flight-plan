@@ -998,5 +998,4 @@ render();
 loadData().then(() => { const q = new URLSearchParams(location.search).get("addr"); if (q) lookup(q); }).catch(e => { $("fresh").textContent = "Pool data unavailable"; log("Data load failed: " + e.message, "bad"); });
 })();
 </script>
-<script src="a2hs.js" defer></script>
 </body></html>
