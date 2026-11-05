@@ -66,11 +66,16 @@ button:disabled{opacity:.45;cursor:not-allowed} button.sm{padding:6px 10px;font-
 .seglabel{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut2);font-weight:700;margin:0 0 6px}
 .dial{border:1px solid var(--line2);background:var(--card2);border-radius:12px;padding:10px 12px 6px;margin:0 0 12px}
 .dial .seg{margin:0 0 8px;flex-wrap:wrap;overflow:visible} .dial .seg button.on{border-color:var(--c3);background:var(--c3s);color:var(--c3)} .dial .seg button.on.agg{border-color:var(--warn);background:var(--warnsoft);color:var(--warn)}
-.pnote{font-size:12.5px;color:var(--mut);margin:0 0 10px}
-.sl{padding:7px 0;border-top:1px dashed var(--line2)} .slh{display:flex;justify-content:space-between;align-items:baseline;font-size:13.5px;font-weight:600} .slh b{font-weight:800;color:var(--c3);font-variant-numeric:tabular-nums}
-.sl input[type=range]{width:100%;margin:6px 0 2px;accent-color:var(--c3);height:22px}
-.sl small{display:block;font-size:11.5px;color:var(--mut2);line-height:1.4} .sl small .was{color:var(--mut2);opacity:.8}
-.sw{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--mut);margin:2px 0 2px;cursor:pointer} .sw input{accent-color:var(--c3);width:16px;height:16px}
+.knobs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:4px 0 2px}
+.knob{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.knob b{font-size:13.5px;font-weight:800;color:var(--c3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.kd{width:62px;height:62px;touch-action:none;cursor:ns-resize;border-radius:50%;outline:none;-webkit-tap-highlight-color:transparent}
+.kd:focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--c3)}
+.kd svg{width:100%;height:100%;display:block} .kd .kt{fill:none;stroke:var(--track);stroke-width:6;stroke-linecap:round}
+.kd .kv{fill:none;stroke:var(--c3);stroke-width:6;stroke-linecap:round} .kd .kc{fill:var(--card)} .kd .kp{fill:var(--fg)}
+.knob span{font-size:11.5px;color:var(--mut);font-weight:600;text-align:center;line-height:1.2}
+.dialfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:8px 0 2px;font-size:12.5px}
+.sw{display:inline-flex;align-items:center;gap:5px;color:var(--mut);cursor:pointer;font-size:12.5px} .sw input{accent-color:var(--c3);width:15px;height:15px;margin:0}
 .lockhead{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:700;margin:10px 0 0;padding-top:8px;border-top:1px solid var(--line2)} .lockhead span{color:var(--mut2);font-weight:500}
 .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--mut);margin:0 0 4px}.legend span{display:inline-flex;align-items:center;gap:5px}
 .pdot{width:10px;height:10px;border-radius:3px;background:var(--c);flex:none;display:inline-block}
@@ -547,46 +552,59 @@ function poolRow(l) {
     <div class="addr">pool <code data-copy="${esc(r.pool)}">${esc(r.pool)}</code></div>
     <div class="addr">gauge <code data-copy="${esc(r.gauge)}">${esc(r.gauge)}</code></div></div></details>`;
 }
-function dialText() {
-  const d = S.dial, W = P.weightsFor(S.D, d.memory), pc = x => Math.round(x * 100) + "%";
-  const nText = v => !v ? "Auto: 6 to 10 pools, at most 25% in one" : v === 1 && S.locks.length > 1 ? "one pool per lock: each lock takes the next best pool" : `exactly ${v} pool${v === 1 ? "" : "s"}, up to ${P.poolRules(S.D.consts, v)[2]}% each`;
-  const mText = (m, t) => { const w = P.weightsFor(S.D, m); return `fees weighted 12h ${pc(w["12"])} · 24h ${pc(w["24"])} · 2d ${pc(w["48"])} · 4d ${pc(w["96"])}` + (t ? "; fresh spikes trusted (uncapped 12h rate, fading pools not clipped)" : "; spikes capped, a fading pool counts at its 12h rate"); };
-  const cText = k => `pile-on priced at ${k.toFixed(1)}x the measured factor` + (Math.abs(k - 1) < 0.05 ? " (fitted after every window)" : k < 1 ? ": assumes the crowd follows less than measured" : ": assumes a heavier pile-on than measured");
-  const sText = v => v >= 0.999 ? "incentive streams count in full" : v <= 0.001 ? "fees only: incentive streams ignored" : `incentive streams count at ${pc(v)}`;
-  const B = PRESETS.balanced, was = (cur, bal) => cur === bal ? "" : ` <span class="was">(Balanced: ${bal})</span>`;
-  return {
-    n: { v: d.n ? String(d.n) : "Auto", t: nText(d.n) + was(nText(d.n), nText(B.n)) },
-    memory: { v: `${pc(W["12"])} last 12h`, t: mText(d.memory, d.trust) + was(mText(d.memory, d.trust), mText(B.memory, B.trust)) },
-    caution: { v: `${d.caution.toFixed(1)}x`, t: cText(d.caution) + was(cText(d.caution), cText(B.caution)) },
-    streams: { v: pc(d.streams), t: sText(d.streams) + was(sText(d.streams), sText(B.streams)) },
-  };
+// The four knobs drive hidden range inputs (same ranges / steps / wiring as the old sliders), so nothing downstream changes.
+const KNOBS = [["n", "Pools", 0, 10, 1], ["memory", "Fee memory", 0, 100, 5], ["caution", "Crowd caution", 0, 200, 10], ["streams", "Streams", 0, 100, 25]];
+function knobVal(k) {
+  const d = S.dial;
+  return k === "n" ? (d.n ? String(d.n) : "Auto") : k === "memory" ? Math.round(P.weightsFor(S.D, d.memory)["12"] * 100) + "%"
+    : k === "caution" ? d.caution.toFixed(1) + "x" : Math.round(d.streams * 100) + "%";
 }
-function presetNote() {
-  const p = S.plan, lo = p ? money(p.expect_low_usd) : "-";
-  return { steady: "Longer fee memory and more crowd caution. Smaller swings.",
-    balanced: "The fitted model: the same split the scanner's own plan uses.",
-    aggressive: `One pool per lock, the last 12 hours of fees with spikes trusted, fees only, half the crowd caution. Higher swings: a fading spike can land well under average for a window. Low case ${lo}.`,
-    custom: "Your own dials. Drag any slider and the split recalculates; it is remembered on this device." }[S.dial.preset];
+function knobSvg() {   // 270 degree arc from -135 to +135 (0 = straight up): a track, the filled part, a dot at the value
+  return `<svg viewBox="0 0 62 62" aria-hidden="true"><circle class="kc" cx="31" cy="31" r="20"/><path class="kt" d=""/><path class="kv" d=""/><circle class="kp" r="3.2" cx="31" cy="31"/></svg>`;
+}
+function arc(a0, a1) {
+  const R = 25, P2 = a => [31 + R * Math.sin(a * Math.PI / 180), 31 - R * Math.cos(a * Math.PI / 180)];
+  const [x0, y0] = P2(a0), [x1, y1] = P2(a1);
+  return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${R} ${R} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+}
+function drawKnob(k) {
+  const [, , lo, hi] = KNOBS.find(x => x[0] === k), inp = $("d-" + k), el = $("k-" + k);
+  const v = Number(inp.value), f = (v - lo) / (hi - lo), a = -135 + 270 * f;
+  el.querySelector(".kt").setAttribute("d", arc(-135, 135));
+  el.querySelector(".kv").setAttribute("d", f > 0.004 ? arc(-135, a) : "");
+  const dot = el.querySelector(".kp"); dot.setAttribute("cx", (31 + 25 * Math.sin(a * Math.PI / 180)).toFixed(2)); dot.setAttribute("cy", (31 - 25 * Math.cos(a * Math.PI / 180)).toFixed(2));
+  el.setAttribute("aria-valuenow", String(v)); el.setAttribute("aria-valuetext", knobVal(k));
+  $("v-" + k).textContent = knobVal(k);
 }
 function dialHtml() {
   return `<div class="dial"><div class="seglabel">Strategy</div>
     <div class="seg" id="presets">${["steady", "balanced", "aggressive", "custom"].map(k => `<button type="button" data-preset="${k}">${PRESET_NAME[k]}</button>`).join("")}</div>
-    <p class="pnote" id="pnote"></p>
-    <div class="sl"><div class="slh"><span>Pools</span><b id="v-n"></b></div><input type="range" id="d-n" min="0" max="10" step="1" aria-label="Pools"><small id="t-n"></small></div>
-    <div class="sl"><div class="slh"><span>Fee memory</span><b id="v-memory"></b></div><input type="range" id="d-memory" min="0" max="100" step="5" aria-label="Fee memory"><label class="sw"><input type="checkbox" id="d-trust"> trust fresh spikes</label><small id="t-memory"></small></div>
-    <div class="sl"><div class="slh"><span>Crowd caution</span><b id="v-caution"></b></div><input type="range" id="d-caution" min="0" max="200" step="10" aria-label="Crowd caution"><small id="t-caution"></small></div>
-    <div class="sl"><div class="slh"><span>Streams</span><b id="v-streams"></b></div><input type="range" id="d-streams" min="0" max="100" step="25" aria-label="Streams"><small id="t-streams"></small></div>
-    <p class="small mut2" style="margin:8px 0 2px"><a href="docs.html#dial">What each dial does</a></p></div>`;
+    <div class="knobs">${KNOBS.map(([k, name, lo, hi, st]) => `<div class="knob"><b id="v-${k}"></b><div class="kd" id="k-${k}" role="slider" tabindex="0" aria-label="${name}" aria-valuemin="${lo}" aria-valuemax="${hi}">${knobSvg()}</div><span>${name}</span><input type="range" class="hidden" id="d-${k}" min="${lo}" max="${hi}" step="${st}" tabindex="-1" aria-hidden="true"></div>`).join("")}</div>
+    <div class="dialfoot"><label class="sw"><input type="checkbox" id="d-trust"> Trust spikes</label><a href="docs.html#dial">What each dial does</a></div></div>`;
+}
+function wireKnobs() {
+  for (const [k, , lo, hi, st] of KNOBS) {
+    const el = $("k-" + k), inp = $("d-" + k);
+    const set = v => { v = Math.max(lo, Math.min(hi, Math.round(v / st) * st)); if (v !== Number(inp.value)) { inp.value = v; inp.dispatchEvent(new Event("input")); } };
+    let y0 = null, v0 = 0;
+    el.addEventListener("pointerdown", e => { e.preventDefault(); el.focus(); el.setPointerCapture(e.pointerId); y0 = e.clientY; v0 = Number(inp.value); });
+    el.addEventListener("pointermove", e => { if (y0 == null) return; e.preventDefault(); set(v0 + (y0 - e.clientY) / 120 * (hi - lo)); });
+    const up = e => { if (y0 == null) return; y0 = null; try { el.releasePointerCapture(e.pointerId); } catch (er) {} };
+    el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+    el.addEventListener("keydown", e => {
+      const d = { ArrowUp: st, ArrowRight: st, ArrowDown: -st, ArrowLeft: -st, PageUp: st * 2, PageDown: -st * 2 }[e.key];
+      if (e.key === "Home") { e.preventDefault(); set(lo); } else if (e.key === "End") { e.preventDefault(); set(hi); } else if (d) { e.preventDefault(); set(Number(inp.value) + d); }
+    });
+  }
 }
 function readSliders() {
   return { n: Number($("d-n").value), memory: Number($("d-memory").value) / 100, trust: $("d-trust").checked, caution: Number($("d-caution").value) / 100, streams: Number($("d-streams").value) / 100 };
 }
 function updateDial() {
-  const d = S.dial, T = dialText();
+  const d = S.dial;
   $("d-n").value = d.n; $("d-memory").value = Math.round(d.memory * 100); $("d-trust").checked = d.trust; $("d-caution").value = Math.round(d.caution * 100); $("d-streams").value = Math.round(d.streams * 100);
-  for (const k of ["n", "memory", "caution", "streams"]) { $("v-" + k).textContent = T[k].v; $("t-" + k).innerHTML = T[k].t; }
+  for (const [k] of KNOBS) drawKnob(k);
   document.querySelectorAll("#presets button").forEach(b => { b.classList.toggle("on", b.dataset.preset === d.preset); b.classList.toggle("agg", b.dataset.preset === "aggressive"); });
-  $("pnote").textContent = presetNote();
 }
 function renderPlan() {
   const el = $("plan");
@@ -597,6 +615,7 @@ function renderPlan() {
     el.innerHTML = `<h2>Your split <span id="planHead"></span></h2><div class="body"><div id="dial">${dialHtml()}</div><div id="legs"></div></div>`;
     document.querySelectorAll("#presets button").forEach(b => b.addEventListener("click", () => { if (b.dataset.preset !== "custom") setDial({ ...PRESETS[b.dataset.preset] }); }));
     for (const id of ["d-n", "d-memory", "d-caution", "d-streams"]) $(id).addEventListener("input", () => setDial(readSliders()));
+    wireKnobs();
     $("d-trust").addEventListener("change", () => setDial(readSliders()));
   }
   updateDial();

@@ -85,7 +85,7 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 </div></section>
 
 <section class="grp" id="dial"><h2>The strategy dial</h2><div class="body">
-  <p>The split comes from four dials the model already measures. Three presets set them for you; drag any slider and the preset becomes <b>Custom</b>, the split recalculates at once, and your dials are remembered on this device. Under each slider the page says in words what the setting does and, when it differs, what Balanced would do.</p>
+  <p>The split comes from four dials the model already measures. Three presets set them for you; turn any knob (drag it up or down, or use the arrow keys) and the preset becomes <b>Custom</b>, the split recalculates at once, and your dials are remembered on this device. The number above each knob is its setting: <b>Pools</b> shows Auto or a count, <b>Fee memory</b> shows how much the last 12 hours weigh, <b>Crowd caution</b> shows the pile-on multiplier, and <b>Streams</b> shows how much incentives count.</p>
   <h3>The presets</h3>
   <div class="tw"><table><tr><th></th><th>Steady</th><th>Balanced</th><th>Aggressive</th></tr>
   <tr><td>Pools</td><td>Auto (6 to 10)</td><td>Auto (6 to 10)</td><td>1 per lock</td></tr>
@@ -95,10 +95,10 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
   <p><b>Balanced</b> is the scanner's own model, the same split its auto plan uses. <b>Aggressive</b> is the fee-chaser's method: one pool per lock, the pool with the biggest fee rate over the last 12 hours, incentives ignored. With several locks each lock takes the next best pool, biggest lock first, so a wallet isn't all in one bet. Its expected number is usually higher and so are the swings: a pool whose fees spiked today can fade tomorrow, and the model's own low case shows that.</p>
   <h3>The dials</h3>
   <ul>
-    <li><b>Pools.</b> Auto, or exactly 1 to 10 (see <a href="#pools">how many pools</a>).</li>
-    <li><b>Fee memory.</b> Each pool's fees are read over the last 12 hours, 24 hours, 2 days and 4 days. The slider sets how those reads are weighted: left = long memory (4 days count most), middle = the fitted mix the scanner uses, right = the last 12 hours only. <b>Trust fresh spikes</b> drops two safety rails: the cap on any one reading at 10x the pool's typical rate, and the rule that a fading pool (last 12 hours under 30% of its longest read) counts only at its 12-hour rate.</li>
-    <li><b>Crowd caution.</b> Voters pile into the pools that look best, so each pool's votes are priced at a measured pile-on factor (fitted after every window, higher for crowded pools and small pools). The slider scales that factor: 1.0x = as measured; 0.5x assumes the crowd follows half as much; 1.5x assumes a heavier pile-on.</li>
-    <li><b>Streams.</b> How much incentive streams count next to fees: in full, part, or not at all (fees only).</li>
+    <li><b>Pools.</b> Auto (6 to 10 pools, at most 25% in one), or exactly 1 to 10, each pool then taking up to 100 ÷ N percent (see <a href="#pools">how many pools</a>). With several locks and 1 pool, each lock takes the next best pool, biggest lock first.</li>
+    <li><b>Fee memory.</b> Each pool's fees are read over the last 12 hours, 24 hours, 2 days and 4 days. The knob sets how those reads are weighted: all the way down = long memory (about 5% on the last 12 hours, 50% on 4 days), the middle = the fitted mix the scanner uses (40% / 25% / 10% / 25%), all the way up = the last 12 hours only. <b>Trust spikes</b> (the small switch under the knobs) drops two safety rails: the cap on any one reading at 10x the pool's typical rate, and the rule that a fading pool (last 12 hours under 30% of its longest read) counts only at its 12-hour rate.</li>
+    <li><b>Crowd caution.</b> Voters pile into the pools that look best, so each pool's votes are priced at a measured pile-on factor (fitted after every window, higher for crowded pools and small pools). The knob scales that factor: 1.0x = as measured; 0.5x assumes the crowd follows half as much; 1.5x assumes a heavier pile-on.</li>
+    <li><b>Streams.</b> How much incentive streams count next to fees, in steps of 25%: 100% = in full, 0% = fees only.</li>
   </ul>
   <p class="mut">The caps that protect you never move with the dial: your slice stays at most 10% of any pool, small pools stay capped, a pool whose votes doubled since the last scan stays out, and the dry run and the signing guard are the same for every preset.</p>
 </div></section>
