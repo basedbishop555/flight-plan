@@ -452,8 +452,8 @@ function rankLine(period, idxs, mode, thr) {
   const st = stats(pool, thr); if (!st) return null;
   return { ...me, ...rankOf(st, me.apr), avg: st.avg, med: st.med };
 }
-function histLine(b, idxs, mode, thr) {
-  const mine = idxs.map(i => b.byI.get(i)).filter(Boolean); if (!mine.length) return null;
+function histLine(b, ids, mode, thr) {      // ids = sAERO token ids; history.json numbers its locks itself (H.idOf)
+  const mine = ids.map(id => S.H.idOf.get(id)).filter(i => i != null).map(i => b.byI.get(i)).filter(Boolean); if (!mine.length) return null;
   const me = combine(mine); if (!me) return null;
   const st = stats(mode === "wallet" ? b.w : b.rows, thr);
   return st ? { ...me, ...rankOf(st, me.apr), avg: st.avg, med: st.med } : { ...me, avg: null };
@@ -617,13 +617,14 @@ function rankRows(idxs, thr, compact) {
     const x = rankLine(k, idxs, S.mode, thr);
     if (!x) return `<div class="rrow"><div class="p">${names[k]}</div><div class="mut2 small">building history</div><div></div></div>`;
     const wk = x.apr * 1000 * Rk.px / 52, good = x.apr >= x.avg, vt = voteTxt(x);
-    return `<div class="rrow"><div class="p">${names[k]}</div>
+    const per = Rk.per[k], span = k === "now" && per ? `<small style="display:block;font-weight:500;color:var(--mut2);font-size:11px">${clock(per.t0).replace(" ET", "")} to ${clock(per.t1)}</small>` : "";
+    return `<div class="rrow"><div class="p">${names[k]}${span}</div>
       <div class="apr num ${good ? "ok" : "warn"}">${(x.apr * 100).toFixed(1)}%<small>${vt ? vt + " · " : ""}$${wk.toFixed(2)}/wk per 1k</small></div>
       <div class="rk num">#${x.rank.toLocaleString()} <span class="mut2" style="font-weight:500">of ${x.of.toLocaleString()}</span><br><span class="tag ${x.top <= 25 ? "ok" : x.top <= 50 ? "acc" : ""}">top ${x.top < 10 ? x.top.toFixed(1) : Math.round(x.top)}%</span></div>
       ${compact ? "" : `<div class="sub">avg ${(x.avg * 100).toFixed(1)}% · median ${(x.med * 100).toFixed(1)}%</div>`}</div>`;
   }).join("");
 }
-function histRows(idxs, thr) {
+function histRows(ids, thr) {
   const H = S.H;
   if (!H) return `<div class="rwh"><span>You vs the average, over time</span></div><div class="small mut2" style="padding:6px 0">${S.histBusy ? "Loading the history…" : "History unavailable."}</div>`;
   const L = S.logv === "day" ? H.days : H.weeks;
@@ -636,7 +637,7 @@ function histRows(idxs, thr) {
   const head = `<div class="rwh"><span>You vs the average, over time</span><span class="seg tight"><button type="button" data-logv="week" class="${S.logv === "week" ? "on" : ""}">By week</button><button type="button" data-logv="day" class="${S.logv === "day" ? "on" : ""}">By day</button></span></div>
     <div class="rw rwc"><div>${S.logv === "day" ? "Day" : "Week"}</div><div>You</div><div>vs avg</div><div>${S.mode === "wallet" ? "Wallet rank" : "Rank"}</div></div>`;
   const rows = L.map((w, i) => {
-    const x = histLine(w, idxs, S.mode, thr);
+    const x = histLine(w, ids, S.mode, thr);
     if (!x) return `<div class="rw"><div class="wl">${label(w, i)}</div><div class="wy mut2">-</div><div class="wv mut2">-</div><div class="wr mut2">not tracked yet</div></div>`;
     const vs = x.avg ? (x.apr / x.avg - 1) * 100 : null, cls = vs == null ? "mut2" : vs >= 0 ? "ok" : "warn", vt = voteTxt(x);
     return `<div class="rw"><div class="wl">${label(w, i)}</div>
@@ -656,14 +657,14 @@ function renderRank() {
   const br = Rk.brackets; if (S.bracket == null) { S.bracket = store.get("bracket", null); if (S.bracket == null) { let b = "all"; for (const [k, t] of br) if (aero >= t) b = k; S.bracket = b; } }
   const thr = (br.find(b => b[0] === S.bracket) || br[0])[1];
   const label = { all: "All", "10k": "10k+", "50k": "50k+", "100k": "100k+", "250k": "250k+", "500k": "500k+", "1m": "1M+" };
-  const you = idxs.length ? `<div class="rcard glow"><div class="rch"><b>Your locks</b><span class="num">${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} · ${fmtA(aero)} AERO</span></div>${rankRows(idxs, thr)}${histRows(idxs, thr)}</div>`
+  const you = idxs.length ? `<div class="rcard glow"><div class="rch"><b>Your locks</b><span class="num">${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} · ${fmtA(aero)} AERO</span></div>${rankRows(idxs, thr)}${histRows(S.locks.map(L => L.id), thr)}</div>`
     : `<div class="rcard glow"><div class="rch"><b>Your locks</b></div><p class="small mut2">Not in the rank data yet: new locks show up after the next every-lock read (about every 3 hours).</p></div>`;
   const cmp = Object.entries(Rk.groups).map(([name, g]) => `<div class="rcard cmp"><div class="rch"><b>${esc(name)}</b><span class="num">${g.length} lock${g.length === 1 ? "" : "s"}</span></div>${rankRows(g, thr, true)}</div>`).join("");
   el.innerHTML = `<h2>vs every ${S.mode === "wallet" ? "wallet" : "lock"} <span>APR on the whole lock</span></h2><div class="body">
     <div class="seg" id="mode"><button type="button" data-m="lock" class="${S.mode === "lock" ? "on" : ""}">Every lock</button><button type="button" data-m="wallet" class="${S.mode === "wallet" ? "on" : ""}">Every wallet</button></div>
     <div class="seg" id="brk">${br.map(([k]) => `<button type="button" data-b="${k}" class="${S.bracket === k ? "on" : ""}">${label[k] || k}</button>`).join("")}</div>
     ${you}${cmp ? `<div class="seglabel" style="margin-top:4px">Compare with</div>${cmp}` : ""}
-    <p class="small mut2" style="margin:8px 0 0">All your locks counted as one. "Now" is the last 12 hours. Autopilot and 40acres are products that vote for many lockers; each is shown as one combined entry. <a href="docs.html#rank">How it's measured</a></p></div>`;
+    <p class="small mut2" style="margin:8px 0 0">All your locks counted as one. "Now" is about the last 12 hours, between two every-lock reads (the times are under it); "Today so far" in the history below starts at midnight, so the two cover different hours and can differ a lot when rewards land in a lump. Autopilot and 40acres are products that vote for many lockers; each is shown as one combined entry. <a href="docs.html#rank">How it's measured</a></p></div>`;
   el.querySelectorAll("#mode button").forEach(b => b.addEventListener("click", () => { S.mode = b.dataset.m; store.set("mode", S.mode); renderRank(); }));
   el.querySelectorAll("#brk button").forEach(b => b.addEventListener("click", () => { S.bracket = b.dataset.b; store.set("bracket", S.bracket); renderRank(); }));
   el.querySelectorAll("[data-logv]").forEach(b => b.addEventListener("click", () => { S.logv = b.dataset.logv; store.set("logv", S.logv); renderRank(); }));

@@ -129,6 +129,7 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
     <li><b>By week</b> follows Aero's epochs (Thursday 00:00 UTC to Thursday). <b>By day</b> runs midnight to midnight US Eastern. The choice is remembered on this device.</li>
     <li>Each row: your APR for that bucket (all your locks as one), the average of every lock or wallet in your size filter, how far you sat from it, and your rank when your locks were in that bucket.</li>
     <li><b>Today so far</b> and <b>This week so far</b> run to the last every-lock read, which happens about every 3 hours; the row says when. Rewards land in lumps, so a running row swings until the bucket closes.</li>
+    <li><b>Why "Now" and "Today so far" differ.</b> Both end at the same read, but "Now" starts about 12 hours back (its exact hours show under it) while "Today so far" starts at midnight. When most of a day's rewards land in one lump, as they often do in the morning, the shorter window divides that lump over fewer hours and shows a higher APR. Neither is wrong; they measure different hours.</li>
     <li>The daily log reaches back about 8 days (the reads only keep that much), and a lock only has history from the day it was first tracked. Old days were measured across 2 or 3 reads and say so.</li>
   </ul>
 </div></section>
