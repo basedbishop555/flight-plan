@@ -10,6 +10,7 @@
   else root.Planner = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
+  const PLAN_V = 2;   // the data/plan.json format this planner reads (the publisher refuses a mismatch)
 
   function poolRules(C, n) {
     if (!n) return [C.MIN_POOLS, C.MAX_POOLS, C.MAX_PCT, C.TYPE_MAX];
