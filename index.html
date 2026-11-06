@@ -83,7 +83,7 @@ button:disabled{opacity:.45;cursor:not-allowed} button.sm{padding:6px 10px;font-
 .knobs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:4px 0 2px}
 .knob{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
 .knob b{font-size:13.5px;font-weight:800;color:var(--c3);font-variant-numeric:tabular-nums;white-space:nowrap}
-.kd{width:62px;height:62px;touch-action:none;cursor:ns-resize;border-radius:50%;outline:none;-webkit-tap-highlight-color:transparent}
+.kd{width:62px;height:62px;touch-action:none;cursor:grab;border-radius:50%;outline:none;-webkit-tap-highlight-color:transparent}
 .kd:focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--c3)}
 .kd svg{width:100%;height:100%;display:block} .kd .kt{fill:none;stroke:var(--track);stroke-width:6;stroke-linecap:round}
 .kd .kv{fill:none;stroke:var(--c3);stroke-width:6;stroke-linecap:round} .kd .kc{fill:var(--card)} .kd .kp{fill:var(--fg)}
@@ -829,10 +829,20 @@ function wireKnobs() {
   for (const [k, , lo, hi, st] of KNOBS) {
     const el = $("k-" + k), inp = $("d-" + k);
     const set = v => { v = Math.max(lo, Math.min(hi, Math.round(v / st) * st)); if (v !== Number(inp.value)) { inp.value = v; inp.dispatchEvent(new Event("input")); } };
-    let y0 = null, v0 = 0;
-    el.addEventListener("pointerdown", e => { e.preventDefault(); el.focus(); el.setPointerCapture(e.pointerId); y0 = e.clientY; v0 = Number(inp.value); });
-    el.addEventListener("pointermove", e => { if (y0 == null) return; e.preventDefault(); set(v0 + (y0 - e.clientY) / 120 * (hi - lo)); });
-    const up = e => { if (y0 == null) return; y0 = null; try { el.releasePointerCapture(e.pointerId); } catch (er) {} };
+    // Rotary drag (11/6/2026, was up/down): circle the finger around the knob and the dot follows it along the 270
+    // degree arc. Relative, so a press never jumps the value; it never wraps across the gap at the bottom, and points within 6px of the centre are ignored (the angle is meaningless there).
+    let a0 = null, acc = 0;
+    const ang = e => { const r = el.getBoundingClientRect(), x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2); return Math.hypot(x, y) < 6 ? null : Math.atan2(x, -y) * 180 / Math.PI; };
+    el.addEventListener("pointerdown", e => { e.preventDefault(); el.focus(); el.setPointerCapture(e.pointerId); a0 = ang(e); acc = -135 + 270 * (Number(inp.value) - lo) / (hi - lo); el.classList.add("turning"); });
+    el.addEventListener("pointermove", e => {
+      if (!el.classList.contains("turning")) return; e.preventDefault();
+      const a = ang(e); if (a == null) return; if (a0 == null) { a0 = a; return; }
+      let d = a - a0; if (d > 180) d -= 360; else if (d < -180) d += 360; a0 = a;
+      // acc tracks the finger up to the bottom of the gap (+-180), so after an overshoot the dot waits at the end
+      // until the finger comes back to it; the value itself stops at each end of the arc
+      acc = Math.max(-180, Math.min(180, acc + d)); set(lo + (Math.max(-135, Math.min(135, acc)) + 135) / 270 * (hi - lo));
+    });
+    const up = e => { if (!el.classList.contains("turning")) return; el.classList.remove("turning"); a0 = null; try { el.releasePointerCapture(e.pointerId); } catch (er) {} };
     el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
     el.addEventListener("keydown", e => {
       const d = { ArrowUp: st, ArrowRight: st, ArrowDown: -st, ArrowLeft: -st, PageUp: st * 2, PageDown: -st * 2 }[e.key];
