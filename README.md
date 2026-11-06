@@ -1,17 +1,17 @@
 # Flight Plan
 
-An unofficial, open-source vote planner for sAERO lockers on Aero (Base). Not affiliated with Aerodrome.
+An unofficial, open-source allocation planner for sAERO lockers on Aero (Base). Not affiliated with Aerodrome.
 
 Paste a wallet address and Flight Plan:
 
 - finds its sAERO locks on chain,
-- suggests a split of the votes across pools, sized to those locks (Auto, or exactly 1 to 10 pools),
+- suggests a split of the allocation across pools, sized to those locks (Auto, or exactly 1 to 10 pools),
 - ranks the locks against every sAERO lock or every wallet, on a whole-lock APR,
-- rehearses the vote for free with `eth_simulateV1` (nothing is signed or sent),
+- rehearses the allocation for free with `eth_simulateV1` (nothing is signed or sent),
 - shows your week-by-week and day-by-day APR against the average, your earnings, and when the crowd moves.
 
 Connect the wallet that owns the locks and it signs one `allocate` per lock (dry run first, window open), and can
-sweep your claimed rewards into USDC through Aero's Metarouter. Or copy the split and vote in the Aero app.
+sweep your claimed rewards into USDC through Aero's Metarouter. Or copy the split and allocate in the Aero app.
 
 ## How it works
 
@@ -30,7 +30,7 @@ sweep your claimed rewards into USDC through Aero's Metarouter. Or copy the spli
 ## Safety
 
 Exactly three kinds of signature, only with the owning wallet connected and only after a passing dry run: one
-`allocate` to the Aero Voter per lock you own (0 ETH, moves votes not tokens), an exact-amount `approve` to the
+`allocate` to the Aero Voter per lock you own (0 ETH, moves your allocation, not tokens), an exact-amount `approve` to the
 Metarouter on a reward token the scan found, and one Metarouter `execute` that sells those rewards for USDC to your
 own wallet. Never an approval on sAERO, never `setApprovalForAll`, never a transfer or claim, never a value other
 than 0. Check the address bar says flight-plan.app. Details: `docs.html#safe`.

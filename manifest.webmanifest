@@ -1,7 +1,7 @@
 {
   "name": "Flight Plan",
   "short_name": "Flight Plan",
-  "description": "Plan and sign your sAERO votes, sweep rewards to USDC.",
+  "description": "Plan and sign your sAERO allocation, sweep rewards to USDC.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -1,8 +1,21 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Flight Plan</title>
-<meta name="description" content="Plan and sign your sAERO votes: see your locks, a split sized to them, how you rank against every lock, a free dry run, then one signature per lock. Sweep rewards to USDC. Open source.">
+<meta name="description" content="Plan and sign your sAERO allocation: see your locks, a split sized to them, how you rank against every lock, a free dry run, then one signature per lock. Sweep rewards to USDC. Open source.">
 <meta name="theme-color" content="#090e1f">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Flight Plan">
+<meta property="og:title" content="Flight Plan · Plan your sAERO allocation">
+<meta property="og:description" content="See your locks, get a split sized to them, rehearse it free, then sign one allocation per lock. Sweep rewards to USDC. Free, open source, unofficial.">
+<meta property="og:url" content="https://flight-plan.app/">
+<meta property="og:image" content="https://flight-plan.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Flight Plan: Plan your sAERO allocation. Sweep to USDC.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Flight Plan · Plan your sAERO allocation">
+<meta name="twitter:description" content="See your locks, get a split sized to them, rehearse it free, then sign one allocation per lock. Sweep rewards to USDC. Free, open source, unofficial.">
+<meta name="twitter:image" content="https://flight-plan.app/og.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -159,7 +172,7 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
   <input id="addr" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Paste a wallet address (0x…)" aria-label="Wallet address">
   <button type="submit" class="gbtn gblue" id="go">Look up</button>
 </form>
-<p class="hint">Paste any address to look (read-only). Connect a wallet to sign votes and sweeps for what it owns: one signature per lock, dry-run first, never an approval on sAERO. <a href="#" id="safelink">What it signs</a></p>
+<p class="hint">Paste any address to look (read-only). Connect a wallet to sign allocations and sweeps for what it owns: one signature per lock, dry-run first, never an approval on sAERO. <a href="#" id="safelink">What it signs</a></p>
 
 <section class="card glow hero" id="hero"></section>
 <section class="card" id="plan"></section>
@@ -183,7 +196,7 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
     <details id="swPlanWrap" style="display:none;margin-top:8px"><summary class="small mut" style="cursor:pointer">What you will sign</summary><div id="swPlan" style="margin-top:6px"></div></details>
     <div class="sign" id="swSign" style="display:none"><button type="button" id="btnDry">Dry run</button><button type="button" id="btnSend" class="gbtn ggreen" disabled>Sign and sweep</button></div>
     <div id="swOut"></div>
-    <p class="small mut2" style="margin:10px 0 0">Claim your rewards in the Aero app first, then sweep them here into USDC in one signature (plus an exact-amount approval per new token). Votes on other networks pay out on that network, so the scan checks all of them; each network sweeps on its own and needs a little gas there. <a href="docs.html#sweep">How the sweep works</a> · <a href="docs.html#gas">Gas on each network</a></p>
+    <p class="small mut2" style="margin:10px 0 0">Claim your rewards in the Aero app first, then sweep them here into USDC in one signature (plus an exact-amount approval per new token). Allocations on other networks pay out on that network, so the scan checks all of them; each network sweeps on its own and needs a little gas there. <a href="docs.html#sweep">How the sweep works</a> · <a href="docs.html#gas">Gas on each network</a></p>
   </div>
 </details>
 
@@ -194,7 +207,7 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
 <section class="card" id="crowd"></section>
 <details class="card" id="logw"><summary class="body small mut" style="cursor:pointer">Log</summary><div class="body" style="padding-top:0"><div id="log"></div></div></details>
 
-<p class="foot">Unofficial. Not affiliated with Aerodrome. Signs only: one vote per lock you own, exact-amount sweep approvals, one sweep swap, and a small gas bridge when you ask for one. Never an approval on sAERO.<br>
+<p class="foot">Unofficial. Not affiliated with Aerodrome. Signs only: one allocation per lock you own, exact-amount sweep approvals, one sweep swap, and a small gas bridge when you ask for one. Never an approval on sAERO.<br>
 <b>Check the address bar says flight-plan.app.</b><br>
 <span id="fresh">Loading pool data…</span> · <a href="#" id="safelink2">Safety</a> · <a href="docs.html">Docs</a> · <a href="https://github.com/basedbishop555/flight-plan">Source</a><br>
 Free and open source. Tips welcome: <code data-copy="0xbe46e9dD6f22b5578529385F2e0Ee25840110196" id="tip" title="Tap to copy">0xbe46…0196</code> <a href="docs.html#tip">more</a></p>
@@ -204,7 +217,7 @@ Free and open source. Tips welcome: <code data-copy="0xbe46e9dD6f22b5578529385F2
   <h3 id="safetyh">Before you sign anything</h3>
   <p>Flight Plan can sign for the locks and reward tokens your connected wallet owns. Exactly four kinds of signature, nothing else:</p>
   <ol>
-    <li><b>A vote.</b> One <code>allocate</code> call to the Aero Voter for a lock you own, 0 ETH. It moves votes, never tokens.</li>
+    <li><b>An allocation.</b> One <code>allocate</code> call to the Aero Voter for a lock you own, 0 ETH. It moves your allocation, never tokens.</li>
     <li><b>A sweep approval.</b> An exact-amount <code>approve</code> to Aero's Metarouter on a reward token the scan found in your wallet.</li>
     <li><b>A sweep swap.</b> One Metarouter <code>execute</code> that sells those rewards for USDC, paid to your own wallet.</li>
     <li><b>A gas bridge, only when you tap Get gas.</b> A deposit of about $1 of ETH (Ethereum: $5, never over 0.006 ETH) to Relay's Base contract, delivered as gas to your own address on another network.</li>
@@ -546,7 +559,7 @@ function renderPill() {
 }
 function renderHero() {
   const h = $("hero");
-  if (!S.addr) { h.innerHTML = `<div class="hk">Plan your next vote</div><div class="hv" style="font-size:28px;letter-spacing:-.6px">Paste a wallet or connect to start</div><div class="hs">You'll see its sAERO locks, a split sized to them, how they rank against every lock, and (connected) one signature per lock.</div>`; return; }
+  if (!S.addr) { h.innerHTML = `<div class="hk">Plan your next allocation</div><div class="hv" style="font-size:28px;letter-spacing:-.6px">Paste a wallet or connect to start</div><div class="hs">You'll see its sAERO locks, a split sized to them, how they rank against every lock, and (connected) one signature per lock.</div>`; return; }
   if (S.busy) { h.innerHTML = `<div class="hk">${esc(short(S.addr))}</div><div class="hv" style="font-size:28px">Reading the chain…</div>`; return; }
   if (S.err && !S.locks.length) { h.innerHTML = `<div class="hk">${esc(short(S.addr))}</div><div class="hv" style="font-size:28px">Couldn't read your locks</div><div class="hs">${esc(S.err)}. Nothing is wrong with the wallet. <a href="#" id="retry">Try again</a> or reload the page.</div>`; const r = $("retry"); if (r) r.addEventListener("click", e => { e.preventDefault(); lookup(S.addr); }); return; }
   if (!S.locks.length) {
@@ -578,7 +591,7 @@ function renderHero() {
 }
 function poolRow(l) {
   const r = l.row, col = typeColor(r.type);
-  const where = r.chain && r.chain !== "base" ? `${r.chain_name} · vote in the Aero app · after ${money(r.cost)} costs` : "";
+  const where = r.chain && r.chain !== "base" ? `${r.chain_name} · allocate in the Aero app · after ${money(r.cost)} costs` : "";
   const tags = [where, TYPE_NAME[r.type] || r.type, r.fee_led ? "fee-led" : "", r.rank48 && r.rank48 <= 5 ? "crowded" : "", r.fading ? "fading" : "", l.small ? "small pool" : ""].filter(Boolean).join(" · ");
   const apr = l.aero && S.D.px ? l.expect_usd / (l.aero * S.D.px) * (365 * 24 / 47) * 100 : null;
   const st = (r.streams || [])[0];
@@ -586,9 +599,9 @@ function poolRow(l) {
     <div class="drawer"><div class="tiles">
       <div class="tile"><div class="k">Expected · 47h</div><div class="v num">${money(l.expect_usd)} <small>${money(l.expect_low_usd)} to ${money(l.expect_high_usd)}</small></div></div>
       <div class="tile"><div class="k">APR</div><div class="v num">${apr != null ? apr.toFixed(0) + "%" : "-"}</div></div>
-      <div class="tile"><div class="k">Fees · day</div><div class="v num">${money(r.fee_day)} <small>to voters</small></div></div>
+      <div class="tile"><div class="k">Fees · day</div><div class="v num">${money(r.fee_day)} <small>to allocators</small></div></div>
       <div class="tile"><div class="k">Streams · 47h</div><div class="v num">${money(r.inc_w)}${st ? ` <small>${esc(st.tok)} to ${esc(fmtTs(st.end))}</small>` : ""}</div></div>
-      <div class="tile"><div class="k">Votes in it ${r.chain && r.chain !== "base" ? (r.age_h != null ? r.age_h + "h ago" : "at the scan") : "now"}</div><div class="v num">${(r.alloc / 1e6).toFixed(2)}M <small>you'd be ${(l.slice * 100).toFixed(1)}%</small></div></div>
+      <div class="tile"><div class="k">Allocated to it ${r.chain && r.chain !== "base" ? (r.age_h != null ? r.age_h + "h ago" : "at the scan") : "now"}</div><div class="v num">${(r.alloc / 1e6).toFixed(2)}M <small>you'd be ${(l.slice * 100).toFixed(1)}%</small></div></div>
     </div>
     <div class="addr">pool <code data-copy="${esc(r.pool)}">${esc(r.pool)}</code></div>
     <div class="addr">gauge <code data-copy="${esc(r.gauge)}">${esc(r.gauge)}</code></div></div></details>`;
@@ -668,13 +681,13 @@ function renderPlan() {
   if (!sums) cta = `<button class="cta gbtn gviolet" disabled>Pick more pools to place 100%</button>`;
   else if (dried < S.locks.length) cta = `<button class="cta gbtn gviolet" id="cta" data-act="dry">Dry run ${S.locks.length > 1 ? "all " + S.locks.length + " locks" : "#" + S.locks[0].id}</button><div class="csub">A free rehearsal on the chain · nothing is signed</div>`;
   else if (ready.length) cta = `<button class="cta gbtn gviolet" id="cta" data-act="send">Allocate ${ready.length === 1 ? "#" + ready[0].id : ready.length + " locks"} · ${ready.length} signature${ready.length === 1 ? "" : "s"}</button><div class="csub">One allocate call per lock, to the Aero Voter, 0 ETH · dry run passed</div>`;
-  else if (mine.length && sent.length === mine.length) cta = `<button class="cta gbtn ggreen" disabled>Allocated ✓</button><div class="csub">${sent.length} lock${sent.length === 1 ? "" : "s"} voted this window</div>`;
+  else if (mine.length && sent.length === mine.length) cta = `<button class="cta gbtn ggreen" disabled>Allocated ✓</button><div class="csub">${sent.length} lock${sent.length === 1 ? "" : "s"} allocated this window</div>`;
   else if (mine.length && mine.some(L => L.dry && L.dry.ok && !isOpen(L))) cta = `<button class="cta gbtn gviolet" disabled>Opens ${esc(fmtTs(Math.min(...mine.filter(L => !isOpen(L)).map(L => L.next))))}</button><div class="csub">Dry run OK · the Allocate button unlocks when the window opens</div>`;
-  else { const ok = S.locks.filter(L => L.dry && L.dry.ok).length; cta = `<button class="cta gbtn gviolet" id="cta" data-act="copy">Copy the split for the Aero app</button><div class="csub">${ok} of ${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} dry-ran OK · ${S.account ? "connect the wallet that owns these locks to sign here, or" : "connect to sign here, or"} vote these percentages in the Aero app</div>`; }
-  const sv = stayVerdict(), pctTxt2 = x => !isFinite(x) ? "new votes" : (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(0) + "%";
+  else { const ok = S.locks.filter(L => L.dry && L.dry.ok).length; cta = `<button class="cta gbtn gviolet" id="cta" data-act="copy">Copy the split for the Aero app</button><div class="csub">${ok} of ${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} dry-ran OK · ${S.account ? "connect the wallet that owns these locks to sign here, or" : "connect to sign here, or"} allocate these percentages in the Aero app</div>`; }
+  const sv = stayVerdict(), pctTxt2 = x => !isFinite(x) ? "new allocation" : (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(0) + "%";
   const stayBox = !sv ? "" : sv.unknown
-    ? `<div class="banner small" style="margin:0 0 10px"><b>Move or stay:</b> can't compare: ${Math.round(sv.share * 100)}% of your Base votes sit in pools this page doesn't price (retired or off the scan), or every lock votes on another network.</div>`
-    : `<div class="banner ${sv.move ? "ok" : ""} small" style="margin:0 0 10px"><b>${sv.move ? "Worth moving" : "Staying is about as good"}.</b> Your current votes: ${money(sv.stayUsd)} this window · this split: ${money(sv.planUsd)} (<b class="num">${sv.gain >= 0 ? "+" : "−"}${money(Math.abs(sv.gain))}</b>, ${pctTxt2(sv.pct)}).${sv.move ? "" : ` The bar to move is +${MOVE_PCT}% and +${money(MOVE_USD_DAY * S.D.consts.H47 / 86400)} a window after about ${money(sv.fees)} in network fees; a vote keeps earning until you change it, so staying costs nothing.`}${sv.parked > 1 ? ` ${fmtA(sv.parked)} AERO isn't voting at all right now.` : ""}${sv.elsewhere > 0 ? ` Locks voting on other networks are left out of this comparison.` : ""} <a href="docs.html#stay">How</a></div>`;
+    ? `<div class="banner small" style="margin:0 0 10px"><b>Move or stay:</b> can't compare: ${Math.round(sv.share * 100)}% of your Base allocation sits in pools this page doesn't price (retired or off the scan), or every lock allocates on another network.</div>`
+    : `<div class="banner ${sv.move ? "ok" : ""} small" style="margin:0 0 10px"><b>${sv.move ? "Worth moving" : "Staying is about as good"}.</b> Your current allocation: ${money(sv.stayUsd)} this window · this split: ${money(sv.planUsd)} (<b class="num">${sv.gain >= 0 ? "+" : "−"}${money(Math.abs(sv.gain))}</b>, ${pctTxt2(sv.pct)}).${sv.move ? "" : ` The bar to move is +${MOVE_PCT}% and +${money(MOVE_USD_DAY * S.D.consts.H47 / 86400)} a window after about ${money(sv.fees)} in network fees; an allocation keeps earning until you change it, so staying costs nothing.`}${sv.parked > 1 ? ` ${fmtA(sv.parked)} AERO isn't allocated at all right now.` : ""}${sv.elsewhere > 0 ? ` Locks allocated on other networks are left out of this comparison.` : ""} <a href="docs.html#stay">How</a></div>`;
   const legend = types.length ? `<div class="legend">${types.map(t => `<span><i class="pdot" style="--c:${typeColor(t)}"></i>${esc(TYPE_NAME[t] || t)}</span>`).join("")}</div>` : "";
   const rows = p.perLock
     ? S.locks.map(L => `<div class="lockhead">#${L.id} <span class="num">${fmtA(lockAero(L))} AERO · ${isOpen(L) ? "open" : "opens " + esc(fmtTs(L.next))} · ${money(L.plan.expect_usd)}</span></div>` + (L.plan.legs.length ? L.plan.legs.map(poolRow).join("") : `<div class="small warn">No pool fits this lock under the rules.</div>`)).join("")
@@ -691,7 +704,7 @@ function renderLocks() {
   const now = Date.now() / 1000;
   el.innerHTML = `<h2>Locks <span>${S.locks.length}${S.total > LOCK_MAX ? ` of ${S.total}` : ""} · ${fmtA(totalAero())} AERO</span></h2><div class="body">` + (S.total > LOCK_MAX ? `<div class="banner warn small">This wallet holds ${S.total} locks; the first ${LOCK_MAX} are shown and counted. The rest are not in the split, the rank or the earnings.</div>` : "") + S.locks.map(L => {
     const open = L.next ? L.next <= now : true, mine = owns(L);
-    const net = L.booked === 0n && L.elsewhere.length ? ` · <span class="warn">votes on ${esc(L.elsewhere.map(c => NET[c] || "chain " + c).join(" + "))}</span>` : "";
+    const net = L.booked === 0n && L.elsewhere.length ? ` · <span class="warn">allocated on ${esc(L.elsewhere.map(c => NET[c] || "chain " + c).join(" + "))}</span>` : "";
     const who = S.account ? (mine ? ` · <span class="ok">yours</span>` : ` · <span class="mut2">not the connected wallet</span>`) : "";
     const planOk = planFor(L) && planFor(L).placed === 100;
     const btns = L.sent ? "" : `<button class="sm" data-dry="${L.id}" ${planOk ? "" : "disabled"}>Dry run</button>` + (mine ? `<button class="sm gbtn gviolet" data-send="${L.id}" ${canSend(L) ? "" : "disabled"}>Allocate</button>` : "");
@@ -701,9 +714,9 @@ function renderLocks() {
   el.querySelectorAll("[data-dry]").forEach(b => b.addEventListener("click", () => dryRun(S.locks.find(L => L.id === Number(b.dataset.dry)))));
   el.querySelectorAll("[data-send]").forEach(b => b.addEventListener("click", () => send(S.locks.find(L => L.id === Number(b.dataset.send)))));
   el.querySelectorAll("[data-copy]").forEach(c => c.addEventListener("click", () => copy(c.dataset.copy)));
-  el.querySelectorAll("[data-copyoff]").forEach(c => c.addEventListener("click", e => { e.preventDefault(); const L = S.locks.find(x => x.id === Number(c.dataset.copyoff)), o = L && offPick(L); if (o) copy(`Lock #${L.id}: 100% ${o.label} on ${o.chain_name} (vote it in the Aero app)`); }));
+  el.querySelectorAll("[data-copyoff]").forEach(c => c.addEventListener("click", e => { e.preventDefault(); const L = S.locks.find(x => x.id === Number(c.dataset.copyoff)), o = L && offPick(L); if (o) copy(`Lock #${L.id}: 100% ${o.label} on ${o.chain_name} (allocate it in the Aero app)`); }));
 }
-const voteTxt = x => x.vote != null && Math.abs(x.vote - x.apr) >= 0.005 ? `voting ${(x.vote * 100).toFixed(1)}%` : "";
+const voteTxt = x => x.vote != null && Math.abs(x.vote - x.apr) >= 0.005 ? `allocated part ${(x.vote * 100).toFixed(1)}%` : "";
 // "Now" looks back (Earned: the last 12 hours) or forward (Forecast: what the current votes pay at today's pool rates,
 // raw); Lifetime = everything earned since the lock first voted (every claim on every network + what is waiting)
 const lifeSince = idxs => { let m = null; for (const i of idxs) { const e = S.RK.earn.get(i); if (e && e.lifeSince) m = m == null ? e.lifeSince : Math.min(m, e.lifeSince); } return m; };
@@ -762,7 +775,7 @@ function renderRank() {
     <div class="seg" id="nowv"><button type="button" data-n="now" class="${S.nowv === "now" ? "on" : ""}">Now: earned</button><button type="button" data-n="fwd" class="${S.nowv === "fwd" ? "on" : ""}">Now: forecast</button></div>
     <div class="seg" id="brk">${br.map(([k]) => `<button type="button" data-b="${k}" class="${S.bracket === k ? "on" : ""}">${label[k] || k}</button>`).join("")}</div>
     ${you}${cmp ? `<div class="seglabel" style="margin-top:4px">Compare with</div>${cmp}` : ""}
-    <p class="small mut2" style="margin:8px 0 0">All your locks counted as one. The average is weighted by AERO; the median is the typical lock. "Now: earned" looks back over about the last 12 hours, between two every-lock reads (the times are under it); "Now: forecast" looks ahead: what each lock's current votes would pay at today's pool rates if nothing moved (4-day fees with spikes capped, plus live incentives, your own size counted in the pool). Lifetime is everything a lock has earned since it first voted: every claim on every network plus what is waiting, at today's prices; "Today so far" in the history below starts at midnight, so the two cover different hours and can differ a lot when rewards land in a lump. Autopilot and 40acres are products that vote for many lockers; each is shown as one combined entry. <a href="docs.html#rank">How it's measured</a></p></div>`;
+    <p class="small mut2" style="margin:8px 0 0">All your locks counted as one. The average is weighted by AERO; the median is the typical lock. "Now: earned" looks back over about the last 12 hours, between two every-lock reads (the times are under it); "Now: forecast" looks ahead: what each lock's current allocation would pay at today's pool rates if nothing moved (4-day fees with spikes capped, plus live incentives, your own size counted in the pool). Lifetime is everything a lock has earned since it first allocated: every claim on every network plus what is waiting, at today's prices; "Today so far" in the history below starts at midnight, so the two cover different hours and can differ a lot when rewards land in a lump. Autopilot and 40acres are products that allocate for many lockers; each is shown as one combined entry. <a href="docs.html#rank">How it's measured</a></p></div>`;
   el.querySelectorAll("#nowv button").forEach(b => b.addEventListener("click", () => { S.nowv = b.dataset.n; store.set("nowv", S.nowv); renderRank(); }));
   el.querySelectorAll("#mode button").forEach(b => b.addEventListener("click", () => { S.mode = b.dataset.m; store.set("mode", S.mode); renderRank(); }));
   el.querySelectorAll("#brk button").forEach(b => b.addEventListener("click", () => { S.bracket = b.dataset.b; store.set("bracket", S.bracket); renderRank(); }));
@@ -786,7 +799,7 @@ function renderEarn() {
   const tot = S.locks.length > 1 ? `<tr style="font-weight:600"><td>All<br><small class="mut2" style="font-weight:400">${fmtA(T.aero)} AERO</small></td><td class="num">${pct(l1)}</td><td class="num">${pct(l7)}</td><td class="num">${T.known ? money(T.usd) : "-"}</td><td class="num">${T.known ? money(T.unc) : "-"}</td><td class="num">${T.lifeN ? money(T.life) : "-"}</td></tr>` : "";
   el.innerHTML = `<h2>Earnings <span>read ${esc(ago(Rk.ts))}</span></h2><div class="body">
     <div class="tw"><table><tr><th>Lock</th><th class="num">APR 24h</th><th class="num">APR 7d</th><th class="num">Earned</th><th class="num">Unclaimed</th><th class="num">Lifetime</th></tr>${rows}${tot}</table></div>
-    <p class="small mut2" style="margin:8px 0 0">APR = fees and incentives earned over the period on the whole lock, at today's AERO price, annualized. Earned = what the tracker has seen each lock earn since it first read it (claims bridged, every network), at most about 8 days back. Lifetime = everything the lock has earned since it first voted: every claim on every network plus what is waiting now, at today's prices.${partial ? " One or more of these locks were first read after the tracker's window started, so their Earned covers fewer days." : ""} Unclaimed is what the last read saw waiting, every network. <a href="docs.html#earn">More</a></p></div>`;
+    <p class="small mut2" style="margin:8px 0 0">APR = fees and incentives earned over the period on the whole lock, at today's AERO price, annualized. Earned = what the tracker has seen each lock earn since it first read it (claims bridged, every network), at most about 8 days back. Lifetime = everything the lock has earned since it first allocated: every claim on every network plus what is waiting now, at today's prices.${partial ? " One or more of these locks were first read after the tracker's window started, so their Earned covers fewer days." : ""} Unclaimed is what the last read saw waiting, every network. <a href="docs.html#earn">More</a></p></div>`;
   function idxLine(p) { if (!p) return null; const mine = S.locks.map(L => Rk.idOf.get(L.id)).filter(i => i != null).map(i => p.byI.get(i)).filter(Boolean); const c = combine(mine); return c ? c.apr : null; }
 }
 // ---------- "What actually wins": every ranked lock bucketed by behaviour (data/strategy.json) ----------
@@ -819,7 +832,7 @@ function renderWins() {
   el.innerHTML = `<h2>What actually wins <span>last 7 days · ${ST.locks.toLocaleString()} locks</span></h2><div class="body">
     <div class="seg" id="winsbr">${brs.map(k => `<button type="button" data-b="${k}" class="${S.winsBr === k ? "on" : ""}">${label[k] || k}</button>`).join("")}</div>
     <p class="small mut" style="margin:0 0 8px">Every ranked lock${S.winsBr === "all" ? "" : " of " + (label[S.winsBr] || S.winsBr)}, grouped by what it did, with each group's whole-lock APR over the last 7 days (average weighted by AERO). Group average ${pct(T.all && T.all.avg)} · median ${pct(T.all && T.all.median)}.</p>
-    ${tbl("Pools voted", T.pools, ["1", "2-3", "4-6", "7+"], you.pools)}
+    ${tbl("Pools allocated", T.pools, ["1", "2-3", "4-6", "7+"], you.pools)}
     ${tbl("Moves in 7 days", T.moves, ["0", "1", "2+"], null)}
     ${tbl("Fees vs streams", T.mix, ["fee-led", "mixed", "stream-led"], you.mix)}
     <p class="small mut2" style="margin:8px 0 0">The average is weighted by AERO (what the group's average AERO earned); the median is the typical lock. Read on chain every 3 hours from the last ${Math.round((ST.to - ST.from) / 86400)} days; ${weeks ? `${weeks} weekly snapshot${weeks === 1 ? "" : "s"} kept so far` : "weekly snapshots start accumulating from this week"}. This is how the presets get tuned. <a href="docs.html#wins">How it's measured</a></p></div>`;
@@ -878,12 +891,12 @@ async function dryRun(L) {
   const off = offPick(L);
   if (off) {
     L.dry = { ok: false, offbase: true };
-    L.status = `<div class="banner warn"><b>Vote this in the Aero app (${esc(off.chain_name)}):</b> #${L.id} → 100% ${esc(off.label)}. Flight Plan signs Base votes only, so it can't rehearse or send this one. Expected ${money(off.expect_usd)} after about ${money(off.cost)} in ${esc(off.chain_name)} network costs; pool votes read ${off.row.age_h == null ? "at the last scan" : off.row.age_h + "h ago"}. <a href="#" data-copyoff="${L.id}">Copy it</a> · <a href="docs.html#networks">Why</a></div>`;
+    L.status = `<div class="banner warn"><b>Allocate this in the Aero app (${esc(off.chain_name)}):</b> #${L.id} → 100% ${esc(off.label)}. Flight Plan signs Base allocations only, so it can't rehearse or send this one. Expected ${money(off.expect_usd)} after about ${money(off.cost)} in ${esc(off.chain_name)} network costs; pool allocations read ${off.row.age_h == null ? "at the last scan" : off.row.age_h + "h ago"}. <a href="#" data-copyoff="${L.id}">Copy it</a> · <a href="docs.html#networks">Why</a></div>`;
     return render();
   }
   if (L.booked === 0n && L.elsewhere.length) {
     L.dry = { ok: false };
-    L.status = `<div class="banner warn">#${L.id} votes on ${esc(L.elsewhere.map(c => NET[c] || "chain " + c).join(" + "))}. Flight Plan rehearses and signs Base votes only; use the percentages in the Aero app for this lock. <a href="docs.html#networks">Why</a></div>`;
+    L.status = `<div class="banner warn">#${L.id} allocates on ${esc(L.elsewhere.map(c => NET[c] || "chain " + c).join(" + "))}. Flight Plan rehearses and signs Base allocations only; use the percentages in the Aero app for this lock. <a href="docs.html#networks">Why</a></div>`;
     return render();
   }
   try {
@@ -921,7 +934,7 @@ async function dryRun(L) {
       <li>Method <b>allocate</b> <span class="mut">(selector <code>${C.ALLOCATE_SELECTOR}</code>)</span></li>
       <li>Value <b>0 ETH</b></li>
       <li>Data ${bytes.toLocaleString()} bytes <span class="mut">(a hardware wallet shows this as raw data; your wallet's preview should show sAERO #${L.id} re-allocated and no token moves)</span></li></ol>
-      <div class="small mut2">Reject it if any screen names sAERO <code>0xbf7977e1…</code>, "setApprovalForAll", "approve", "transfer", or a value other than 0. Next change after this vote: <b>${esc(fmtTs(newLA + S.cool))}</b>.</div>` : "";
+      <div class="small mut2">Reject it if any screen names sAERO <code>0xbf7977e1…</code>, "setApprovalForAll", "approve", "transfer", or a value other than 0. Next change after this allocation: <b>${esc(fmtTs(newLA + S.cool))}</b>.</div>` : "";
     L.status = `<div class="banner ${ok ? "ok" : "bad"}"><b>${ok ? "Dry run OK" : "Result doesn't match the plan"}</b> · network fee about $${(gas * 0.006e-9 * 2400).toFixed(3)}${!ok ? "" : !owns(L) ? (S.account ? " · not the connected wallet" : " · connect to sign") : isOpen(L) ? " · ready to sign" : " · opens " + esc(fmtTs(L.next))}</div><div class="ba" style="margin-top:8px">${bars}</div>${sign}`;
     log(`#${L.id} dry run ${ok ? "OK" : "mismatch"} · gas ${gas.toLocaleString()}`, ok ? "" : "bad");
   } catch (e) { L.dry = { ok: false }; L.status = `<div class="banner bad">Dry run failed: ${esc(e.message || e)}</div>`; log(`#${L.id}: ${e.message || e}`, "bad"); }

@@ -3,6 +3,19 @@
 <title>Flight Plan Docs</title>
 <meta name="description" content="How Flight Plan works: windows, how the split is made, why yours differs, the rank and history, earnings, the sweep, the crowd chart, what it signs and never signs, hardware wallets, and the contract addresses.">
 <meta name="theme-color" content="#090e1f">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Flight Plan">
+<meta property="og:title" content="Flight Plan Docs">
+<meta property="og:description" content="How Flight Plan works: windows, how the split is made, the rank, earnings, the sweep, and exactly what it signs and never signs.">
+<meta property="og:url" content="https://flight-plan.app/docs.html">
+<meta property="og:image" content="https://flight-plan.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Flight Plan: Plan your sAERO allocation. Sweep to USDC.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Flight Plan Docs">
+<meta name="twitter:description" content="How Flight Plan works: windows, how the split is made, the rank, earnings, the sweep, and exactly what it signs and never signs.">
+<meta name="twitter:image" content="https://flight-plan.app/og.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -45,15 +58,15 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
   <a class="wm" href="./"><img src="icons/icon-192.png" alt="">Flight Plan <span>Docs</span></a>
   <span class="sp"></span><a class="back" href="./">← Back to the app</a>
 </header>
-<p class="lede">Flight Plan is an unofficial, open-source helper for sAERO voters on Aero. It reads the chain, suggests a split sized to your locks, shows how you rank, rehearses every signature for free, and (when you connect the wallet that owns the locks) signs one vote per lock and one sweep of your rewards into USDC. Nothing you enter reaches a server: the page is static files plus public chain reads.</p>
+<p class="lede">Flight Plan is an unofficial, open-source helper for sAERO allocators on Aero. It reads the chain, suggests a split sized to your locks, shows how you rank, rehearses every signature for free, and (when you connect the wallet that owns the locks) signs one allocation per lock and one sweep of your rewards into USDC. Nothing you enter reaches a server: the page is static files plus public chain reads.</p>
 <nav class="toc"><a href="#use">How to use it</a><a href="#window">Windows</a><a href="#plan">How the split is made</a><a href="#pools">How many pools</a><a href="#dial">The strategy dial</a><a href="#stay">Move or stay</a><a href="#yours">Why yours differs</a><a href="#rank">Rank</a><a href="#history">By week, by day</a><a href="#earn">Earnings</a><a href="#sweep">Sweep</a><a href="#crowd">The crowd chart</a><a href="#wins">What actually wins</a><a href="#safe">What it signs and never signs</a><a href="#blind">Never sign blind</a><a href="#hardware">Hardware wallets</a><a href="#anchors">Addresses</a><a href="#networks">Other networks</a><a href="#fail">When something fails</a><a href="#data">Data</a><a href="#tip">Tips</a></nav>
 
 <section class="grp" id="use"><h2>How to use it</h2><div class="body">
   <ol>
     <li><b>Paste a wallet address</b> to look (read-only), or <b>connect</b> the wallet that owns your locks to sign. Flight Plan finds the sAERO locks on chain.</li>
     <li><b>Read your split.</b> The big number is what this window is expected to pay. Tap any pool for the detail behind it.</li>
-    <li><b>Dry run.</b> A free rehearsal on the chain from your address: it shows exactly what your votes would become. Nothing is signed or sent.</li>
-    <li><b>Allocate</b> (connected, window open, dry run passed): one signature per lock, an <code>allocate</code> call to the Aero Voter with 0 ETH. Or copy the split and vote in the Aero app.</li>
+    <li><b>Dry run.</b> A free rehearsal on the chain from your address: it shows exactly what your allocation would become. Nothing is signed or sent.</li>
+    <li><b>Allocate</b> (connected, window open, dry run passed): one signature per lock, an <code>allocate</code> call to the Aero Voter with 0 ETH. Or copy the split and allocate in the Aero app.</li>
     <li><b>Sweep</b> (optional): after you claim rewards in the Aero app, sell them for USDC in one swap.</li>
   </ol>
   <h3>Colors</h3>
@@ -64,19 +77,19 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 </div></section>
 
 <section class="grp" id="window"><h2>How a window works</h2><div class="body">
-  <p>Each sAERO lock votes for pools. After a vote the lock waits <b>47 hours</b>; then its <b>window</b> opens and it can move again. A vote keeps earning until you change it, so there's no rush the moment a window opens.</p>
-  <p>Locks earn two things from the pools they vote for: <b>fees</b> (a share of trading fees) and <b>streams</b> (incentives paid to voters for a set time). Both are split among everyone voting for that pool, so a well-paid but crowded pool can pay less per AERO than a quiet one.</p>
+  <p>Each sAERO lock allocates to pools. After an allocation the lock waits <b>47 hours</b>; then its <b>window</b> opens and it can move again. An allocation keeps earning until you change it, so there's no rush the moment a window opens.</p>
+  <p>Locks earn two things from the pools they allocate to: <b>fees</b> (a share of trading fees) and <b>streams</b> (incentives paid to allocators for a set time). Both are split among everyone allocated to that pool, so a well-paid but crowded pool can pay less per AERO than a quiet one.</p>
 </div></section>
 
 <section class="grp" id="plan"><h2>How the split is made</h2><div class="body">
-  <p>A scanner reads every Aero pool on Base every hour and estimates what each pays voters over a 47-hour window:</p>
+  <p>A scanner reads every Aero pool on Base every hour and estimates what each pays allocators over a 47-hour window:</p>
   <ul>
     <li><b>Fees</b> from a blend of the last 12 hours, 24 hours, 2 days and 4 days, with spikes capped and fading pools trusted down. Weekends count at 70% (tokenized stocks at 5%, their markets close).</li>
     <li><b>Streams</b> for the hours they overlap the window. A stream ending within 8 hours of the open is ignored.</li>
-    <li><b>Crowding.</b> Voters pile into the pools that look best, so each pool is priced for a pile-on, measured after every window.</li>
-    <li><b>Your own size.</b> Your AERO dilutes the pool too: your share = your AERO ÷ (the pool's votes × pile-on + your AERO). The pool's votes are read live when you open the page, with your own current votes taken out.</li>
+    <li><b>Crowding.</b> Allocators pile into the pools that look best, so each pool is priced for a pile-on, measured after every window.</li>
+    <li><b>Your own size.</b> Your AERO dilutes the pool too: your share = your AERO ÷ (the pool's allocation × pile-on + your AERO). Each pool's allocation is read live when you open the page, with your own current allocation taken out.</li>
   </ul>
-  <p>Then it spreads 100% in 5% steps, each step going where it adds the most expected dollars, under these rules: 9 to 10 pools · at most 25% in one pool · at most 40% in one pool type · at least a third in fee-led pools · your slice at most 10% of any pool · small pools (under 250k votes) at most 10% each · no tokenized stocks when 30% or more of the window is a weekend · any pool whose votes doubled since the last scan is skipped.</p>
+  <p>Then it spreads 100% in 5% steps, each step going where it adds the most expected dollars, under these rules: 9 to 10 pools · at most 25% in one pool · at most 40% in one pool type · at least a third in fee-led pools · your slice at most 10% of any pool · small pools (under 250k AERO allocated) at most 10% each · no tokenized stocks when 30% or more of the window is a weekend · any pool whose allocation doubled since the last scan is skipped.</p>
   <p class="mut">"Expected" is the middle case; the low case assumes a heavier pile-on. APR = the window's expected dollars on your AERO, annualized. The split is valued for a window starting at the later of now and your first lock's open.</p>
 </div></section>
 
@@ -93,31 +106,31 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
   <tr><td>Crowd caution</td><td>1.4x</td><td>1.0x (as measured)</td><td>1.0x (as measured)</td></tr>
   <tr><td>Streams</td><td>in full</td><td>in full</td><td>in full</td></tr>
   <tr><td>Networks</td><td>Base</td><td>Base</td><td>Base, OP, Arbitrum, Ethereum (after costs)</td></tr></table></div>
-  <p><b>Balanced</b> is the scanner's own model, the same split its auto plan uses. <b>Aggressive</b> follows the method behind saero.org's picks: <b>one pool per lock</b>, chosen on each pool's <b>4-day fee read</b> (every reading capped at 10x the pool's typical rate) <b>plus its incentives in full</b>, across <b>Base, OP, Arbitrum and Ethereum</b>. A pool on another network is weighed after what it costs to vote there each window (the cross-network message, the claim and the trip back, about $1.50 on Arbitrum, $2.20 on OP, $5 on Ethereum). Locks may share a pool; each one counts the others' AERO as competition, and together they stay at or under 10% of the pool. The only other rule: a pool whose votes doubled since the last scan is skipped. Expect bigger swings than Balanced: one pool per lock means no spread.</p>
+  <p><b>Balanced</b> is the scanner's own model, the same split its auto plan uses. <b>Aggressive</b> follows the method behind saero.org's picks: <b>one pool per lock</b>, chosen on each pool's <b>4-day fee read</b> (every reading capped at 10x the pool's typical rate) <b>plus its incentives in full</b>, across <b>Base, OP, Arbitrum and Ethereum</b>. A pool on another network is weighed after what it costs to allocate there each window (the cross-network message, the claim and the trip back, about $1.50 on Arbitrum, $2.20 on OP, $5 on Ethereum). Locks may share a pool; each one counts the others' AERO as competition, and together they stay at or under 10% of the pool. The only other rule: a pool whose allocation doubled since the last scan is skipped. Expect bigger swings than Balanced: one pool per lock means no spread.</p>
   <h3>The dials</h3>
   <ul>
     <li><b>Pools.</b> Auto (9 to 10 pools, at most 25% in one), or exactly 1 to 10, each pool then taking up to 100 ÷ N percent (see <a href="#pools">how many pools</a>). <b>1</b> means one pool per lock, chosen across Base and the other networks after costs, with only the 10%-of-a-pool limit; with several locks, the biggest lock picks first and the rest may share its pool.</li>
     <li><b>Fee memory.</b> Each pool's fees are read over the last 12 hours, 24 hours, 2 days and 4 days. The knob sets how those reads are weighted: all the way down = the 4-day read only (Aggressive), the middle = the fitted mix the scanner uses (40% / 25% / 10% / 25%), all the way up = the last 12 hours only. <b>Trust spikes</b> (the small switch under the knobs) drops two safety rails: the cap on any one reading at 10x the pool's typical rate, and the rule that a fading pool (last 12 hours under 30% of its longest read) counts only at its 12-hour rate.</li>
-    <li><b>Crowd caution.</b> Voters pile into the pools that look best, so each pool's votes are priced at a measured pile-on factor (fitted after every window, higher for crowded pools and small pools). The knob scales that factor: 1.0x = as measured; 0.5x assumes the crowd follows half as much; 1.5x assumes a heavier pile-on.</li>
+    <li><b>Crowd caution.</b> Allocators pile into the pools that look best, so each pool's allocation is priced at a measured pile-on factor (fitted after every window, higher for crowded pools and small pools). The knob scales that factor: 1.0x = as measured; 0.5x assumes the crowd follows half as much; 1.5x assumes a heavier pile-on.</li>
     <li><b>Streams.</b> How much incentive streams count next to fees, in steps of 25%: 100% = in full, 0% = fees only.</li>
-    <li><b>Base only</b> (the small switch under the knobs) keeps one-pool picks on Base, for anyone who wants to compare or doesn't want to vote on another network. It stays as you set it when you change presets.</li>
+    <li><b>Base only</b> (the small switch under the knobs) keeps one-pool picks on Base, for anyone who wants to compare or doesn't want to allocate on another network. It stays as you set it when you change presets.</li>
   </ul>
-  <p class="mut">The caps that protect you never move with the dial: your slice stays at most 10% of any pool, small pools stay capped, a pool whose votes doubled since the last scan stays out, and the dry run and the signing guard are the same for every preset.</p>
+  <p class="mut">The caps that protect you never move with the dial: your slice stays at most 10% of any pool, small pools stay capped, a pool whose allocation doubled since the last scan stays out, and the dry run and the signing guard are the same for every preset.</p>
 </div></section>
 
 <section class="grp" id="stay"><h2>Move or stay</h2><div class="body">
-  <p>A vote keeps earning until you change it, so moving only makes sense when the new split is clearly better. Flight Plan values your <b>current votes</b> for the same window with the same model and the same dials as the suggested split (your own votes are taken out of each pool first, so both see the pools as they would be without you), then compares:</p>
+  <p>An allocation keeps earning until you change it, so moving only makes sense when the new split is clearly better. Flight Plan values your <b>current allocation</b> for the same window with the same model and the same dials as the suggested split (your own allocation is taken out of each pool first, so both see the pools as they would be without you), then compares:</p>
   <ul>
     <li><b>Worth moving</b> when the split beats staying by at least <b>3%</b> and at least <b>$0.25 a day</b> (about $0.49 over a 47-hour window), after about <b>$0.05 in network fees per lock</b>.</li>
     <li><b>Staying is about as good</b> otherwise. You can still move; the page just tells you it barely pays.</li>
-    <li><b>Can't compare</b> when more than a quarter of your Base votes sit in pools the page doesn't price (a pool no longer in the scan). Locks that vote on another network are left out of both sides.</li>
+    <li><b>Can't compare</b> when more than a quarter of your Base allocation sits in pools the page doesn't price (a pool no longer in the scan). Locks allocated on another network are left out of both sides.</li>
   </ul>
-  <p class="mut">AERO that isn't voting at all earns nothing, so any split beats it; the box says how much of yours is idle.</p>
+  <p class="mut">AERO that isn't allocated at all earns nothing, so any split beats it; the box says how much of yours is idle.</p>
 </div></section>
 
 <section class="grp" id="yours"><h2>Why your split differs from someone else's</h2><div class="body">
   <p>The split is sized to <b>your</b> locks. Your own AERO dilutes the pool and the caps scale with your size.</p>
-  <p>Example: a small pool has 200,000 AERO voting for it and will pay voters $100 this window.</p>
+  <p>Example: a small pool has 200,000 AERO allocated to it and will pay allocators $100 this window.</p>
   <div class="ex">
     <div><b>A 1,000 AERO lock</b>puts 5% here (50 AERO): 50 ÷ 200,050 of $100, about $0.025. Per AERO that's the pool's full rate, so small wallets happily use small, well-paid pools.</div>
     <div><b>A 2,000,000 AERO wallet</b>can put at most 10% of the pool here (20,000 AERO), 1% of the wallet: 20,000 ÷ 220,000 of $100, about $9.09. The rest has to go somewhere deeper.</div>
@@ -127,13 +140,13 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 <section class="grp" id="rank"><h2>Rank: your locks vs everyone</h2><div class="body">
   <ul>
     <li><b>All your locks count as one</b>: combined dollars over combined AERO, for now, 2 days, 7 days and lifetime.</li>
-    <li><b>Now: earned or forecast.</b> Earned looks back: what locks actually earned over about the last 12 hours. Forecast looks ahead: what each lock's current votes would pay at today's pool rates if nothing moved (each pool's fees over the last 4 days with spikes capped, plus incentives paying right now, divided by the pool's votes, which already include yours). Forecast is raw: rewards often land below or above it, and it can't see a crowd arriving. Every lock is ranked the same way, so the rank compares like with like.</li>
-    <li><b>Lifetime</b>: everything a lock has earned since it first voted: every reward it has claimed on every network (read from the claim events since sAERO launched on 10/21/2026) plus what is waiting now, all valued at today's prices, divided by the days since its first vote and the whole lock's AERO. A lock that grew along the way is measured on its size today.</li>
+    <li><b>Now: earned or forecast.</b> Earned looks back: what locks actually earned over about the last 12 hours. Forecast looks ahead: what each lock's current allocation would pay at today's pool rates if nothing moved (each pool's fees over the last 4 days with spikes capped, plus incentives paying right now, divided by the pool's allocation, which already includes yours). Forecast is raw: rewards often land below or above it, and it can't see a crowd arriving. Every lock is ranked the same way, so the rank compares like with like.</li>
+    <li><b>Lifetime</b>: everything a lock has earned since it first allocated: every reward it has claimed on every network (read from the claim events since sAERO launched on 10/21/2026) plus what is waiting now, all valued at today's prices, divided by the days since its first allocation and the whole lock's AERO. A lock that grew along the way is measured on its size today.</li>
     <li><b>Every lock / Every wallet.</b> Every lock compares you with each sAERO lock on its own. Every wallet groups all of an address's locks into one entry (a contract such as a vault counts as one wallet).</li>
     <li><b>Size filter</b> (10k+ to 1M+) ranks you among locks or wallets at least that big. It starts on your own size.</li>
-    <li><b>Whole-lock APR.</b> Earnings are divided by everything a lock holds, including AERO parked and not voting anywhere, because parked AERO earns nothing. When that differs from the APR on the voting part alone, the voting APR shows small underneath.</li>
+    <li><b>Whole-lock APR.</b> Earnings are divided by everything a lock holds, including AERO parked and not allocated anywhere, because parked AERO earns nothing. When that differs from the APR on the allocated part alone, the allocated-part APR shows small underneath.</li>
     <li><b>Average</b> is weighted by AERO: every lock's (or wallet's) APR counts in proportion to its size, so it answers "what did the average AERO in this filter earn". A few small locks with a huge burst over a short window can't drag it around. <b>Median</b> is the middle lock, the typical one. Both cover locks (or wallets) over 100 AERO in the filter. Until 11/5/2026 the average was a plain average, each lock counted once.</li>
-    <li><b>Compare with: Autopilot USDC, Autopilot sAERO, 40acres.</b> Public products that vote on behalf of many lockers, each shown as one combined entry with the same math: whole-lock APR, voting APR when it differs, rank, top %, and dollars per week per 1,000 AERO. Autopilot is Aero's own relay (a keeper picks its pools); 40acres is a third-party vault whose per-user accounts share one contract template, which is how they are recognised.</li>
+    <li><b>Compare with: Autopilot USDC, Autopilot sAERO, 40acres.</b> Public products that allocate on behalf of many lockers, each shown as one combined entry with the same math: whole-lock APR, allocated-part APR when it differs, rank, top %, and dollars per week per 1,000 AERO. Autopilot is Aero's own relay (a keeper picks its pools); 40acres is a third-party vault whose per-user accounts share one contract template, which is how they are recognised.</li>
   </ul>
   <p class="mut">Earnings are read on chain for every lock (fees and incentives, claims bridged, every network) and valued at current prices. Rank data refreshes about every 3 hours.</p>
 </div></section>
@@ -152,7 +165,7 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
   <ul>
     <li><b>APR 24h / 7d</b>: fees and incentives each lock earned over the period, on the whole lock, at today's AERO price, annualized.</li>
     <li><b>Earned</b>: what the tracker has seen the lock earn since it first read it, with claims bridged (a claim doesn't reset the count) across every network. The reads keep about 8 days, so this covers at most that window; the Since date shows where the count starts.</li>
-    <li><b>Lifetime</b>: every claim the lock has made on every network since sAERO launched, plus what is waiting now, at today's prices. The date under it is the lock's first vote.</li>
+    <li><b>Lifetime</b>: every claim the lock has made on every network since sAERO launched, plus what is waiting now, at today's prices. The date under it is the lock's first allocation.</li>
     <li><b>Unclaimed</b>: what the last read saw waiting to be claimed, every network, in dollars.</li>
   </ul>
 </div></section>
@@ -172,34 +185,34 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 </div></section>
 
 <section class="grp" id="crowd"><h2>When the crowd moves</h2><div class="body">
-  <p>Every sAERO vote since launch is read from the chain. The chart shows sAERO moved per 2 hours over the last 72 hours, sAERO coming off its 47-hour cooldown over the next 72 hours, and how much of it is likely to move (from how quickly locks have historically moved after their window opened). The shaded band is when the Aero team's incentive batch usually lands; your own lock windows are pinned with a dashed line.</p>
-  <p class="mut">The edge: a vote keeps earning past its window until you change it, so waiting for a big wave to move (its dilution is then known) and for the team's batch to land is free.</p>
+  <p>Every sAERO allocation since launch is read from the chain. The chart shows sAERO moved per 2 hours over the last 72 hours, sAERO coming off its 47-hour cooldown over the next 72 hours, and how much of it is likely to move (from how quickly locks have historically moved after their window opened). The shaded band is when the Aero team's incentive batch usually lands; your own lock windows are pinned with a dashed line.</p>
+  <p class="mut">The edge: an allocation keeps earning past its window until you change it, so waiting for a big wave to move (its dilution is then known) and for the team's batch to land is free.</p>
 </div></section>
 
 <section class="grp" id="wins"><h2>What actually wins</h2><div class="body">
-  <p>Flight Plan collects nothing from the people who use it: there is no server. It doesn't need to. Every sAERO vote and every lock's earnings are on the chain, and the scanner reads all of them every 3 hours. So instead of learning from a few users, the page learns from every lock.</p>
+  <p>Flight Plan collects nothing from the people who use it: there is no server. It doesn't need to. Every sAERO allocation and every lock's earnings are on the chain, and the scanner reads all of them every 3 hours. So instead of learning from a few users, the page learns from every lock.</p>
   <ul>
-    <li>Each ranked lock is grouped by what it did: <b>how many pools</b> it votes right now (1, 2 to 3, 4 to 6, 7 or more), <b>how many times it moved</b> in the last 7 days, and whether its votes sit mostly in <b>fee-led</b> pools (fees out-pay incentives), <b>stream-led</b> pools, or a mix. Pool kind comes from the latest Base scan; votes on other networks are left out of the mix share.</li>
+    <li>Each ranked lock is grouped by what it did: <b>how many pools</b> it allocates to right now (1, 2 to 3, 4 to 6, 7 or more), <b>how many times it moved</b> in the last 7 days, and whether its allocation sits mostly in <b>fee-led</b> pools (fees out-pay incentives), <b>stream-led</b> pools, or a mix. Pool kind comes from the latest Base scan; allocations on other networks are left out of the mix share.</li>
     <li>Each group shows how many locks it holds and its 7-day whole-lock APR: the average weighted by AERO, and the median, the typical lock in that group. The size filter works like the rank card's.</li>
-    <li>Your own group is marked "you" (your pools and your fee/stream mix, from your current votes).</li>
+    <li>Your own group is marked "you" (your pools and your fee/stream mix, from your current allocation).</li>
     <li>A snapshot of the table is kept at the end of every Aero week, so the view will reach back past the scanner's 8-day memory as weeks accumulate. The presets on the strategy dial get tuned from this table, not from guesses.</li>
   </ul>
   <p class="mut">Counts and averages only are published: nothing per lock or per wallet leaves the scanner.</p>
 </div></section>
 
 <section class="grp" id="tested"><h2>How each strategy did (the backtest)</h2><div class="body">
-  <p>Every 3 hours the scanner replays every strategy on its own past scans. For each past hour on a 3-hour grid it rebuilds exactly what the planner knew at that moment (pool scans up to then, the incentive programs seen by then, the self-tuned settings as they were then), makes each strategy's split with this same planner.js, and then pays that split from what the pools really paid over the next 47 hours: per scan, (voter fees + incentives) x your AERO / (the pool's actual votes at that scan + your AERO). Real pile-ons are included, and nothing from the future leaks into a plan.</p>
+  <p>Every 3 hours the scanner replays every strategy on its own past scans. For each past hour on a 3-hour grid it rebuilds exactly what the planner knew at that moment (pool scans up to then, the incentive programs seen by then, the self-tuned settings as they were then), makes each strategy's split with this same planner.js, and then pays that split from what the pools really paid over the next 47 hours: per scan, (allocator fees + incentives) x your AERO / (the pool's actual allocation at that scan + your AERO). Real pile-ons are included, and nothing from the future leaks into a plan.</p>
   <ul>
     <li><b>Strategies:</b> Balanced, Steady and Aggressive as on the dial, Aggressive held to Base, exactly 1, 3, 6 and 10 pools, and the old spike-chaser (the last 12 hours only, spikes trusted). Lock sizes 1k, 30k, 100k and 1M AERO.</li>
-    <li><b>Other networks:</b> the best single pool on each network, after the cost of voting there, against the best on Base at the same moment. Ink, Robinhood and Arc were scanned once a day until Nov 5 (every 3 hours since), so their early figures are rough.</li>
-    <li><b>Checked:</b> replaying real locks' votes the same way lands within about 0 to 15% of what the chain says they earned (slightly high).</li>
+    <li><b>Other networks:</b> the best single pool on each network, after the cost of allocating there, against the best on Base at the same moment. Ink, Robinhood and Arc were scanned once a day until Nov 5 (every 3 hours since), so their early figures are rough.</li>
+    <li><b>Checked:</b> replaying real locks' allocations the same way lands within about 0 to 15% of what the chain says they earned (slightly high).</li>
     <li><b>"Beat Balanced"</b> counts separate 2-day stretches, not hours: starts 3 hours apart share most of their 47 hours, so a week of data is only 3 to 5 separate windows. Treat small differences as noise.</li>
   </ul>
   <p><b>Calibration.</b> On past data the planner's forecasts ran high, and worse, they barely predicted which windows would pay more: payouts stayed in a narrow band whatever the forecast said, and settings that trust the last 12 hours or fresh spikes forecast the biggest numbers while paying less. So the page pulls every expected, low and high figure toward what your setting typically paid. Per 1,000 AERO: shown = typical payout + slope x (this forecast - typical forecast), where the slope is how far that setting's forecasts actually tracked its payouts (often zero), and never more than the forecast itself. Presets use their own measurements; Custom dials are snapped to the nearest of 200 tested combinations (fee memory 0, 25, 50, 75 or 100%, trust spikes on or off, crowd caution 0 to 2x, streams 0 or 100%, one pool or several). A pool on another network keeps its full cost. Refit every 3 hours; "move or stay" scales both sides the same way. The card lists each setting's typical payout.</p>
 </div></section>
 
 <section class="grp" id="gas"><h2>Gas on each network</h2><div class="body">
-  <p>A vote on another network pays its rewards on that network, so sweeping them is a transaction on that network, paid for with that network's own gas token. Each network sweeps on its own: tap its button above the token list, and your wallet is asked to switch to it (and to add it first if it has never seen it).</p>
+  <p>An allocation on another network pays its rewards on that network, so sweeping them is a transaction on that network, paid for with that network's own gas token. Each network sweeps on its own: tap its button above the token list, and your wallet is asked to switch to it (and to add it first if it has never seen it).</p>
   <div class="tw"><table>
     <tr><th>Network</th><th>Gas token</th><th>Keep about</th><th>One sweep cost (11/5 dry runs)</th></tr>
     <tr><td>Base</td><td>ETH</td><td>$1</td><td>a few cents</td></tr>
@@ -227,14 +240,14 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 <section class="grp safe" id="safe"><h2>What it signs, and never signs</h2><div class="body">
   <p>Connecting shares only your address. With the owning wallet connected, Flight Plan can ask for exactly four kinds of signature:</p>
   <ol>
-    <li><b>A vote.</b> One <code>allocate</code> call to the Aero <b>Voter</b> for a lock your wallet owns, <b>0 ETH</b>. The guard checks, before every send: the To address is the Voter; the call is <code>allocate</code>; the lock id is the one shown and your account owns it; the refund address is you; every dispatch is Base-only with zero value and zero gas limit; the gauges are exactly the plan's; the amounts add up to the whole stake. It is rebuilt from the plan and checked again against a fresh chain read (owner, window, booked amount) right before your wallet opens.</li>
+    <li><b>An allocation.</b> One <code>allocate</code> call to the Aero <b>Voter</b> for a lock your wallet owns, <b>0 ETH</b>. The guard checks, before every send: the To address is the Voter; the call is <code>allocate</code>; the lock id is the one shown and your account owns it; the refund address is you; every dispatch is Base-only with zero value and zero gas limit; the gauges are exactly the plan's; the amounts add up to the whole stake. It is rebuilt from the plan and checked again against a fresh chain read (owner, window, booked amount) right before your wallet opens.</li>
     <li><b>A sweep approval.</b> <code>approve</code> on a reward token the scan found in your wallet, spender = Aero's <b>Metarouter</b>, amount = <b>exactly your balance</b>. Never unlimited.</li>
     <li><b>A sweep swap.</b> One Metarouter <code>execute</code> that sells those tokens for USDC (USDG on Robinhood) with the minimum you set, <b>paid to your own address</b>, on the network the tokens are on.</li>
     <li><b>A gas bridge, only when you tap Get gas.</b> <code>depositNative</code> on Relay's Base deposit contract <code>0x4cd00e387622c35bddb9b4c962c136462338bc31</code>, with about $1 of ETH ($5 for Ethereum, hard cap 0.006 ETH) as value. The guard checks the To address, the method, that the depositor is you, the exact amount, and that Relay's quote delivers that network's gas token to <b>your own address</b>; then it dry-runs the deposit on Base. <a href="#gas">More</a></li>
   </ol>
   <h3>Never</h3>
   <ul>
-    <li>An approval on <b>sAERO</b>, or <code>setApprovalForAll</code> on anything. Your locks cannot be moved by this page: <code>allocate</code> moves votes, not tokens, and there is no code path that approves the escrow.</li>
+    <li>An approval on <b>sAERO</b>, or <code>setApprovalForAll</code> on anything. Your locks cannot be moved by this page: <code>allocate</code> moves your allocation, not tokens, and there is no code path that approves the escrow.</li>
     <li>A transfer, a claim, a withdrawal, a merge, an unlimited approval, a message signature (<code>personal_sign</code> / typed data), or any ETH value except that capped gas bridge.</li>
     <li>Anything without a passing dry run first, and nothing in paste-only mode (no wallet connected).</li>
   </ul>
@@ -244,9 +257,9 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 
 <section class="grp safe" id="blind"><h2>Never sign blind</h2><div class="body">
   <ol>
-    <li><b>Dry run first</b>, every time, so you know exactly what your votes (or the swap) should become.</li>
-    <li><b>Network is Base</b>, the <b>To</b> address is the Voter (a vote) or the Metarouter (a sweep) or a reward token (an approval), and the value is <b>0 ETH</b>. The addresses are below; compare the start and the end.</li>
-    <li>Your wallet's preview should show your sAERO lock re-allocated and <b>no tokens moving</b> (a vote), or minus the reward tokens and plus USDC (a sweep).</li>
+    <li><b>Dry run first</b>, every time, so you know exactly what your allocation (or the swap) should become.</li>
+    <li><b>Network is Base</b>, the <b>To</b> address is the Voter (an allocation) or the Metarouter (a sweep) or a reward token (an approval), and the value is <b>0 ETH</b>. The addresses are below; compare the start and the end.</li>
+    <li>Your wallet's preview should show your sAERO lock re-allocated and <b>no tokens moving</b> (an allocation), or minus the reward tokens and plus USDC (a sweep).</li>
   </ol>
   <div class="note warn"><b>Reject</b> anything that says "setApprovalForAll", "approve" on sAERO, "transfer", an amount larger than the row, or a value other than 0.</div>
 </div></section>
@@ -257,7 +270,7 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 
 <section class="grp" id="anchors"><h2>Contract addresses (Base)</h2><div class="body">
   <p>Tap to copy. Check them once against Aero's published deployment files.</p>
-  <div class="addr"><span class="k">Voter · where every vote goes</span><code data-copy="0x49d7d4f17ec56ef8fa04e464af5d1a4942cc31e6">0x49d7d4f17ec56ef8fa04e464af5d1a4942cc31e6</code></div>
+  <div class="addr"><span class="k">Voter · where every allocation goes</span><code data-copy="0x49d7d4f17ec56ef8fa04e464af5d1a4942cc31e6">0x49d7d4f17ec56ef8fa04e464af5d1a4942cc31e6</code></div>
   <div class="addr"><span class="k">Metarouter · Aero's swap router (the sweep sells rewards through it)</span><code data-copy="0x0fef9e88a7b76bcdbf451780c6774fe32965ee98">0x0fef9e88a7b76bcdbf451780c6774fe32965ee98</code></div>
   <div class="addr"><span class="k">sAERO (your locks; never approve it)</span><code data-copy="0xbf7977e1521e9a3032bf7243ee4712f311f13915">0xbf7977e1521e9a3032bf7243ee4712f311f13915</code></div>
   <div class="addr"><span class="k">LeafVoter (Base)</span><code data-copy="0x382409fad8503fbcdbb27a4211551fa03e884078">0x382409fad8503fbcdbb27a4211551fa03e884078</code></div>
@@ -265,17 +278,17 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
   <p class="mut">Source: <a href="https://github.com/dromos-labs/metadex-public/tree/main/deployment-addresses" target="_blank" rel="noopener">dromos-labs/metadex-public, deployment-addresses</a>.</p>
 </div></section>
 
-<section class="grp" id="networks"><h2>Locks voting on other networks</h2><div class="body">
-  <p>Aero runs on several networks (OP, Arbitrum, Ethereum, Ink, Robinhood, Arc) and a lock can vote on any of them. With <b>one pool per lock</b> (Aggressive, or Pools = 1), Flight Plan also weighs pools on <b>OP, Arbitrum and Ethereum</b>, after what voting there costs each window, unless the <b>Base only</b> switch is on. Their votes come from the last scan of that network (every 3 hours; a read older than 6 hours is left out), and the row says how old it is. Multi-pool splits stay on Base.</p>
-  <p>The <b>sweep</b> works on every one of these networks (<a href="#gas">gas on each network</a>). Votes are different: Flight Plan <b>signs Base votes only</b>. When a lock's pick is on another network, its card says "Vote this in the Aero app (OP)" with a copy link, and there is no dry run or Allocate for it. If a lock's current votes sit on another network, its card says so too.</p>
+<section class="grp" id="networks"><h2>Locks allocated on other networks</h2><div class="body">
+  <p>Aero runs on several networks (OP, Arbitrum, Ethereum, Ink, Robinhood, Arc) and a lock can allocate on any of them. With <b>one pool per lock</b> (Aggressive, or Pools = 1), Flight Plan also weighs pools on <b>OP, Arbitrum and Ethereum</b>, after what allocating there costs each window, unless the <b>Base only</b> switch is on. Their allocations come from the last scan of that network (every 3 hours; a read older than 6 hours is left out), and the row says how old it is. Multi-pool splits stay on Base.</p>
+  <p>The <b>sweep</b> works on every one of these networks (<a href="#gas">gas on each network</a>). Allocations are different: Flight Plan <b>signs Base allocations only</b>. When a lock's pick is on another network, its card says "Allocate this in the Aero app (OP)" with a copy link, and there is no dry run or Allocate for it. If a lock's current allocation sits on another network, its card says so too.</p>
 </div></section>
 
 <section class="grp" id="fail"><h2>When something fails</h2><div class="body">
   <div class="tw"><table><tr><th>Message</th><th>Meaning</th><th>Do</th></tr>
   <tr><td>cooldown still running</td><td>the 47 hours haven't passed for that lock</td><td>wait for its ring to read OPEN</td></tr>
-  <tr><td>votes on another network</td><td>the lock votes on OP, Arbitrum or another network</td><td>use the Aero app for that lock</td></tr>
+  <tr><td>allocated on another network</td><td>the lock is allocated on OP, Arbitrum or another network</td><td>use the Aero app for that lock</td></tr>
   <tr><td>pick more pools</td><td>your wallet is too big for that few pools</td><td>pick a higher number or Auto</td></tr>
-  <tr><td>safety check / guard tripped</td><td>the call failed the checks a real vote must pass</td><td>reload and dry-run again; if it repeats, open an issue on the source</td></tr>
+  <tr><td>safety check / guard tripped</td><td>the call failed the checks a real allocation must pass</td><td>reload and dry-run again; if it repeats, open an issue on the source</td></tr>
   <tr><td>the plan changed since the dry run</td><td>new pool data or a new pool count arrived after the rehearsal</td><td>dry-run again, then sign</td></tr>
   <tr><td>not the connected wallet</td><td>the lock belongs to another address</td><td>connect the wallet that owns it</td></tr>
   <tr><td>window opens …; not yet</td><td>the live re-check found the cooldown still running</td><td>wait for the open</td></tr>
@@ -285,8 +298,8 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 </div></section>
 
 <section class="grp" id="data"><h2>Data and freshness</h2><div class="body">
-  <p>Pool estimates are published every hour; ranks, history and earnings every 3 hours; the crowd chart every hour. How many votes each pool has is read live when you open the page. The footer shows how old the pool data is, and the page warns when it's more than 3 hours old.</p>
-  <p class="mut">Open source under the MIT license. The planning math runs in your browser (<code>planner.js</code>); the vote call is built and checked by <code>allocate-lib.js</code>; sweep routes come from <code>sweep-routes.js</code> and are re-quoted live. Prices from DefiLlama. Not financial advice: estimates can be wrong, and pools can change fast.</p>
+  <p>Pool estimates are published every hour; ranks, history and earnings every 3 hours; the crowd chart every hour. How much AERO each pool has allocated is read live when you open the page. The footer shows how old the pool data is, and the page warns when it's more than 3 hours old.</p>
+  <p class="mut">Open source under the MIT license. The planning math runs in your browser (<code>planner.js</code>); the allocate call is built and checked by <code>allocate-lib.js</code>; sweep routes come from <code>sweep-routes.js</code> and are re-quoted live. Prices from DefiLlama. Not financial advice: estimates can be wrong, and pools can change fast.</p>
 </div></section>
 
 <section class="grp" id="tip"><h2>Tips</h2><div class="body">

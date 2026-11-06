@@ -1,4 +1,4 @@
-/* planner.js: the vote planner, run in your browser.
+/* planner.js: the allocation planner, run in your browser.
  * A line-for-line port of the planning model (fee estimate / optimize / value / chase / caps) that sizes a split of
  * your sAERO across Aero pools for one 47-hour window. Inputs come from data/plan.json, which a scanner publishes
  * every hour: each pool's raw fee rates per horizon and, for a window starting at each hour of the next two days, the
