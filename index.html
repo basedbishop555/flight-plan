@@ -404,7 +404,7 @@ const PRESET_NAME = { steady: "Steady", balanced: "Balanced", aggressive: "Aggre
 const PRESET_BTN = { steady: "Steady", balanced: "Balanced", aggressive: "Aggressive", jpn: "JPN", cypher: "Cypher", custom: "Custom" };
 function loadDial() {
   let d = null; try { d = JSON.parse(store.get("dial", "null")); } catch (e) {}
-  if (!d || typeof d !== "object") { d = { ...PRESETS.balanced }; const old = Number(store.get("pools", 0)) || 0; if (old) d.n = old; }
+  if (!d || typeof d !== "object") { d = { ...PRESETS.balanced, baseOnly: true }; const old = Number(store.get("pools", 0)) || 0; if (old) d.n = old; }   // first visit: Base only (11/6/2026)
   const v = { n: Math.max(0, Math.min(10, Math.round(Number(d.n) || 0))), memory: clamp(d.memory, 0, 1, 0.5), trust: !!d.trust, caution: clamp(d.caution, 0, 2, 1), streams: clamp(d.streams, 0, 1, 1), baseOnly: !!d.baseOnly,
               src: d.src === "jpn" || d.src === "cypher" ? d.src : null };
   v.preset = matchPreset(v); return v;
@@ -427,6 +427,7 @@ function calModel() {
   const B = S.BT, M = B && B.calmodel; if (!M || !S.dial) return null;
   const p = S.dial.preset;
   if (S.dial.src) return (M.presets || {}).balanced || null;     // pure presets are priced by our default model
+  if (p !== "custom" && M.presets && !S.dial.baseOnly && (p === "balanced" || p === "steady") && M.presets[p + "_x"]) return M.presets[p + "_x"];   // Base only off: its own measurement
   if (p !== "custom" && M.presets && M.presets[p]) return M.presets[p];
   if (M.grid && B.calgrid && B.calgrid.axes) { const m = M.grid[gridKey(B.calgrid.axes, S.dial)]; if (m) return m; }
   return (M.presets || {}).balanced || null;
@@ -580,10 +581,34 @@ function replan() {
     const aero = totalAero(), apr = aero && S.D.px ? usd / (aero * S.D.px) * 365 / (S.D.consts.H47 / 86400) * 100 : 0;
     S.plan = { legs, start: openTs(), expect_usd: usd, expect_low_usd: lo, expect_high_usd: hi, apr, warnings: [...warnings], placed, perLock: true, cal: g0 > 0 ? g1 / g0 : 1, src: S.dial.src || null };
   } else {
-    S.plan = calib(S.dial.src ? P.external(S.D, totalAero(), openTs(), S.live, S.dial.src, S.dial.n || null, !!S.dial.baseOnly) : P.plan(S.D, totalAero(), openTs(), null, S.live, dialOpts()));
+    S.plan = calib(S.dial.src ? P.external(S.D, totalAero(), openTs(), S.live, S.dial.src, S.dial.n || null, !!S.dial.baseOnly) : P.plan(S.D, totalAero(), openTs(), null, S.live, { ...dialOpts(), locks: S.locks.length, carrier: Math.max(...S.locks.map(lockAero)) }));   // one split for the wallet
     for (const L of S.locks) L.plan = S.plan;
+    if (S.plan.carried && S.locks.length > 1) carrierPlans(S.plan);
   }
 }
+/* ---------- the carrier lock (11/6/2026): with Base only off, Steady / Balanced / Custom may put pools on another
+   network. With several locks, those pools go on the BIGGEST lock only (planner.js `carried`), so each network's cost
+   is paid once; the Base pools are spread over every lock by what each has left, so the wallet's total per pool is
+   the split shown. Each lock's own percentages (in hundredths, summing to exactly 100) are what its dry run and
+   signature use. ---------- */
+function carrierPlans(pl) {
+  const car = S.locks.slice().sort((a, b) => lockAero(b) - lockAero(a))[0];
+  const away = pl.legs.filter(l => l.chain && l.chain !== "base"), home = pl.legs.filter(l => !l.chain || l.chain === "base");
+  const awayA = away.reduce((t, l) => t + l.aero, 0), capOf = L => Math.max(0, lockAero(L) - (L === car ? awayA : 0));
+  const capT = S.locks.reduce((t, L) => t + capOf(L), 0);
+  for (const L of S.locks) {
+    const a = lockAero(L), share = capT > 0 ? capOf(L) / capT : 0;
+    const raw = (L === car ? away.map(l => [l, l.aero]) : []).concat(home.map(l => [l, l.aero * share]));
+    const bp = raw.map(([, x]) => Math.floor(x / a * 10000)), order = raw.map(([, x], i) => [x / a * 10000 - bp[i], i]).sort((u, v) => v[0] - u[0]);
+    for (let k = 0, rem = 10000 - bp.reduce((t, v) => t + v, 0); k < rem; k++) bp[order[k % order.length][1]]++;
+    const legs = raw.map(([l, x], i) => { const f = l.aero > 0 ? x / l.aero : 0;
+      return { ...l, pct: bp[i] / 100, aero: x, expect_usd: l.expect_usd * f, expect_low_usd: l.expect_low_usd * f, expect_high_usd: l.expect_high_usd * f, lock: L.id }; }).filter(l => l.pct > 0);
+    const sum = k => legs.reduce((t, l) => t + l[k], 0);
+    L.plan = { ...pl, legs, expect_usd: sum("expect_usd"), expect_low_usd: sum("expect_low_usd"), expect_high_usd: sum("expect_high_usd"), carrier: L === car };
+  }
+  pl.carrierId = car.id;
+}
+
 /* ---------- move or stay (11/5/2026, after saero.org): your current votes vs the split, same model, same window.
    Move only when the split beats staying by 3% AND $0.25 a day, after network fees. ---------- */
 const MOVE_PCT = 3, MOVE_USD_DAY = 0.25, FEE_PER_LOCK = 0.05;
@@ -751,7 +776,7 @@ function extNote() {
 }
 function poolRow(l) {
   const r = l.row, col = typeColor(r.type);
-  const where = r.chain && r.chain !== "base" ? `${r.chain_name} · after ${money(r.cost)} costs` : "";
+  const nc = l.cost != null ? l.cost : r.cost, where = r.chain && r.chain !== "base" ? `${r.chain_name}${nc ? ` · after ${money(nc)} network costs` : ""}` : "";
   const jr = jpnRank(r.gauge);
   const tags = [where, TYPE_NAME[r.type] || r.type, jr ? "JPN #" + jr : "", l.ext && !l.ext.priced ? "not priced by our model" : "", r.fee_led ? "fee-led" : "", r.rank48 && r.rank48 <= 5 ? "crowded" : "", r.fading ? "fading" : "", l.small ? "small pool" : ""].filter(Boolean).join(" · ");
   const apr = l.aero && S.D.px ? l.expect_usd / (l.aero * S.D.px) * (365 * 24 / 47) * 100 : null;
@@ -857,9 +882,20 @@ function renderPlan() {
   const rows = p.perLock
     ? S.locks.map(L => `<div class="lockhead">#${L.id} <span class="num">${fmtA(lockAero(L))} AERO · ${isOpen(L) ? "open" : "opens " + esc(fmtTs(L.next))} · ${money(L.plan.expect_usd)}</span></div>` + (L.plan.legs.length ? L.plan.legs.map(poolRow).join("") : `<div class="small warn">No pool fits this lock under the rules.</div>`)).join("")
     : p.legs.map(poolRow).join("");
-  $("legs").innerHTML = extNote() + stayBox + legend + rows + (p.warnings.length ? `<div class="banner warn small">${esc(p.warnings.join(" "))}</div>` : "") + cta;
+  const netBox = p.note ? `<div class="banner warn small" style="margin:0 0 10px"><b>Other networks:</b> ${esc(p.note)}${p.carrierId ? ` Those pools go on #${p.carrierId} only; your other locks stay on Base.` : ""} <b>Careful:</b> ${esc(xRecord())} Turn on <b>Base only</b> to keep everything on Base. <a href="docs.html#networks">How</a></div>` : "";
+  $("legs").innerHTML = extNote() + netBox + stayBox + legend + rows + (p.warnings.length ? `<div class="banner warn small">${esc(p.warnings.join(" "))}</div>` : "") + cta;
   el.querySelectorAll("[data-copy]").forEach(c => c.addEventListener("click", () => copy(c.dataset.copy)));
   const c = $("cta"); if (c) c.addEventListener("click", () => c.dataset.act === "dry" ? dryAll() : c.dataset.act === "send" ? sendAll() : copy(splitText()));
+}
+// what the backtest says about this preset with every network vs Base only, at the nearest tested size
+function xRecord() {
+  const B = S.BT, k = S.dial && S.dial.preset;
+  const fallback = "In the backtest so far, splits that added another network have usually paid less than staying on Base; forecasts on other networks have run high.";
+  if (!B || !B.rows || (k !== "balanced" && k !== "steady")) return fallback;
+  const sizes = Object.keys(B.rows).map(Number), A = sizes.reduce((a, b) => Math.abs(Math.log(b / totalAero())) < Math.abs(Math.log(a / totalAero())) ? b : a);
+  const r = B.rows[A] || {}, x = r[k + "_x"], b = r[k];
+  if (!x || !b) return fallback;
+  return `in the backtest (${x.n} past starts, ${fmtA(A)} AERO) ${PRESET_NAME[k]} with every network paid $${x.median.toFixed(2)} per 1,000 AERO a window (median) vs $${b.median.toFixed(2)} on Base only, and when it added a network it usually paid less than the forecast said. Treat the gain above as optimistic.`;
 }
 const legsText = legs => legs.map(l => `${l.pct}% ${l.label}${l.chain && l.chain !== "base" ? " (" + (l.chain_name || l.chain) + ")" : ""}`).join(", ");
 function splitText() { return `Flight Plan split (${PRESET_NAME[S.dial.preset]}), window from ${fmtTs(S.plan.start)}:\n` + (S.plan.perLock ? S.locks.map(L => `#${L.id}: ` + L.plan.legs.map(l => `${l.pct}% ${l.label}${l.chain && l.chain !== "base" ? " (" + l.chain_name + ")" : ""}`).join(", ")).join("\n") : S.plan.legs.map(l => `${l.pct}% ${l.label}${l.chain && l.chain !== "base" ? " (" + (l.chain_name || l.chain) + ")" : ""}`).join("\n")); }

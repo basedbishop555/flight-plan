@@ -11,6 +11,8 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
   const PLAN_V = 4;   // the data/plan.json format this planner reads (the publisher refuses a mismatch)
+  const CROSS_MAX_AGE_H = 6;                  // a pool on another network read longer ago than this is left out
+  const NET_BAR_PCT = 10, NET_BAR_USD = 0.25;  // another network must add at least this much a window, after its costs
 
   function poolRules(C, n) {
     if (!n) return [C.MIN_POOLS, C.MAX_POOLS, C.MAX_PCT, C.TYPE_MAX];
@@ -164,10 +166,41 @@
     if (n) o.n = n;
     const C = D.consts, si = startIndex(D, startTs);
     if (o.n === 1) return onePool(D, aero, si, live, o);
-    const rows = rowsAt(D, si, live, o).filter(r => r.chain === "base");
     const chase = { stream: D.chase.stream, fee: D.chase.fee, small: D.chase.small, crowd: D.chase.crowd, caution: o.caution };
-    const { split, placed, relaxed } = optimize(C, rows, aero, chase, D.small_max, o.n || null);
     n = o.n || null;
+    /* Other networks (11/6/2026): with "Base only" off, Steady / Balanced / Custom may add pools on other
+       networks, but only when it pays after their fees. The Base split is made first; then each other network is tried
+       on top (the same rules over Base + that network's pools), and the best one is kept only if it beats the split
+       without it by at least 10% and $0.25 a window, AFTER that network's per-window cost (cross-network vote, claim,
+       getting rewards back; charged once per lock that uses it). With several locks (`o.locks`) the other networks'
+       pools go on ONE lock (the carrier, `o.carrier` AERO = the biggest lock) when they fit in it, so each network is
+       paid for once (`carried`); otherwise every lock carries the same split and pays. Repeated while another network
+       still clears that bar, so a lock can use several. A network read more than 6 hours ago is left out. */
+    const all = rowsAt(D, si, live, o).filter(r => r.chain === "base" || r.age_h == null || r.age_h <= CROSS_MAX_AGE_H);
+    const locks = Math.max(1, o.locks || 1), cost1 = c => (all.find(r => r.chain === c) || {}).cost || 0;
+    const run = set => {
+      const res = optimize(C, all.filter(r => set.has(r.chain)), aero, chase, D.small_max, n);
+      const used = [...new Set(res.split.map(([r]) => r.chain))].filter(c => c !== "base");
+      const gross = res.split.reduce((s, [r, p]) => s + value(r, aero * p / 100, chaseFor(C, r, chase, chase.caution)[1]), 0);
+      const away = res.split.reduce((s, [r, p]) => s + (r.chain !== "base" ? aero * p / 100 : 0), 0);
+      const carried = locks > 1 && !!o.carrier && away <= o.carrier + 1e-6, mult = locks > 1 && !carried ? locks : 1;
+      return Object.assign(res, { set, used, gross, carried, mult, net: gross - used.reduce((s, c) => s + cost1(c) * mult, 0) });
+    };
+    const costOf = c => cost1(c) * cur.mult;
+    const base = run(new Set(["base"]));
+    let cur = base;
+    if (!o.baseOnly) {
+      let left = [...new Set(all.map(r => r.chain))].filter(c => c !== "base");
+      while (left.length) {
+        let best = null;
+        for (const c of left) { const t = run(new Set([...cur.set, c])); if (t.used.includes(c) && (!best || t.net > best.net)) best = t; }
+        if (!best || best.net - cur.net < Math.max(NET_BAR_USD, NET_BAR_PCT / 100 * Math.max(0, cur.net))) break;
+        cur = best; left = left.filter(c => !cur.set.has(c));
+      }
+    }
+    const { split, placed, relaxed } = cur;
+    const netCost = {};                         // each other network's cost sits on its biggest leg (once per network)
+    for (const c of cur.used) { const big = split.filter(([r]) => r.chain === c).reduce((a, b) => (b[1] > a[1] ? b : a)); netCost[big[0].gid] = costOf(c); }
     const minPools = poolRules(C, n || null)[0];
     const warnings = [];
     if (placed < 100) warnings.push(!n ? `Only ${placed}% could be placed under the rules.` :
@@ -175,17 +208,21 @@
     if (relaxed) warnings.push(`The ${C.TYPE_MAX}% per pool type cap was relaxed to place everything.`);
     const tot = { high: 0, expected: 0, low: 0 };
     const legs = split.map(([r, p]) => {
-      const x = aero * p / 100, f = chaseFor(C, r, chase, chase.caution);
-      const hi = value(r, x, f[0]), ex = value(r, x, f[1]), lo = value(r, x, f[2]);
+      const x = aero * p / 100, f = chaseFor(C, r, chase, chase.caution), cost = netCost[r.gid] || 0;
+      const gx = value(r, x, f[1]), hi = value(r, x, f[0]) - cost, ex = gx - cost, lo = value(r, x, f[2]) - cost;
       tot.high += hi; tot.expected += ex; tot.low += lo;
-      return { pct: p, aero: x, row: r, label: r.name, gauge: r.gauge, pool: r.pool, type: r.type, fee_led: r.fee_led,
-               expect_usd: ex, expect_low_usd: lo, expect_high_usd: hi, small: r.alloc < C.SMALL_POOL, slice: x / (r.alloc + x) };
+      const leg = { pct: p, aero: x, row: r, label: r.name, gauge: r.gauge, pool: r.pool, type: r.type, fee_led: r.fee_led,
+                    expect_usd: ex, expect_low_usd: lo, expect_high_usd: hi, small: r.alloc < C.SMALL_POOL, slice: x / (r.alloc + x) };
+      if (r.chain !== "base") Object.assign(leg, { chain: r.chain, chain_name: r.chain_name, cost, gross_usd: gx });
+      return leg;
     });
+    const note = !cur.used.length ? "" : (`Uses ${cur.used.map(c => NET_NAME[c] || c).join(" + ")}: about $${(cur.gross - base.gross).toFixed(2)} more a window than Base alone, minus $${cur.used.reduce((s, c) => s + costOf(c), 0).toFixed(2)} in network costs${locks > 1 ? (cur.carried ? " (its pools go on your biggest lock only, so it's paid once)" : ` (${locks} locks each pay it)`) : ""}.`);
     const feeShare = legs.filter(l => l.fee_led).reduce((s, l) => s + l.pct, 0);
     if (feeShare < C.FEE_LED_MIN * 100 - 1) warnings.push(`Only ${feeShare}% sits in fee-led pools (the rule is at least a third).`);
     if (legs.length < minPools) warnings.push(`Only ${legs.length} pools passed the filters.`);
     const apr = aero && D.px ? tot.expected / (aero * D.px) * 365 / (C.H47 / 86400) * 100 : 0;
-    return { legs, start: D.starts[si], expect_usd: tot.expected, expect_low_usd: tot.low, expect_high_usd: tot.high, apr, warnings, placed, opts: o };
+    return { legs, start: D.starts[si], expect_usd: tot.expected, expect_low_usd: tot.low, expect_high_usd: tot.high, apr, warnings, placed, opts: o,
+             nets: cur.used, base_usd: base.net, note, carried: cur.used.length > 0 && cur.carried };
   }
 
   /** One pool for `aero` (Pools = 1, and the Aggressive preset per lock): the single pool, on Base or on OP /
