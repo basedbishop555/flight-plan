@@ -451,6 +451,10 @@ function calib(pl) {
 const CY = { ready: null, data: null, seq: 0, wait: {}, res: null, key: "", busy: false, err: null };
 const CY_NET = { 8453: "base", 10: "optimism", 1: "ethereum", 42161: "arbitrum", 57073: "ink", 4663: "robinhood", 5042: "arc" };
 const CY_POOL = /^(base|optimism|ethereum|arbitrum|ink|robinhood|arc):0x[0-9a-f]{40}$/;
+const CY_MAX_POOLS = 8, CY_MIN_SIZE = 100000;   // his Plan tab's defaults ("Most pools" 8, "Smallest pool" 100k sAERO)
+// sha256 of his page's Plan-tab function the frame's planTab() was matched against (saero_track.py writes the live one
+// to data/saero/meta.json plan_sha); a mismatch means his site changed and the note says picks may differ slightly
+const CY_PLAN_SHA = "33aecb9692633b75";   // app.js?v=20261104cr1
 function cyFrame() {
   if (CY.ready) return CY.ready;
   CY.ready = new Promise((ok, no) => {
@@ -521,19 +525,24 @@ async function cyAdvise() {
     const id = ++CY.seq;
     const m = await new Promise((ok, no) => {
       CY.wait[id] = ok; setTimeout(() => { delete CY.wait[id]; no(new Error("saero.org's planner took too long")); }, 30000);
-      f.contentWindow.postMessage({ type: "advise", id, v: D.meta.code_v, sum: D.sum, cal: D.cal, locks: S.locks.map(cyLock), now: Math.floor(Date.now() / 1000), nets: S.dial.baseOnly ? ["base"] : null }, "*");
+      f.contentWindow.postMessage({ type: "advise", id, v: D.meta.code_v, sum: D.sum, cal: D.cal, locks: S.locks.map(cyLock), now: Math.floor(Date.now() / 1000), nets: S.dial.baseOnly ? ["base"] : null,
+                                    maxPools: CY_MAX_POOLS, minSize: CY_MIN_SIZE }, "*");
     });
     if (m.error) throw new Error(m.error);
+    if (!m.plan) throw new Error("his Plan tab didn't run (" + (m.planErr || "no answer") + ")");
+    const verdict = {};
+    for (const e of m.locks || []) verdict[e.name] = { move: e.wouldMove, gain: e.gain, state: e.state };
     const byName = {};
-    for (const e of m.locks || []) {
-      const rows = (e.best || []).filter(r => CY_POOL.test(r.pool) && r.pct > 0 && r.pct <= 100);
-      const tot = rows.reduce((a, r) => a + r.pct, 0);
-      if (!rows.length || rows.length !== (e.best || []).length || tot < 99 || tot > 101) continue;     // anything odd: that lock falls back
-      const pc = P.steps(rows.map(r => r.pct), 1);
-      byName[e.name] = { picks: rows.map((r, i) => { const [chain, gauge] = r.pool.split(":"); return { gauge, chain, pct: pc[i], name: r.name, known: true, kept: r.kept }; }).filter(x => x.pct > 0),
-                         move: e.wouldMove, n: e.poolsN, best: e.bestUsdPerDay, stay: e.stayUsdPerDay, gain: e.gain, state: e.state };
+    // the split = his Plan tab (the lock cards on saero.org): pools moved now + any part that stays on another network
+    for (const e of m.plan) {
+      const rows = (e.items || []).concat((e.kept || []).filter(k => k.pool).map(k => ({ pool: k.pool, pct: k.pct, name: "", kept: true })));
+      const away = (e.kept || []).filter(k => !k.pool).reduce((t, k) => t + k.pct, 0);
+      const ok = rows.every(r => CY_POOL.test(r.pool) && r.pct >= 0 && r.pct <= 100), tot = rows.reduce((t, r) => t + r.pct, 0) + away;
+      if (!rows.length || !ok || tot < 99 || tot > 101) continue;                                            // anything odd: that lock falls back
+      byName[e.name] = { picks: rows.filter(r => r.pct > 0).map(r => { const [chain, gauge] = r.pool.split(":"); return { gauge, chain, pct: r.pct, name: r.name, known: true, kept: !!r.kept }; }),
+                         away, plan: e.plan, stay: e.stay, ...(verdict[e.name] || {}) };
     }
-    CY.res = { at: Date.now() / 1000, dataAt: D.meta.data_at, byName }; CY.key = key;
+    CY.res = { at: Date.now() / 1000, dataAt: D.meta.data_at, byName, planMatch: D.meta.plan_sha ? D.meta.plan_sha === CY_PLAN_SHA : null }; CY.key = key;
     log(`Cypher's picks: saero.org's planner ran on ${Object.keys(byName).length} of ${S.locks.length} lock${S.locks.length === 1 ? "" : "s"}.`);
   } catch (e) { CY.err = e.message || String(e); CY.key = key; CY.res = null; log("Cypher's picks: " + CY.err + "; showing his advice for the nearest lock size.", "warn"); }
   CY.busy = false;
@@ -719,13 +728,14 @@ function extNote() {
   }
   const exact = CY.res && CY.key === cyKey() ? S.locks.filter(L => CY.res.byName["#" + L.id]) : [];
   const head = exact.length
-    ? `what NYCypher's <a href="https://www.saero.org/" target="_blank" rel="noopener">saero.org</a> picks for ${exact.length === S.locks.length ? (S.locks.length === 1 ? "this lock" : "each of these locks") : `${exact.length} of these ${S.locks.length} locks`}: his own planner, run in a sealed-off frame on your locks' real state (amount, every network's allocations, cooldown) with his data from ${esc(ago(CY.res.dataAt))}, so the pools and the number of pools are his.`
+    ? `the split NYCypher's <a href="https://www.saero.org/" target="_blank" rel="noopener">saero.org</a> shows on its <b>Plan</b> tab for ${exact.length === S.locks.length ? (S.locks.length === 1 ? "this lock" : "these locks") : `${exact.length} of these ${S.locks.length} locks`} (his defaults: up to ${CY_MAX_POOLS} pools per big lock, pools of ${fmtA(CY_MIN_SIZE)}+ sAERO): his own planner, run in a sealed-off frame on your locks' real state (amount, every network's allocations, cooldown) with his data from ${esc(ago(CY.res.dataAt))}, so the pools and the number of pools are his.${CY.res.planMatch === false ? " <span class=\"warn\">His site's Plan tab changed since Flight Plan last matched it, so a pick may differ slightly until it's updated.</span>" : ""}`
     : CY.busy ? `loading NYCypher's <a href="https://www.saero.org/" target="_blank" rel="noopener">saero.org</a> planner to run on your locks; meanwhile, his advice for the nearest lock size.`
     : `his <a href="https://www.saero.org/" target="_blank" rel="noopener">saero.org</a> advice for the nearest lock size (his planner couldn't run on your locks just now${CY.err ? ": " + esc(CY.err) : ""}).`;
   let verdict = "";
   if (exact.length) {
-    const mv = exact.filter(L => CY.res.byName["#" + L.id].move), gain = mv.reduce((a, L) => a + (CY.res.byName["#" + L.id].gain || 0), 0);
-    verdict = mv.length ? ` <b>His call: move ${mv.length === exact.length ? (exact.length === 1 ? "now" : "all " + exact.length) : mv.length + " of " + exact.length}</b>${gain > 0 ? ` (about +${esc(money(gain))} a day)` : ""}.` : ` <b>His call: stay</b> (the gain doesn't clear his bar right now); this is the split he'd use when you do move.`;
+    const R = exact.map(L => CY.res.byName["#" + L.id]), plan = R.reduce((a, r) => a + (r.plan || 0), 0), stay = R.reduce((a, r) => a + (r.stay || 0), 0);
+    const mv = R.filter(r => r.move);
+    verdict = ` His Plan tab: about <b>${esc(money(plan))}/day</b> vs ${esc(money(stay))}/day if ${exact.length === 1 ? "it stays" : "they stay"} (his 47h estimate). His Advice tab says ${mv.length ? `move ${mv.length === exact.length ? (exact.length === 1 ? "now" : "all " + exact.length) : mv.length + " of " + exact.length}` : "stay for now (the gain doesn't clear his bar)"}.`;
   }
   return `<div class="banner small" style="margin:0 0 10px"><b>Cypher's picks</b>: ${head}${verdict} ${nets} <b>Pure:</b> none of our rules apply; our model only prices it. Turning any knob switches to Custom (our model). <a href="docs.html#friends">More</a></div>`;
 }

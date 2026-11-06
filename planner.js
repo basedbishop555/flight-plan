@@ -282,9 +282,11 @@
     });
     if (unknown) warnings.push(`${unknown} of these pools ${unknown === 1 ? "is" : "are"} not on our scanner's list of Aero pools, so Flight Plan won't sign this split.`);
     if (unpriced) warnings.push(`${unpriced} of these pools ${unpriced === 1 ? "has" : "have"} no reading from our scanner this hour, so ${unpriced === 1 ? "it counts" : "they count"} as $0 in the estimate. ${unpriced === 1 ? "It stays" : "They stay"} in the split.`);
+    const sumPct = legs.reduce((t, l) => t + l.pct, 0);
+    if (sumPct !== 100) warnings.push(`${100 - sumPct}% of this lock stays on a network that couldn't be read just now, so Flight Plan can't sign this split.`);
     const apr = aero && D.px ? tot.expected / (aero * D.px) * 365 / (C.H47 / 86400) * 100 : 0;
     return { legs, start: D.starts[si], expect_usd: tot.expected, expect_low_usd: tot.low, expect_high_usd: tot.high, apr, warnings,
-             placed: unknown ? 0 : 100, src, asOf: X ? (src === "jpn" ? X.fetched : X.ts) : null, opts: Object.assign({}, DEFAULTS, { n: n || null }) };
+             placed: unknown || sumPct !== 100 ? 0 : 100, src, asOf: X ? (src === "jpn" ? X.fetched : X.ts) : null, opts: Object.assign({}, DEFAULTS, { n: n || null }) };
   }
 
   /** What your CURRENT votes are expected to earn over the same window, with the same model and dial (the private
