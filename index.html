@@ -600,18 +600,21 @@ function poolRow(l) {
       <div class="tile"><div class="k">Expected · 47h</div><div class="v num">${money(l.expect_usd)} <small>${money(l.expect_low_usd)} to ${money(l.expect_high_usd)}</small></div></div>
       <div class="tile"><div class="k">APR</div><div class="v num">${apr != null ? apr.toFixed(0) + "%" : "-"}</div></div>
       <div class="tile"><div class="k">Fees · day</div><div class="v num">${money(r.fee_day)} <small>to allocators</small></div></div>
-      <div class="tile"><div class="k">Streams · 47h</div><div class="v num">${money(r.inc_w)}${st ? ` <small>${esc(st.tok)} to ${esc(fmtTs(st.end))}</small>` : ""}</div></div>
+      <div class="tile"><div class="k">Incentives · 47h</div><div class="v num">${money(r.inc_w)}${st ? ` <small>${esc(st.tok)} to ${esc(fmtTs(st.end))}</small>` : ""}</div></div>
       <div class="tile"><div class="k">Allocated to it ${r.chain && r.chain !== "base" ? (r.age_h != null ? r.age_h + "h ago" : "at the scan") : "now"}</div><div class="v num">${(r.alloc / 1e6).toFixed(2)}M <small>you'd be ${(l.slice * 100).toFixed(1)}%</small></div></div>
     </div>
     <div class="addr">pool <code data-copy="${esc(r.pool)}">${esc(r.pool)}</code></div>
     <div class="addr">gauge <code data-copy="${esc(r.gauge)}">${esc(r.gauge)}</code></div></div></details>`;
 }
 // The four knobs drive hidden range inputs (same ranges / steps / wiring as the old sliders), so nothing downstream changes.
-const KNOBS = [["n", "Pools", 0, 10, 1], ["memory", "Fee memory", 0, 100, 5], ["caution", "Crowd caution", 0, 200, 10], ["streams", "Streams", 0, 100, 25]];
+const KNOBS = [["n", "Pools", 0, 10, 1], ["memory", "Fee lookback", 0, 100, 5], ["caution", "Avoid crowds", 0, 200, 10], ["streams", "Count incentives", 0, 100, 25]];
 function knobVal(k) {
   const d = S.dial;
-  return k === "n" ? (d.n ? String(d.n) : "Auto") : k === "memory" ? (d.memory <= 0 ? "4-day" : d.memory >= 1 ? "12h" : Math.round(P.weightsFor(S.D, d.memory)["12"] * 100) + "%")
-    : k === "caution" ? d.caution.toFixed(1) + "x" : Math.round(d.streams * 100) + "%";
+  // words, not raw numbers (11/6/2026): Fee lookback 4 days ... 12 hours; Avoid crowds Low / Normal / High (+ the
+  // multiplier when not 1x); Count incentives Fees only ... Full
+  return k === "n" ? (d.n ? String(d.n) : "Auto") : k === "memory" ? (d.memory <= 0 ? "4 days" : d.memory >= 1 ? "12 hours" : d.memory < 0.45 ? "Long mix" : d.memory <= 0.55 ? "Mixed" : "Short mix")
+    : k === "caution" ? (Math.abs(d.caution - 1) < 0.05 ? "Normal" : (d.caution < 1 ? "Low " : "High ") + d.caution.toFixed(1) + "x")
+    : d.streams <= 0 ? "Fees only" : d.streams >= 1 ? "Full" : Math.round(d.streams * 100) + "%";
 }
 function knobSvg() {   // 270 degree arc from -135 to +135 (0 = straight up): a track, the filled part, a dot at the value
   return `<svg viewBox="0 0 62 62" aria-hidden="true"><circle class="kc" cx="31" cy="31" r="20"/><path class="kt" d=""/><path class="kv" d=""/><circle class="kp" r="3.2" cx="31" cy="31"/></svg>`;
