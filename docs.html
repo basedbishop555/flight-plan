@@ -126,7 +126,9 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 
 <section class="grp" id="rank"><h2>Rank: your locks vs everyone</h2><div class="body">
   <ul>
-    <li><b>All your locks count as one</b>: combined dollars over combined AERO, for now (the last 12 hours), 2 days and 7 days.</li>
+    <li><b>All your locks count as one</b>: combined dollars over combined AERO, for now, 2 days, 7 days and lifetime.</li>
+    <li><b>Now: earned or forecast.</b> Earned looks back: what locks actually earned over about the last 12 hours. Forecast looks ahead: what each lock's current votes would pay at today's pool rates if nothing moved (each pool's fees over the last 4 days with spikes capped, plus incentives paying right now, divided by the pool's votes, which already include yours). Forecast is raw: rewards often land below or above it, and it can't see a crowd arriving. Every lock is ranked the same way, so the rank compares like with like.</li>
+    <li><b>Lifetime</b>: everything a lock has earned since it first voted: every reward it has claimed on every network (read from the claim events since sAERO launched on 10/21/2026) plus what is waiting now, all valued at today's prices, divided by the days since its first vote and the whole lock's AERO. A lock that grew along the way is measured on its size today.</li>
     <li><b>Every lock / Every wallet.</b> Every lock compares you with each sAERO lock on its own. Every wallet groups all of an address's locks into one entry (a contract such as a vault counts as one wallet).</li>
     <li><b>Size filter</b> (10k+ to 1M+) ranks you among locks or wallets at least that big. It starts on your own size.</li>
     <li><b>Whole-lock APR.</b> Earnings are divided by everything a lock holds, including AERO parked and not voting anywhere, because parked AERO earns nothing. When that differs from the APR on the voting part alone, the voting APR shows small underneath.</li>
@@ -149,7 +151,8 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 <section class="grp" id="earn"><h2>Earnings</h2><div class="body">
   <ul>
     <li><b>APR 24h / 7d</b>: fees and incentives each lock earned over the period, on the whole lock, at today's AERO price, annualized.</li>
-    <li><b>Earned</b>: what the tracker has seen the lock earn since it first read it, with claims bridged (a claim doesn't reset the count) across every network. The reads keep about 8 days, so this is <b>not</b> lifetime earnings; the Since column shows where the count starts, and a lock first read after the tracker's window started covers fewer days.</li>
+    <li><b>Earned</b>: what the tracker has seen the lock earn since it first read it, with claims bridged (a claim doesn't reset the count) across every network. The reads keep about 8 days, so this covers at most that window; the Since date shows where the count starts.</li>
+    <li><b>Lifetime</b>: every claim the lock has made on every network since sAERO launched, plus what is waiting now, at today's prices. The date under it is the lock's first vote.</li>
     <li><b>Unclaimed</b>: what the last read saw waiting to be claimed, every network, in dollars.</li>
   </ul>
 </div></section>

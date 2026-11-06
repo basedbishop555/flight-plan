@@ -279,7 +279,7 @@ async function waitReceipt(hash) {
 
 // ---------- state ----------
 const S = { empty: 0, D: null, RK: null, H: null, histBusy: false, CR: null, addr: null, account: null, provider: null, locks: [], live: null, plan: null,
-            dial: null, ST: null, winsBr: null, mode: store.get("mode", "lock"), logv: store.get("logv", "week") === "day" ? "day" : "week",
+            dial: null, ST: null, winsBr: null, mode: store.get("mode", "lock"), nowv: store.get("nowv", "now") === "fwd" ? "fwd" : "now", logv: store.get("logv", "week") === "day" ? "day" : "week",
             bracket: null, busy: false, cool: 169200 };
 const LOCK_MAX = 60;          // locks read per wallet (6 chain calls each; the biggest wallets hold hundreds)
 const viewer = () => S.addr;
@@ -481,7 +481,7 @@ function decodeRank(Rk) {
     per[name] = { t0: p.t0, t1: p.t1, rows, byI: new Map(rows.map(x => [x.i, x])) };
   }
   const earn = new Map();
-  if (Rk.earn) { let i = 0; for (let k = 0; k < Rk.earn.i.length; k++) { i += Rk.earn.i[k]; earn.set(i, { usd: Rk.earn.e[k] / 100, unclaimed: Rk.earn.u[k] / 100, since: Rk.earn.s[k] }); } }
+  if (Rk.earn) { const E = Rk.earn, l = E.l || []; let i = 0; for (let k = 0; k < E.i.length; k++) { i += E.i[k]; earn.set(i, { usd: E.e[k] / 100, unclaimed: E.u[k] / 100, since: E.s[k], life: l[k] != null && l[k] >= 0 ? l[k] / 100 : null, lifeSince: (E.ls || [])[k] || null }); } }
   const idOf = new Map(Rk.ids.map((id, i) => [id, i]));
   return { ...Rk, per, idOf, earn, groups: Rk.groups || {} };
 }
@@ -704,13 +704,17 @@ function renderLocks() {
   el.querySelectorAll("[data-copyoff]").forEach(c => c.addEventListener("click", e => { e.preventDefault(); const L = S.locks.find(x => x.id === Number(c.dataset.copyoff)), o = L && offPick(L); if (o) copy(`Lock #${L.id}: 100% ${o.label} on ${o.chain_name} (vote it in the Aero app)`); }));
 }
 const voteTxt = x => x.vote != null && Math.abs(x.vote - x.apr) >= 0.005 ? `voting ${(x.vote * 100).toFixed(1)}%` : "";
+// "Now" looks back (Earned: the last 12 hours) or forward (Forecast: what the current votes pay at today's pool rates,
+// raw); Lifetime = everything earned since the lock first voted (every claim on every network + what is waiting)
+const lifeSince = idxs => { let m = null; for (const i of idxs) { const e = S.RK.earn.get(i); if (e && e.lifeSince) m = m == null ? e.lifeSince : Math.min(m, e.lifeSince); } return m; };
 function rankRows(idxs, thr, compact) {
-  const Rk = S.RK, names = { now: "Now", "2d": "2 days", "7d": "7 days" };
-  return ["now", "2d", "7d"].map(k => {
+  const Rk = S.RK, names = { now: "Now", fwd: "Now", "2d": "2 days", "7d": "7 days", life: "Lifetime" };
+  return [S.nowv, "2d", "7d", "life"].map(k => {
     const x = rankLine(k, idxs, S.mode, thr);
-    if (!x) return `<div class="rrow"><div class="p">${names[k]}</div><div class="mut2 small">building history</div><div></div></div>`;
+    if (!x) return `<div class="rrow"><div class="p">${names[k]}</div><div class="mut2 small">${k === "life" ? "valuing claims" : k === "fwd" ? "after the next scan" : "building history"}</div><div></div></div>`;
     const wk = x.apr * 1000 * Rk.px / 52, good = x.apr >= x.avg, vt = voteTxt(x);
-    const per = Rk.per[k], span = k === "now" && per ? `<small style="display:block;font-weight:500;color:var(--mut2);font-size:11px">${clock(per.t0).replace(" ET", "")} to ${clock(per.t1)}</small>` : "";
+    const per = Rk.per[k], sm = t => `<small style="display:block;font-weight:500;color:var(--mut2);font-size:11px">${t}</small>`, ls = k === "life" && lifeSince(idxs);
+    const span = k === "now" && per ? sm(`${clock(per.t0).replace(" ET", "")} to ${clock(per.t1)}`) : k === "fwd" ? sm("forecast") : ls ? sm("since " + new Date(ls * 1000).toLocaleDateString([], { month: "numeric", day: "numeric" })) : "";
     return `<div class="rrow"><div class="p">${names[k]}${span}</div>
       <div class="apr num ${good ? "ok" : "warn"}">${(x.apr * 100).toFixed(1)}%<small>${vt ? vt + " · " : ""}$${wk.toFixed(2)}/wk per 1k</small></div>
       <div class="rk num">#${x.rank.toLocaleString()} <span class="mut2" style="font-weight:500">of ${x.of.toLocaleString()}</span><br><span class="tag ${x.top <= 25 ? "ok" : x.top <= 50 ? "acc" : ""}">top ${x.top < 10 ? x.top.toFixed(1) : Math.round(x.top)}%</span></div>
@@ -755,9 +759,11 @@ function renderRank() {
   const cmp = Object.entries(Rk.groups).map(([name, g]) => `<div class="rcard cmp"><div class="rch"><b>${esc(name)}</b><span class="num">${g.length} lock${g.length === 1 ? "" : "s"}</span></div>${rankRows(g, thr, true)}</div>`).join("");
   el.innerHTML = `<h2>vs every ${S.mode === "wallet" ? "wallet" : "lock"} <span>APR on the whole lock</span></h2><div class="body">
     <div class="seg" id="mode"><button type="button" data-m="lock" class="${S.mode === "lock" ? "on" : ""}">Every lock</button><button type="button" data-m="wallet" class="${S.mode === "wallet" ? "on" : ""}">Every wallet</button></div>
+    <div class="seg" id="nowv"><button type="button" data-n="now" class="${S.nowv === "now" ? "on" : ""}">Now: earned</button><button type="button" data-n="fwd" class="${S.nowv === "fwd" ? "on" : ""}">Now: forecast</button></div>
     <div class="seg" id="brk">${br.map(([k]) => `<button type="button" data-b="${k}" class="${S.bracket === k ? "on" : ""}">${label[k] || k}</button>`).join("")}</div>
     ${you}${cmp ? `<div class="seglabel" style="margin-top:4px">Compare with</div>${cmp}` : ""}
-    <p class="small mut2" style="margin:8px 0 0">All your locks counted as one. The average is weighted by AERO; the median is the typical lock. "Now" is about the last 12 hours, between two every-lock reads (the times are under it); "Today so far" in the history below starts at midnight, so the two cover different hours and can differ a lot when rewards land in a lump. Autopilot and 40acres are products that vote for many lockers; each is shown as one combined entry. <a href="docs.html#rank">How it's measured</a></p></div>`;
+    <p class="small mut2" style="margin:8px 0 0">All your locks counted as one. The average is weighted by AERO; the median is the typical lock. "Now: earned" looks back over about the last 12 hours, between two every-lock reads (the times are under it); "Now: forecast" looks ahead: what each lock's current votes would pay at today's pool rates if nothing moved (4-day fees with spikes capped, plus live incentives, your own size counted in the pool). Lifetime is everything a lock has earned since it first voted: every claim on every network plus what is waiting, at today's prices; "Today so far" in the history below starts at midnight, so the two cover different hours and can differ a lot when rewards land in a lump. Autopilot and 40acres are products that vote for many lockers; each is shown as one combined entry. <a href="docs.html#rank">How it's measured</a></p></div>`;
+  el.querySelectorAll("#nowv button").forEach(b => b.addEventListener("click", () => { S.nowv = b.dataset.n; store.set("nowv", S.nowv); renderRank(); }));
   el.querySelectorAll("#mode button").forEach(b => b.addEventListener("click", () => { S.mode = b.dataset.m; store.set("mode", S.mode); renderRank(); }));
   el.querySelectorAll("#brk button").forEach(b => b.addEventListener("click", () => { S.bracket = b.dataset.b; store.set("bracket", S.bracket); renderRank(); }));
   el.querySelectorAll("[data-logv]").forEach(b => b.addEventListener("click", () => { S.logv = b.dataset.logv; store.set("logv", S.logv); renderRank(); }));
@@ -768,18 +774,19 @@ function renderEarn() {
   el.classList.remove("hidden");
   const Rk = S.RK, p1 = Rk.per["1d"], p7 = Rk.per["7d"];
   const pct = x => x == null ? "-" : (x * 100).toFixed(1) + "%";
-  let T = { aero: 0, usd: 0, unc: 0, known: 0 }, since = null, partial = false;
+  let T = { aero: 0, usd: 0, unc: 0, known: 0, life: 0, lifeN: 0 }, since = null, partial = false;
   const rows = S.locks.map(L => {
     const i = Rk.idOf.get(L.id), e = i != null ? Rk.earn.get(i) : null, r1 = i != null && p1 ? p1.byI.get(i) : null, r7 = i != null && p7 ? p7.byI.get(i) : null;
     T.aero += lockAero(L);
+    if (e && e.life != null) { T.life += e.life; T.lifeN++; }
     if (e) { T.usd += e.usd; T.unc += e.unclaimed; T.known++; since = since == null ? e.since : Math.min(since, e.since); if (e.since > Rk.store_from + 3600) partial = true; }
-    return `<tr><td>#${L.id}<br><small class="mut2">${fmtA(lockAero(L))} AERO</small></td><td class="num">${r1 ? pct(r1.r) : "-"}</td><td class="num">${r7 ? pct(r7.r) : "-"}</td><td class="num">${e ? money(e.usd) + `<br><small class="mut2">since ${new Date(e.since * 1000).toLocaleDateString([], { month: "numeric", day: "numeric" })}</small>` : `<span class="mut2">not tracked yet</span>`}</td><td class="num">${e ? money(e.unclaimed) : "-"}</td></tr>`;
+    return `<tr><td>#${L.id}<br><small class="mut2">${fmtA(lockAero(L))} AERO</small></td><td class="num">${r1 ? pct(r1.r) : "-"}</td><td class="num">${r7 ? pct(r7.r) : "-"}</td><td class="num">${e ? money(e.usd) + `<br><small class="mut2">since ${new Date(e.since * 1000).toLocaleDateString([], { month: "numeric", day: "numeric" })}</small>` : `<span class="mut2">not tracked yet</span>`}</td><td class="num">${e ? money(e.unclaimed) : "-"}</td><td class="num">${e && e.life != null ? money(e.life) + (e.lifeSince ? `<br><small class="mut2">since ${new Date(e.lifeSince * 1000).toLocaleDateString([], { month: "numeric", day: "numeric" })}</small>` : "") : "-"}</td></tr>`;
   }).join("");
   const l1 = idxLine(p1), l7 = idxLine(p7);
-  const tot = S.locks.length > 1 ? `<tr style="font-weight:600"><td>All<br><small class="mut2" style="font-weight:400">${fmtA(T.aero)} AERO</small></td><td class="num">${pct(l1)}</td><td class="num">${pct(l7)}</td><td class="num">${T.known ? money(T.usd) : "-"}</td><td class="num">${T.known ? money(T.unc) : "-"}</td></tr>` : "";
+  const tot = S.locks.length > 1 ? `<tr style="font-weight:600"><td>All<br><small class="mut2" style="font-weight:400">${fmtA(T.aero)} AERO</small></td><td class="num">${pct(l1)}</td><td class="num">${pct(l7)}</td><td class="num">${T.known ? money(T.usd) : "-"}</td><td class="num">${T.known ? money(T.unc) : "-"}</td><td class="num">${T.lifeN ? money(T.life) : "-"}</td></tr>` : "";
   el.innerHTML = `<h2>Earnings <span>read ${esc(ago(Rk.ts))}</span></h2><div class="body">
-    <div class="tw"><table><tr><th>Lock</th><th class="num">APR 24h</th><th class="num">APR 7d</th><th class="num">Earned</th><th class="num">Unclaimed</th></tr>${rows}${tot}</table></div>
-    <p class="small mut2" style="margin:8px 0 0">APR = fees and incentives earned over the period on the whole lock, at today's AERO price, annualized. Earned = what the tracker has seen each lock earn since it first read it (claims bridged, every network), at most about 8 days back; it is not lifetime earnings.${partial ? " One or more of these locks were first read after the tracker's window started, so their Earned covers fewer days." : ""} Unclaimed is what the last read saw waiting, every network. <a href="docs.html#earn">More</a></p></div>`;
+    <div class="tw"><table><tr><th>Lock</th><th class="num">APR 24h</th><th class="num">APR 7d</th><th class="num">Earned</th><th class="num">Unclaimed</th><th class="num">Lifetime</th></tr>${rows}${tot}</table></div>
+    <p class="small mut2" style="margin:8px 0 0">APR = fees and incentives earned over the period on the whole lock, at today's AERO price, annualized. Earned = what the tracker has seen each lock earn since it first read it (claims bridged, every network), at most about 8 days back. Lifetime = everything the lock has earned since it first voted: every claim on every network plus what is waiting now, at today's prices.${partial ? " One or more of these locks were first read after the tracker's window started, so their Earned covers fewer days." : ""} Unclaimed is what the last read saw waiting, every network. <a href="docs.html#earn">More</a></p></div>`;
   function idxLine(p) { if (!p) return null; const mine = S.locks.map(L => Rk.idOf.get(L.id)).filter(i => i != null).map(i => p.byI.get(i)).filter(Boolean); const c = combine(mine); return c ? c.apr : null; }
 }
 // ---------- "What actually wins": every ranked lock bucketed by behaviour (data/strategy.json) ----------
