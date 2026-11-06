@@ -207,7 +207,7 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
 <section class="card" id="crowd"></section>
 <details class="card" id="logw"><summary class="body small mut" style="cursor:pointer">Log</summary><div class="body" style="padding-top:0"><div id="log"></div></div></details>
 
-<p class="foot">Unofficial. Not affiliated with Aerodrome. Signs only: one allocation per lock you own, exact-amount sweep approvals, one sweep swap, and a small gas bridge when you ask for one. Never an approval on sAERO.<br>
+<p class="foot">Unofficial. Not affiliated with Aerodrome. Signs only: allocations for locks you own (on any Aero network, always sent from Base), exact-amount sweep approvals, one sweep swap, and a small gas bridge when you ask for one. Never an approval on sAERO.<br>
 <b>Check the address bar says flight-plan.app.</b><br>
 <span id="fresh">Loading pool data…</span> · <a href="#" id="safelink2">Safety</a> · <a href="docs.html">Docs</a> · <a href="https://github.com/basedbishop555/flight-plan">Source</a><br>
 Free and open source. Tips welcome: <code data-copy="0xbe46e9dD6f22b5578529385F2e0Ee25840110196" id="tip" title="Tap to copy">0xbe46…0196</code> <a href="docs.html#tip">more</a></p>
@@ -217,12 +217,12 @@ Free and open source. Tips welcome: <code data-copy="0xbe46e9dD6f22b5578529385F2
   <h3 id="safetyh">Before you sign anything</h3>
   <p>Flight Plan can sign for the locks and reward tokens your connected wallet owns. Exactly four kinds of signature, nothing else:</p>
   <ol>
-    <li><b>An allocation.</b> One <code>allocate</code> call to the Aero Voter for a lock you own, 0 ETH. It moves your allocation, never tokens.</li>
+    <li><b>An allocation.</b> One <code>allocate</code> call to the Aero Voter on Base for a lock you own. It moves your allocation, never tokens. On Base it carries 0 ETH; when the split uses another network it carries that network's message fee (Aero's own quote + 10%, never over 0.03 ETH; the bridge refunds the unused part to you), and moving AERO between networks takes two of these.</li>
     <li><b>A sweep approval.</b> An exact-amount <code>approve</code> to Aero's Metarouter on a reward token the scan found in your wallet.</li>
     <li><b>A sweep swap.</b> One Metarouter <code>execute</code> that sells those rewards for USDC, paid to your own wallet.</li>
     <li><b>A gas bridge, only when you tap Get gas.</b> A deposit of about $1 of ETH (Ethereum: $5, never over 0.006 ETH) to Relay's Base contract, delivered as gas to your own address on another network.</li>
   </ol>
-  <p><b>Never:</b> an approval on sAERO, <code>setApprovalForAll</code>, a transfer, a claim, an unlimited approval, or any ETH value except that capped gas bridge. Every signature is rehearsed on the chain first (a dry run) and checked by the open-source guard before it reaches your wallet. Reject anything that looks different.</p>
+  <p><b>Never:</b> an approval on sAERO, <code>setApprovalForAll</code>, a transfer, a claim, an unlimited approval, or any ETH value except an allocation's quoted network fee and that capped gas bridge. Every signature is rehearsed on the chain first (a dry run) and checked by the open-source guard before it reaches your wallet. Reject anything that looks different.</p>
   <p><b>Check the address bar says flight-plan.app.</b> A copy on another address can be anything.</p>
   <button type="button" class="cta gbtn gblue" id="safeok" style="margin-top:10px">Got it</button>
   <p class="small mut2" style="text-align:center;margin:8px 0 0"><a href="docs.html#safe">Read the full safety page</a></p>
@@ -233,6 +233,7 @@ window.onerror = function (msg, src, line) { try { var h = document.getElementBy
 </script>
 <script src="vendor/ethers-6.13.4.umd.min.js"></script>
 <script src="allocate-lib.js"></script>
+<script src="allocate-x.js"></script>
 <script src="planner.js"></script>
 <script src="sweep-routes.js"></script>
 <script src="sweep-nets.js"></script>
@@ -240,7 +241,7 @@ window.onerror = function (msg, src, line) { try { var h = document.getElementBy
 <script>
 (() => {
 "use strict";
-const A = window.AeroAlloc, C = A.C, P = window.Planner, R = window.SWEEP_ROUTES || { meta: {}, tokens: {}, universe: {} }, M = R.meta || {};
+const A = window.AeroAlloc, XA = window.AeroX, C = A.C, P = window.Planner, R = window.SWEEP_ROUTES || { meta: {}, tokens: {}, universe: {} }, M = R.meta || {};
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const short = a => a ? a.slice(0, 6) + "…" + a.slice(-4) : "";
@@ -460,7 +461,8 @@ function cyFrame() {
   if (CY.ready) return CY.ready;
   CY.ready = new Promise((ok, no) => {
     const f = document.createElement("iframe");
-    f.setAttribute("sandbox", "allow-scripts"); f.src = "cypher-frame.html?v=" + CY_FRAME_V;   // versioned: a cached old frame can't linger f.hidden = true; f.title = "saero.org planner (sandboxed)";
+    f.setAttribute("sandbox", "allow-scripts"); f.src = "cypher-frame.html?v=" + CY_FRAME_V;   // versioned: a cached old frame can't linger
+    f.hidden = true; f.title = "saero.org planner (sandboxed)";
     const t = setTimeout(() => { CY.ready = null; no(new Error("saero.org's planner frame didn't start")); }, 20000);
     window.addEventListener("message", e => {
       if (e.source !== f.contentWindow) return;
@@ -496,11 +498,12 @@ function cyLock(L) {
 // LeafVoter (same address on every network) on that network; a network that doesn't answer counts as `elsewhere`
 async function readLeaf(locks) {
   const SN = window.SweepNets, todo = locks.filter(L => L.elsewhere.length);
+  for (const L of locks) L.leaf = [];
   if (!todo.length) return;
   const bq = todo.flatMap(L => L.elsewhere.map(c => ({ L, c, call: { target: C.VOTER, callData: I.voter.encodeFunctionData("allocationChainAmounts", [L.id, c]) } })));
   const br = await multicall(bq.map(x => x.call));
   const by = {};
-  bq.forEach((x, i) => { const v = dec(I.voter, "allocationChainAmounts", br[i]); x.L.leaf = x.L.leaf || []; const lf = { chain: CY_NET[x.c] || "chain" + x.c, cid: x.c, budget: v ? Number(ethers.formatUnits(v[0], 18)) : 0, allocs: {}, la: null, next: null, unread: true }; x.L.leaf.push(lf); (by[x.c] = by[x.c] || []).push([x.L, lf]); });
+  bq.forEach((x, i) => { const v = dec(I.voter, "allocationChainAmounts", br[i]); x.L.leaf = x.L.leaf || []; const lf = { chain: CY_NET[x.c] || "chain" + x.c, cid: x.c, budget: v ? Number(ethers.formatUnits(v[0], 18)) : 0, bookedRaw: v ? v[0] : 0n, allocs: {}, allocsRaw: {}, la: null, next: null, unread: true }; x.L.leaf.push(lf); (by[x.c] = by[x.c] || []).push([x.L, lf]); });
   await Promise.all(Object.entries(by).map(async ([cid, list]) => {
     const net = SN && SN.byId(Number(cid));
     if (!net || !CY_NET[cid]) return;
@@ -510,11 +513,11 @@ async function readLeaf(locks) {
       list.forEach(([L, lf], k) => {
         const ts = dec(I.leaf, "tokenStates", r1[2 * k]), gs = dec(I.leaf, "allocatedGauges", r1[2 * k + 1]);
         if (!ts || !gs) return;
-        lf.la = Number(ts[1]) || null; lf.next = lf.la ? lf.la + S.cool : null; lf.unread = false;
+        lf.la = Number(ts[1]) || null; lf.next = lf.la ? lf.la + S.cool : null; lf.leafBudget = ts[3]; lf.unread = false;
         for (const g of gs[0]) q.push([lf, g.toLowerCase(), { target: C.LEAF, callData: I.leaf.encodeFunctionData("allocations", [L.id, g]) }]);
       });
       const r2 = q.length ? await SN.multicall(net, q.map(x => x[2])) : [];
-      r2.forEach((r, i) => { const v = dec(I.leaf, "allocations", r); if (v) q[i][0].allocs[q[i][1]] = Number(ethers.formatUnits(v[0], 18)); });
+      r2.forEach((r, i) => { const v = dec(I.leaf, "allocations", r); if (v) { q[i][0].allocs[q[i][1]] = Number(ethers.formatUnits(v[0], 18)); q[i][0].allocsRaw[q[i][1]] = v[0]; } });
     } catch (e) { log(`${NET[cid] || "chain " + cid} allocations unreadable (${e.message}); counted the way saero.org does.`, "warn"); }
   }));
 }
@@ -560,7 +563,7 @@ function cyPicks(L) {
 function replan() {
   if (!S.dial) S.dial = loadDial();
   if (S.dial.src === "cypher" && S.locks.length && cyKey() !== CY.key && !CY.busy) cyAdvise();   // his planner on these locks (async; replans when back)
-  for (const L of S.locks) { L.dry = null; L.call = null; L.plan = null; if (!L.sent) L.status = ""; }
+  for (const L of S.locks) { L.dry = null; L.call = null; L.plan = null; L.x = null; if (!L.sent && !L.xWatching) L.status = ""; }
   S.plan = null;
   if (!S.locks.length || totalAero() <= 0) return;
   const now = Date.now() / 1000;
@@ -609,7 +612,13 @@ const planSplit = L => planFor(L).legs.map(l => ({ gauge: l.gauge, pct: l.pct, l
 const planGauges = L => new Set(planFor(L).legs.map(l => l.gauge.toLowerCase()));
 const isOpen = L => L.next ? L.next <= Date.now() / 1000 : true;
 const offPick = L => { const p = planFor(L); return p ? p.legs.find(l => l.chain && l.chain !== "base") || null : null; };
-const canSend = L => owns(L) && !!(L.dry && L.dry.ok) && isOpen(L) && !!planFor(L) && planFor(L).placed === 100 && !L.sent && !offPick(L);
+// a split on another network, or a lock that already allocates on one, goes through allocate-x.js (Stage 2, 11/6/2026)
+const xNeeded = L => !!(offPick(L) || (L.elsewhere && L.elsewhere.length));
+const xNext = L => (L.dry && L.dry.x && L.x && L.x.steps[0]) || null;
+const opensAt = L => { const s = xNext(L); return s ? s.openAt : L.next; };
+const isOpenNow = L => { const t = opensAt(L); return t ? t <= Date.now() / 1000 : true; };
+const canSend = L => owns(L) && !!(L.dry && L.dry.ok) && !!planFor(L) && planFor(L).placed === 100 && !L.sent && !L.xWatching && !L.xBusy &&
+  (L.dry.x ? !!(xNext(L) && xNext(L).ok && isOpenNow(L)) : (isOpen(L) && !offPick(L)));
 
 // ---------- rank (every lock / every wallet), computed here from data/rank.json ----------
 function decodeRank(Rk) {
@@ -721,8 +730,8 @@ function extNote() {
   const src = S.dial && S.dial.src, X = src && S.D && S.D.ext && S.D.ext[src];
   if (!src) return "";
   const nets = S.dial.baseOnly
-    ? (src === "cypher" ? "Base only (your switch) = his own Base setting: new picks go to Base pools, but AERO a lock already has on another network may stay there, as his site advises; such a lock gets a copy button for the Aero app." : "Base only (your switch), so Flight Plan can sign it.")
-    : "Every network. A split that uses a network other than Base gets a copy button for the Aero app; Flight Plan signs Base only. Turn on Base only to keep it signable here.";
+    ? (src === "cypher" ? "Base only (your switch) = his own Base setting: new picks go to Base pools, but AERO a lock already has on another network may stay there, as his site advises; Flight Plan signs that too." : "Base only (your switch): every pick is a Base pool, 0 ETH to sign.")
+    : "Every network. Flight Plan signs any of them from Base: another network adds a small ETH fee for Aero's bridge, and moving AERO between networks takes two signatures (free it, then send it).";
   if (src === "jpn") {
     if (!X) return `<div class="banner warn small" style="margin:0 0 10px">JPN's picks aren't in this hour's data. Try Balanced, or check back after the next hourly update.</div>`;
     return `<div class="banner small" style="margin:0 0 10px"><b>JPN's picks</b>: the top ${S.dial.n || X.n} pools from JPN's <a href="${esc(X.url)}" target="_blank" rel="noopener">Aero v3 Allocation Screener</a> on Dune, weighted by his score (mid and low cases after dilution, steadier fees, x0.85 for pools the allocator apps already rank top 5). His read: ${esc(ago(X.fetched))}. ${nets} <b>Pure:</b> none of our rules apply; our model only prices the split so every preset's dollars compare. The Pools knob changes how many of his picks you take; turning any other knob switches to Custom (our model). <a href="docs.html#friends">More</a></div>`;
@@ -742,7 +751,7 @@ function extNote() {
 }
 function poolRow(l) {
   const r = l.row, col = typeColor(r.type);
-  const where = r.chain && r.chain !== "base" ? `${r.chain_name} · allocate in the Aero app · after ${money(r.cost)} costs` : "";
+  const where = r.chain && r.chain !== "base" ? `${r.chain_name} · after ${money(r.cost)} costs` : "";
   const jr = jpnRank(r.gauge);
   const tags = [where, TYPE_NAME[r.type] || r.type, jr ? "JPN #" + jr : "", l.ext && !l.ext.priced ? "not priced by our model" : "", r.fee_led ? "fee-led" : "", r.rank48 && r.rank48 <= 5 ? "crowded" : "", r.fading ? "fading" : "", l.small ? "small pool" : ""].filter(Boolean).join(" · ");
   const apr = l.aero && S.D.px ? l.expect_usd / (l.aero * S.D.px) * (365 * 24 / 47) * 100 : null;
@@ -836,9 +845,9 @@ function renderPlan() {
   if (!sums) cta = p.src ? `<button class="cta gbtn gviolet" disabled>Can't sign this one</button><div class="csub">${p.legs.length ? "A pool in it isn't on our scanner's list of Base pools. Copy it into the Aero app if you trust it, or pick another preset" : "No picks to place right now"}</div>` + (p.legs.length ? `<button class="gbtn" id="cta" data-act="copy" style="margin-top:8px">Copy the split</button>` : "")
     : `<button class="cta gbtn gviolet" disabled>Pick more pools to place 100%</button>`;
   else if (dried < S.locks.length) cta = `<button class="cta gbtn gviolet" id="cta" data-act="dry">Dry run ${S.locks.length > 1 ? "all " + S.locks.length + " locks" : "#" + S.locks[0].id}</button><div class="csub">A free rehearsal on the chain · nothing is signed</div>`;
-  else if (ready.length) cta = `<button class="cta gbtn gviolet" id="cta" data-act="send">Allocate ${ready.length === 1 ? "#" + ready[0].id : ready.length + " locks"} · ${ready.length} signature${ready.length === 1 ? "" : "s"}</button><div class="csub">One allocate call per lock, to the Aero Voter, 0 ETH · dry run passed</div>`;
+  else if (ready.length) cta = `<button class="cta gbtn gviolet" id="cta" data-act="send">Allocate ${ready.length === 1 ? "#" + ready[0].id : ready.length + " locks"} · ${ready.length} signature${ready.length === 1 ? "" : "s"}</button><div class="csub">${ready.some(L => L.dry.x) ? "One allocate call per step, to the Aero Voter on Base; other networks carry a small ETH fee" : "One allocate call per lock, to the Aero Voter, 0 ETH"} · dry run passed</div>`;
   else if (mine.length && sent.length === mine.length) cta = `<button class="cta gbtn ggreen" disabled>Allocated ✓</button><div class="csub">${sent.length} lock${sent.length === 1 ? "" : "s"} allocated this window</div>`;
-  else if (mine.length && mine.some(L => L.dry && L.dry.ok && !isOpen(L))) cta = `<button class="cta gbtn gviolet" disabled>Opens ${esc(fmtTs(Math.min(...mine.filter(L => !isOpen(L)).map(L => L.next))))}</button><div class="csub">Dry run OK · the Allocate button unlocks when the window opens</div>`;
+  else if (mine.length && mine.some(L => L.dry && L.dry.ok && !isOpenNow(L))) cta = `<button class="cta gbtn gviolet" disabled>Opens ${esc(fmtTs(Math.min(...mine.filter(L => !isOpenNow(L)).map(opensAt))))}</button><div class="csub">Dry run OK · the Allocate button unlocks when the window opens</div>`;
   else { const ok = S.locks.filter(L => L.dry && L.dry.ok).length; cta = `<button class="cta gbtn gviolet" id="cta" data-act="copy">Copy the split for the Aero app</button><div class="csub">${ok} of ${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} dry-ran OK · ${S.account ? "connect the wallet that owns these locks to sign here, or" : "connect to sign here, or"} allocate these percentages in the Aero app</div>`; }
   const sv = S.dial.src === "cypher" ? null : stayVerdict(), pctTxt2 = x => !isFinite(x) ? "new allocation" : (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(0) + "%";
   const stayBox = !sv ? "" : sv.unknown
@@ -1045,18 +1054,7 @@ function buildCall(L) {
 async function dryRun(L) {
   if (!L || !planFor(L) || L.sent) return;
   const now = Math.floor(Date.now() / 1000);
-  const off = offPick(L);
-  if (off) {
-    L.dry = { ok: false, offbase: true };
-    const pl = planFor(L), nets = [...new Set(pl.legs.map(l => l.chain_name || "Base"))];
-    L.status = `<div class="banner warn"><b>Allocate this in the Aero app (${esc(nets.join(" + "))}):</b> #${L.id} → ${esc(legsText(pl.legs))}. Flight Plan signs Base allocations only, so it can't rehearse or send a split that uses another network. Expected ${money(pl.expect_usd)}${pl.legs.some(l => l.cost) ? ` after about ${money(pl.legs.reduce((a, l) => a + (l.cost || 0), 0))} in network costs` : ""}. <a href="#" data-copyoff="${L.id}">Copy it</a> · <a href="docs.html#networks">Why</a></div>`;
-    return render();
-  }
-  if (L.booked === 0n && L.elsewhere.length) {
-    L.dry = { ok: false };
-    L.status = `<div class="banner warn">#${L.id} allocates on ${esc(L.elsewhere.map(c => NET[c] || "chain " + c).join(" + "))}. Flight Plan rehearses and signs Base allocations only; use the percentages in the Aero app for this lock. <a href="docs.html#networks">Why</a></div>`;
-    return render();
-  }
+  if (xNeeded(L)) return dryRunX(L);
   try {
     const call = buildCall(L);
     const at = L.next && L.next > now ? L.next + 5 : now;
@@ -1103,6 +1101,7 @@ async function dryAll() { for (const L of S.locks) if (!L.dry && !L.sent) await 
 // ---------- sign: ONE Voter.allocate per lock the connected wallet owns (Phase 2) ----------
 async function send(L) {
   if (!L || L.sent) return;
+  if (L.dry && L.dry.x) return sendX(L);
   try {
     if (!S.account || !S.provider) throw new Error("connect the wallet first");
     if (!owns(L)) throw new Error("this lock is not owned by the connected wallet");
@@ -1134,6 +1133,167 @@ async function send(L) {
   render();
 }
 async function sendAll() { for (const L of S.locks) if (canSend(L)) await send(L); }
+
+/* ---------- other networks (Stage 2, 11/6/2026): allocate-x.js plans the steps, rehearses BOTH halves (the Base call,
+   then the exact Hyperlane message replayed on the other network) and guards every call. Each step is still ONE
+   Voter.allocate on Base; it carries the other networks' message fee. Moving AERO between networks = two steps (free,
+   then send); AERO coming back from another network lands on Base a few minutes after step 1, so step 2 waits. A move
+   that hasn't landed yet blocks any new plan for that lock (the page remembers what it sent; the chain shows the rest). ---------- */
+const xrpc = (cid, method, params) => Number(cid) === C.CHAIN_ID ? rpc(method, params) : window.SweepNets.rpc(window.SweepNets.byId(cid), method, params);
+const ethUsd = () => ((window.SweepNets && window.SweepNets.byId(C.CHAIN_ID)) || {}).native_usd || 2400;
+const ethTxt = w => { const e = Number(ethers.formatEther(w)); return `${e.toFixed(e < 0.001 ? 6 : 5)} ETH (~${money(e * ethUsd())})`; };
+const netNm = c => XA.netName(Number(c));
+const xSplit = L => planFor(L).legs.map(l => ({ chain: l.chain || "base", gauge: l.gauge, pct: l.pct, label: l.label }));
+const xAllowed = sp => new Set(sp.map(s => XA.ID_OF[s.chain] + ":" + s.gauge.toLowerCase()));
+const xShape = st => JSON.stringify(st, (k, v) => typeof v === "bigint" ? v.toString() : v);
+const xRec = L => { try { return JSON.parse(store.get("xsent:" + L.id, "null")); } catch (e) { return null; } };
+function xState(L) {
+  const booked = { [C.CHAIN_ID]: L.booked }, current = { [C.CHAIN_ID]: L.current }, opens = { [C.CHAIN_ID]: L.next || 0 }, pending = [];
+  for (const lf of L.leaf || []) {
+    if (lf.unread) throw new Error(`couldn't read the lock's ${netNm(lf.cid)} allocation; try again in a minute`);
+    booked[lf.cid] = lf.bookedRaw; current[lf.cid] = lf.allocsRaw; opens[lf.cid] = lf.next || 0;
+    if (lf.leafBudget !== lf.bookedRaw) pending.push(lf.cid);        // Base and that network disagree = a move is mid-flight
+  }
+  return { booked, current, opens, pending };
+}
+// networks a move from this page hasn't reached yet (sent, not delivered), plus any the chain shows as mid-flight
+function xInflight(L, st) {
+  const nets = new Set(st.pending), r = xRec(L), now = Date.now() / 1000;
+  if (r && now - r.at < 3 * 3600) for (const c of r.cids) {
+    if (c === C.CHAIN_ID) continue;
+    const lf = (L.leaf || []).find(x => x.cid === c);
+    if (lf && !(lf.la && lf.la >= r.at - 5)) nets.add(c);          // its clock hasn't moved since we sent = not delivered yet
+  }
+  return [...nets];
+}
+function xBars(L, r) {
+  const tot = Number(ethers.formatUnits(L.staked, 18)) || 1, f = w => Number(ethers.formatUnits(w || 0n, 18));
+  const line = (name, col, a, b) => `<div class="r"><span class="pdot" style="--c:${col}"></span><span class="nm">${esc(name)}</span><span class="num">${(100 * a / tot).toFixed(0)}% → <b>${(100 * b / tot).toFixed(0)}%</b></span></div><div class="tr"><i class="now" style="width:${(100 * a / tot).toFixed(1)}%"></i><i class="aft" style="--c:${col};width:${(100 * b / tot).toFixed(1)}%"></i></div>`;
+  const cids = [...new Set([...Object.keys(r.plan.before), ...Object.keys(r.plan.target)].map(Number))].sort((a, b) => (a === C.CHAIN_ID ? -1 : b === C.CHAIN_ID ? 1 : a - b));
+  const leg = Object.fromEntries(planFor(L).legs.map(l => [(XA.ID_OF[l.chain || "base"]) + ":" + l.gauge.toLowerCase(), l]));
+  let h = cids.map(c => line(netNm(c) + (r.plan.skipped.includes(c) ? " (unchanged)" : ""), "var(--mut)", f(r.plan.before[c]), f(r.plan.target[c]))).join("");
+  h += `<div class="small mut2" style="margin:6px 0 2px">Pools after:</div>` + r.plan.legs.map(l => { const x = leg[l.chainId + ":" + l.gauge] || {}; return line(`${x.label || short(l.gauge)}${l.chainId !== C.CHAIN_ID ? " · " + netNm(l.chainId) : ""}`, typeColor(x.type), 0, f(l.allocated)); }).join("");
+  return h;
+}
+function xStepText(s, i, n) {
+  const st = s.step, parts = [];
+  for (const g of st.gaugeDispatches) {
+    if (g.dealloc > 0n) parts.push(g.gauges.length ? `frees ${fmtA(ethers.formatUnits(g.dealloc, 18))} AERO on ${netNm(g.chainId)} and re-allocates the rest there` : `frees all ${fmtA(ethers.formatUnits(g.dealloc, 18))} AERO on ${netNm(g.chainId)}`);
+  }
+  for (const c of st.chainDispatches) parts.push(`sends ${fmtA(ethers.formatUnits(c.delta, 18))} AERO to ${netNm(c.chainId)} and allocates it there`);
+  for (const g of st.gaugeDispatches) if (!(g.dealloc > 0n) && !st.chainDispatches.some(c => c.chainId === g.chainId)) parts.push(`re-allocates on ${netNm(g.chainId)}`);
+  const fee = s.call ? (s.call.total > 0n ? ethTxt(s.call.total) : "0 ETH") : "";
+  const state = s.waiting ? `<span class="mut2">waits until ${esc(st.waitFor.map(netNm).join(" + "))} ${st.waitFor.length > 1 ? "hand" : "hands"} the AERO back to Base (a few minutes after step ${i})</span>` : s.ok ? `<span class="ok">rehearsed OK</span>` : `<span class="bad">${esc(s.why || "failed")}</span>`;
+  return `<li><b>Step ${i + 1} of ${n}:</b> ${esc(parts.join("; "))}.${fee ? ` Fee <b>${esc(fee)}</b>.` : ""} ${state}${s.openAt && s.openAt > Date.now() / 1000 + 5 ? ` · opens <b>${esc(fmtTs(s.openAt))}</b>` : ""}</li>`;
+}
+function xStatus(L) {
+  const r = L.x, done = L.xDone || 0, n = done + r.steps.length, s0 = r.steps[0];
+  const leafNets = [...new Set(r.steps.flatMap(s => s.touched || []).filter(c => c !== C.CHAIN_ID))];
+  const fees = r.steps.filter(s => s.call).reduce((t, s) => t + s.call.total, 0n);
+  const head = r.ok ? `<b>Dry run OK on Base${leafNets.length ? " + " + esc(leafNets.map(netNm).join(" + ")) : ""}</b> · ${r.steps.length} signature${r.steps.length === 1 ? "" : "s"} left · network fees about ${esc(fees > 0n ? ethTxt(fees) : "0 ETH")}${r.steps.some(s => s.waiting) ? " so far" : ""}`
+    : `<b>Dry run failed:</b> ${esc(r.why || "see the steps")}. Nothing was sent.`;
+  const own = owns(L), ready = canSend(L);
+  const sign = own && r.ok && s0 && s0.ok ? `<h3 class="sub">What you will sign${n > 1 ? ` (step ${done + 1} of ${n})` : ""}</h3><ol class="steplist">
+      <li>Network <b>Base</b> <span class="mut">(every step is sent on Base; the vote travels to ${esc(leafNets.length ? leafNets.map(netNm).join(" + ") : "Base")} by itself)</span></li>
+      <li>To <code data-copy="${s0.call.to}">${s0.call.to}</code> <span class="mut">= the Aero Voter; compare start and end</span></li>
+      <li>Method <b>allocate</b> <span class="mut">(selector <code>${C.ALLOCATE_SELECTOR}</code>)</span></li>
+      <li>Value <b>${esc(s0.call.total > 0n ? ethTxt(s0.call.total) : "0 ETH")}</b>${s0.call.total > 0n ? ` <span class="mut">= the message fee to ${esc(Object.keys(s0.fees).map(netNm).join(" + "))}: Aero's own quote + 10%; the bridge refunds what isn't used, to you</span>` : ""}</li>
+      <li>Data ${((s0.call.data.length - 2) / 2).toLocaleString()} bytes <span class="mut">(your wallet's preview should show ETH going to the Aero Voter and no token moves)</span></li></ol>
+      <div class="small mut2">Reject it if any screen names sAERO <code>0xbf7977e1…</code>, "setApprovalForAll", "approve", "transfer", or a value other than the one above. ${leafNets.length ? "A vote usually lands on the other network 1-3 minutes after you sign; Flight Plan watches for it. " : ""}Each network keeps its own 47-hour clock.</div>` : "";
+  return `<div class="banner ${r.ok ? "ok" : "bad"}">${head}${r.ok && !ready && own && s0 && s0.ok && !isOpenNow(L) ? " · opens " + esc(fmtTs(opensAt(L))) : r.ok && !own ? (S.account ? " · not the connected wallet" : " · connect to sign") : r.ok && ready ? " · ready to sign" : ""}</div>
+    <ol class="steplist" style="margin-top:8px">${r.steps.map((s, i) => xStepText(s, done + i, n)).join("")}</ol><div class="ba" style="margin-top:8px">${xBars(L, r)}</div>${sign}`;
+}
+function xDoneStatus(L) {
+  const tot = Number(ethers.formatUnits(L.staked, 18)) || 1, chips = [], leg = Object.fromEntries(planFor(L).legs.map(l => [(XA.ID_OF[l.chain || "base"]) + ":" + l.gauge.toLowerCase(), l]));
+  const add = (cid, m) => { for (const [g, v] of Object.entries(m || {})) { const x = leg[cid + ":" + g] || {}; chips.push(`<span class="chip"><span class="pdot" style="--c:${typeColor(x.type)}"></span>${esc(x.label || short(g))}${cid !== C.CHAIN_ID ? " · " + esc(netNm(cid)) : ""} <b class="num">${(100 * Number(ethers.formatUnits(v, 18)) / tot).toFixed(0)}%</b></span>`); } };
+  add(C.CHAIN_ID, L.current); for (const lf of L.leaf || []) add(lf.cid, lf.allocsRaw);
+  const r = xRec(L);
+  return `<div class="banner ok"><div class="big">Allocated ✓</div><span class="small">${r && r.hash ? `<a href="https://basescan.org/tx/${r.hash}" target="_blank" rel="noopener">last step on Basescan</a> · ` : ""}every network checked on chain</span><div class="chips">${chips.join("")}</div>${tipLine()}</div>`;
+}
+async function dryRunX(L) {
+  if (!L || L.xBusy) return;
+  L.xBusy = true;
+  try {
+    if (L.elsewhere.length && (!L.leaf || L.leaf.some(lf => lf.unread) || L.leaf.length !== L.elsewhere.length)) await readLeaf([L]);
+    const st = xState(L), fl = xInflight(L, st);
+    if (fl.length) { L.dry = { ok: false, x: true, wait: true }; L.x = null; L.status = `<div class="banner">A move to ${esc(fl.map(netNm).join(" + "))} is still landing. Flight Plan plans this lock again once it has.</div>`; L.xBusy = false; render(); xWatch(L); return; }
+    const sp = xSplit(L), nets = [...new Set(sp.map(s => s.chain).filter(c => c !== "base"))].map(c => netNm(XA.ID_OF[c]));
+    L.status = `<div class="banner">Rehearsing on Base${nets.length ? " and " + esc(nets.join(" + ")) : ""}…</div>`; render();
+    const r = await XA.dryRun(ethers, xrpc, { tokenId: L.id, owner: L.owner, staked: L.staked, booked: st.booked, current: st.current, opens: st.opens, split: sp, allowed: xAllowed(sp), now: Math.floor(Date.now() / 1000) });
+    L.x = r;
+    if (!r.steps.length) {
+      L.dry = { ok: false, x: true, none: true };
+      if (L.xDone) { L.status = xDoneStatus(L); L.sent = "x"; store.set("xsent:" + L.id, "null"); }
+      else L.status = `<div class="banner ok">Already allocated this way on every network (within 1%): nothing to sign.</div>`;
+    } else {
+      L.dry = { ok: r.ok, x: true, at: Math.floor(Date.now() / 1000) };
+      L.xBusy = false; L.status = xStatus(L);
+    }
+    log(`#${L.id} cross-network dry run: ${r.steps.length ? r.steps.map((s, i) => `step ${i + 1} ${s.waiting ? "waits" : s.ok ? "OK" + (s.call ? " " + ethers.formatEther(s.call.total) + " ETH" : "") : "failed: " + s.why}`).join(", ") : "nothing to change"}`, r.ok || !r.steps.length ? "" : "bad");
+  } catch (e) { L.dry = { ok: false, x: true }; L.x = null; L.status = `<div class="banner bad">Dry run failed: ${esc(e.message || e)}</div>`; log(`#${L.id}: ${e.message || e}`, "bad"); }
+  L.xBusy = false;
+  render();
+}
+async function sendX(L) {
+  if (!L || L.xBusy || L.xWatching) return;
+  L.xBusy = true;
+  try {
+    if (!S.account || !S.provider) throw new Error("connect the wallet first");
+    if (!owns(L)) throw new Error("this lock is not owned by the connected wallet");
+    const shown = xNext(L);
+    if (!L.dry || !L.dry.ok || !shown || !shown.ok) throw new Error("dry run first");
+    await ensureChain();
+    // live re-check: owner, both clocks, what every network holds; then the whole rehearsal again with fresh fees
+    const [fresh] = await readLocks([L.id]); Object.assign(L, fresh); await readLeaf([L]);
+    if (!L.owner || L.owner.toLowerCase() !== S.account.toLowerCase()) throw new Error("the lock is not owned by the connected account");
+    const st = xState(L);
+    if (xInflight(L, st).length) throw new Error("a move on this lock is still landing; wait for it");
+    const sp = xSplit(L), allowed = xAllowed(sp), now = Math.floor(Date.now() / 1000);
+    const r = await XA.dryRun(ethers, xrpc, { tokenId: L.id, owner: L.owner, staked: L.staked, booked: st.booked, current: st.current, opens: st.opens, split: sp, allowed, now });
+    const s = r.steps[0];
+    if (!s || !s.ok) throw new Error("the fresh dry run failed: " + ((s && s.why) || r.why || "nothing to send"));
+    if (xShape(s.step) !== xShape(shown.step)) throw new Error("the plan changed since the dry run; dry-run again");
+    if (s.call.total > shown.call.total * 13n / 10n + 10n ** 13n) throw new Error("network fees rose more than 30% since the dry run; dry-run again");
+    if (s.openAt > now + 2) throw new Error(`it opens ${fmtTs(s.openAt)}; not yet`);
+    const g = XA.checkStep(ethers, s.call, { tokenId: L.id, owner: L.owner, account: S.account, step: s.step, before: r.plan.before, allowed, caps: s.caps });
+    if (!g.ok) throw new Error("guard tripped: " + g.why);
+    const done = L.xDone || 0, n = done + r.steps.length;
+    L.status = `<div class="banner">Waiting for your signature${n > 1 ? ` (step ${done + 1} of ${n})` : ""}… check: To the Aero Voter, Value ${esc(s.call.total > 0n ? ethTxt(s.call.total) : "0 ETH")}.</div>`; render();
+    log(`Sending allocate #${L.id} step ${done + 1} of ${n} (${s.touched.map(netNm).join(" + ")}, ${ethers.formatEther(s.call.total)} ETH) for signature…`);
+    const hash = await S.provider.request({ method: "eth_sendTransaction", params: [{ from: S.account, to: s.call.to, data: s.call.data, value: s.call.value }] });
+    store.set("xsent:" + L.id, JSON.stringify({ at: now, cids: [...new Set(s.touched.concat(s.step.chainDispatches.map(c => c.chainId)))], hash }));
+    L.status = `<div class="banner">Sent <a href="https://basescan.org/tx/${hash}" target="_blank" rel="noopener">${hash.slice(0, 12)}…</a>, waiting for Base to confirm…</div>`; render();
+    log(`#${L.id} sent ${hash}`);
+    const rc = await waitReceipt(hash);
+    if (rc.status !== "0x1") { store.set("xsent:" + L.id, "null"); throw new Error(`transaction ${hash.slice(0, 12)}… reverted on chain (nothing moved; the fee came back)`); }
+    log(`#${L.id} step ${done + 1} confirmed in Base block ${parseInt(rc.blockNumber, 16)}`, "ok");
+    L.xDone = done + 1; L.xLastSent = Date.now();
+    L.xBusy = false;
+    xWatch(L);
+  } catch (e) { log("Stopped: " + (e.message || e), "bad"); L.status = `<div class="banner bad">Stopped: ${esc(e.message || e)}</div>`; }
+  L.xBusy = false;
+  render();
+}
+// after a step: wait until every network has it (checks every 20s, up to 40 min), then plan again: either nothing is
+// left (done) or the next step, signed right away when it follows within a few minutes of the last signature
+async function xWatch(L) {
+  if (L.xWatching) return;
+  L.xWatching = true; const t0 = Date.now();
+  try {
+    while (Date.now() - t0 < 40 * 60000) {
+      const [fresh] = await readLocks([L.id]); Object.assign(L, fresh);
+      try { await readLeaf([L]); } catch (e) {}
+      let fl; try { fl = xInflight(L, xState(L)); } catch (e) { fl = ["?"]; }
+      if (!fl.length) break;
+      const m = Math.floor((Date.now() - t0) / 60000);
+      L.status = `<div class="banner">Sent ✓ · landing on ${esc(fl.map(c => c === "?" ? "the other network" : netNm(c)).join(" + "))}${m ? ` (${m} min so far)` : ""}. Flight Plan checks every 20 seconds: a vote usually lands in 1-3 minutes, AERO coming back to Base a few minutes more. You can leave this page; it picks up where it was.</div>`; render();
+      await new Promise(ok => setTimeout(ok, 20000));
+    }
+  } finally { L.xWatching = false; }
+  await dryRunX(L);
+  if (canSend(L) && L.xLastSent && Date.now() - L.xLastSent < 5 * 60000) { log(`#${L.id}: step ${(L.xDone || 0) + 1} is ready; asking your wallet now.`); await sendX(L); }
+  else if (canSend(L)) toast(`#${L.id}: next step ready to sign`);
+}
 
 // ---------- wallet ----------
 async function connect() {
