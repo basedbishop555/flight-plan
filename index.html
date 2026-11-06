@@ -388,23 +388,31 @@ const lockAero = L => Number(ethers.formatUnits(L.staked, 18));
 const totalAero = () => S.locks.reduce((n, L) => n + lockAero(L), 0);
 const openTs = () => { const now = Date.now() / 1000, nx = S.locks.map(L => L.next).filter(Boolean); return Math.max(nx.length ? Math.min(...nx) : now, now); };
 /* ---------- the strategy dial: presets move four sliders; any drag = Custom; the split recalculates ---------- */
+/* 11/6/2026: two "pure" presets from friends' tools replace Aggressive (our copy of saero.org's method). Their splits
+   come from the outside method itself (planner.js external()); the knobs move to the closest match to that method, the
+   Pools knob changes how many of JPN's picks you take, and turning any other knob switches to Custom (our model). */
 const PRESETS = {
   steady:     { n: 0, memory: 0.25, trust: false, caution: 1.4, streams: 1 },
   balanced:   { n: 0, memory: 0.5,  trust: false, caution: 1,   streams: 1 },
-  aggressive: { n: 1, memory: 0,    trust: false, caution: 1,   streams: 1 },
+  jpn:        { n: 0, memory: 0.75, trust: false, caution: 1,   streams: 1, src: "jpn" },     // his reads lean on 6-48h fees, crowd x0.85 on the apps' top 5, incentives ahead in full
+  cypher:     { n: 0, memory: 0,    trust: false, caution: 1,   streams: 1, src: "cypher" },  // his 4-day fee read, incentives in full
 };
-const PRESET_NAME = { steady: "Steady", balanced: "Balanced", aggressive: "Aggressive", custom: "Custom" };
+const OLD_AGGRESSIVE = { n: 1, memory: 0, trust: false, caution: 1, streams: 1 };
+const PRESET_NAME = { steady: "Steady", balanced: "Balanced", jpn: "JPN's picks", cypher: "Cypher's picks", custom: "Custom" };
+const PRESET_BTN = { steady: "Steady", balanced: "Balanced", jpn: "JPN", cypher: "Cypher", custom: "Custom" };
 function loadDial() {
   let d = null; try { d = JSON.parse(store.get("dial", "null")); } catch (e) {}
   if (!d || typeof d !== "object") { d = { ...PRESETS.balanced }; const old = Number(store.get("pools", 0)) || 0; if (old) d.n = old; }
-  const v = { n: Math.max(0, Math.min(10, Math.round(Number(d.n) || 0))), memory: clamp(d.memory, 0, 1, 0.5), trust: !!d.trust, caution: clamp(d.caution, 0, 2, 1), streams: clamp(d.streams, 0, 1, 1), baseOnly: !!d.baseOnly };
+  if (!d.src && Object.entries(OLD_AGGRESSIVE).every(([k, x]) => d[k] === x)) d = { ...PRESETS.cypher, baseOnly: d.baseOnly };   // old Aggressive -> Cypher's picks
+  const v = { n: Math.max(0, Math.min(10, Math.round(Number(d.n) || 0))), memory: clamp(d.memory, 0, 1, 0.5), trust: !!d.trust, caution: clamp(d.caution, 0, 2, 1), streams: clamp(d.streams, 0, 1, 1), baseOnly: !!d.baseOnly,
+              src: d.src === "jpn" || d.src === "cypher" ? d.src : null };
   v.preset = matchPreset(v); return v;
 }
 function clamp(x, lo, hi, dflt) { x = Number(x); return Number.isFinite(x) ? Math.max(lo, Math.min(hi, x)) : dflt; }
-function matchPreset(v) { for (const [k, q] of Object.entries(PRESETS)) if (q.n === v.n && Math.abs(q.memory - v.memory) < 1e-9 && q.trust === v.trust && Math.abs(q.caution - v.caution) < 1e-9 && Math.abs(q.streams - v.streams) < 1e-9) return k; return "custom"; }
+function matchPreset(v) { if (v.src) return v.src; for (const [k, q] of Object.entries(PRESETS)) if (!q.src && q.n === v.n && Math.abs(q.memory - v.memory) < 1e-9 && q.trust === v.trust && Math.abs(q.caution - v.caution) < 1e-9 && Math.abs(q.streams - v.streams) < 1e-9) return k; return "custom"; }
 function setDial(v) { S.dial = { ...v, preset: matchPreset(v) }; store.set("dial", JSON.stringify(S.dial)); replan(); render(); }
 const dialOpts = () => ({ n: S.dial.n || null, memory: S.dial.memory, trust: S.dial.trust, caution: S.dial.caution, streams: S.dial.streams, baseOnly: !!S.dial.baseOnly });
-const perLock = () => S.dial.n === 1 && S.locks.length > 1;
+const perLock = () => (S.dial.n === 1 || S.dial.src === "cypher") && S.locks.length > 1;   // Cypher's advice is sized per lock
 /* Backtest calibration (data/backtest.json, 11/5/2026). Replayed on past scans, forecasts barely predicted payouts, so
    each setting's expected dollars are pulled toward what that setting typically paid: per 1k AERO,
    shown = rm + b x (forecast - fm), where fm / rm are the setting's typical forecast and payout and b how far its
@@ -417,6 +425,7 @@ function gridKey(A, d) {
 function calModel() {
   const B = S.BT, M = B && B.calmodel; if (!M || !S.dial) return null;
   const p = S.dial.preset;
+  if (S.dial.src) return (M.presets || {}).balanced || null;     // pure presets are priced by our default model
   if (p !== "custom" && M.presets && M.presets[p]) return M.presets[p];
   if (M.grid && B.calgrid && B.calgrid.axes) { const m = M.grid[gridKey(B.calgrid.axes, S.dial)]; if (m) return m; }
   return (M.presets || {}).balanced || null;
@@ -442,16 +451,17 @@ function replan() {
   if (perLock()) {
     const taken = {}, legs = [], warnings = new Set(); let usd = 0, lo = 0, hi = 0, placed = 100, g0 = 0, g1 = 0;
     for (const L of S.locks.slice().sort((a, b) => lockAero(b) - lockAero(a))) {    // biggest lock picks first
-      const raw = P.plan(S.D, lockAero(L), Math.max(now, L.next || now), 1, S.live, { ...dialOpts(), taken: { ...taken } });
+      const raw = S.dial.src ? P.external(S.D, lockAero(L), Math.max(now, L.next || now), S.live, S.dial.src, S.dial.n || null)
+        : P.plan(S.D, lockAero(L), Math.max(now, L.next || now), 1, S.live, { ...dialOpts(), taken: { ...taken } });
       for (const l of raw.legs) g0 += l.expect_usd + (l.cost || 0);
       const pl = calib(raw); for (const l of pl.legs) g1 += l.expect_usd + (l.cost || 0);
       L.plan = pl; for (const l of pl.legs) { taken[l.row.gid] = (taken[l.row.gid] || 0) + l.aero; legs.push({ ...l, lock: L.id }); }
       usd += pl.expect_usd; lo += pl.expect_low_usd; hi += pl.expect_high_usd; placed = Math.min(placed, pl.placed); pl.warnings.forEach(w => warnings.add(w));
     }
     const aero = totalAero(), apr = aero && S.D.px ? usd / (aero * S.D.px) * 365 / (S.D.consts.H47 / 86400) * 100 : 0;
-    S.plan = { legs, start: openTs(), expect_usd: usd, expect_low_usd: lo, expect_high_usd: hi, apr, warnings: [...warnings], placed, perLock: true, cal: g0 > 0 ? g1 / g0 : 1 };
+    S.plan = { legs, start: openTs(), expect_usd: usd, expect_low_usd: lo, expect_high_usd: hi, apr, warnings: [...warnings], placed, perLock: true, cal: g0 > 0 ? g1 / g0 : 1, src: S.dial.src || null };
   } else {
-    S.plan = calib(P.plan(S.D, totalAero(), openTs(), null, S.live, dialOpts()));
+    S.plan = calib(S.dial.src ? P.external(S.D, totalAero(), openTs(), S.live, S.dial.src, S.dial.n || null) : P.plan(S.D, totalAero(), openTs(), null, S.live, dialOpts()));
     for (const L of S.locks) L.plan = S.plan;
   }
 }
@@ -467,7 +477,7 @@ function stayVerdict() {
     for (const [g, x] of Object.entries(L.current)) { const a = Number(ethers.formatUnits(x, 18)); votes[g] = (votes[g] || 0) + a; v += a; }
     parked += Math.max(0, lockAero(L) - v);
   }
-  const st = P.stay(S.D, votes, S.plan.start, S.live, dialOpts());
+  const st = P.stay(S.D, votes, S.plan.start, S.live, S.dial.src ? {} : dialOpts());   // pure presets: both sides on the default model
   const tot = totalAero(), base = tot - elsewhere;          // locks voting on other networks sit out of both sides
   if (tot <= 0 || base <= 0 || st.unpriced / base > 0.25) return { unknown: true, share: base > 0 ? st.unpriced / base : 1 };
   const unknown = st.unpriced;
@@ -589,10 +599,22 @@ function renderHero() {
     <div class="hs num">${p && p.cal && p.cal < 1 ? `<a href="docs.html#tested" title="Forecast x ${p.cal.toFixed(2)}: pulled toward what this setting typically paid in the backtest">calibrated</a> · ` : ""}${p ? p.apr.toFixed(0) + "% APR · " : ""}${S.locks.length}${S.total > LOCK_MAX ? ` of ${S.total}` : ""} lock${S.locks.length === 1 ? "" : "s"} · ${fmtA(aero)} AERO</div></div></div>
     <div class="pills">${pills.join("")}</div>`;
 }
+// JPN's screener rank for a pool (plan.json ext.jpn, his top 25 Base pools), shown on every preset as a second opinion
+const jpnRank = g => { const X = S.D && S.D.ext && S.D.ext.jpn; if (!X || !g) return null; if (!X._by) X._by = new Map(X.rows.map(r => [r[0].toLowerCase(), r[1]])); return X._by.get(g.toLowerCase()) || null; };
+function extNote() {
+  const src = S.dial && S.dial.src, X = src && S.D && S.D.ext && S.D.ext[src];
+  if (!src) return "";
+  if (!X) return `<div class="banner warn small" style="margin:0 0 10px">${src === "jpn" ? "JPN's" : "Cypher's"} picks aren't in this hour's data. Try Balanced, or check back after the next hourly update.</div>`;
+  const tail = ` <b>Pure:</b> none of our rules apply; our model only prices the split so every preset's dollars compare. The knobs show the closest match to the method${src === "jpn" ? "; the Pools knob changes how many of his picks you take" : ""}, and turning ${src === "jpn" ? "any other" : "any"} knob switches to Custom (our model). Base pools only, so Flight Plan can sign it. <a href="docs.html#dial">More</a>`;
+  if (src === "jpn") return `<div class="banner small" style="margin:0 0 10px"><b>JPN's picks</b>: the top ${S.dial.n || X.n} Base pools from JPN's <a href="${esc(X.url)}" target="_blank" rel="noopener">Aero v3 Allocation Screener</a> on Dune, weighted by his score (mid and low cases after dilution, steadier fees, x0.85 for pools the allocator apps already rank top 5). His read: ${esc(ago(X.fetched))}.${tail}</div>`;
+  const rungs = S.plan && S.plan.perLock ? [...new Set(S.locks.map(L => L.plan && L.plan.legs[0] && L.plan.legs[0].ext ? L.plan.legs[0].ext.rung : null).filter(Boolean))].sort((a, b) => a - b) : (S.plan && S.plan.legs[0] && S.plan.legs[0].ext ? [S.plan.legs[0].ext.rung] : []);
+  return `<div class="banner small" style="margin:0 0 10px"><b>Cypher's picks</b>: what NYCypher's <a href="${esc(X.url)}" target="_blank" rel="noopener">saero.org</a> advises for a ${rungs.map(fmtA).join(" / ") || "similar"} AERO lock (nearest size we ask it about), from his own planner, read ${esc(ago(X.ts))}.${tail}</div>`;
+}
 function poolRow(l) {
   const r = l.row, col = typeColor(r.type);
   const where = r.chain && r.chain !== "base" ? `${r.chain_name} · allocate in the Aero app · after ${money(r.cost)} costs` : "";
-  const tags = [where, TYPE_NAME[r.type] || r.type, r.fee_led ? "fee-led" : "", r.rank48 && r.rank48 <= 5 ? "crowded" : "", r.fading ? "fading" : "", l.small ? "small pool" : ""].filter(Boolean).join(" · ");
+  const jr = jpnRank(r.gauge);
+  const tags = [where, TYPE_NAME[r.type] || r.type, jr ? "JPN #" + jr : "", l.ext && !l.ext.priced ? "not priced by our model" : "", r.fee_led ? "fee-led" : "", r.rank48 && r.rank48 <= 5 ? "crowded" : "", r.fading ? "fading" : "", l.small ? "small pool" : ""].filter(Boolean).join(" · ");
   const apr = l.aero && S.D.px ? l.expect_usd / (l.aero * S.D.px) * (365 * 24 / 47) * 100 : null;
   const st = (r.streams || [])[0];
   return `<details class="pool"><summary><span class="pdot" style="--c:${col}"></span><span class="pname">${esc(r.name)}<small>${esc(tags)}</small><span class="pbar"><i style="--c:${col};width:${Math.min(100, l.pct * 4)}%"></i></span></span><span class="ppct num">${l.pct}<small>%</small><em>${fmtA(l.aero)} AERO</em></span><span class="chev">▶</span></summary>
@@ -601,7 +623,7 @@ function poolRow(l) {
       <div class="tile"><div class="k">APR</div><div class="v num">${apr != null ? apr.toFixed(0) + "%" : "-"}</div></div>
       <div class="tile"><div class="k">Fees · day</div><div class="v num">${money(r.fee_day)} <small>to allocators</small></div></div>
       <div class="tile"><div class="k">Incentives · 47h</div><div class="v num">${money(r.inc_w)}${st ? ` <small>${esc(st.tok)} to ${esc(fmtTs(st.end))}</small>` : ""}</div></div>
-      <div class="tile"><div class="k">Allocated to it ${r.chain && r.chain !== "base" ? (r.age_h != null ? r.age_h + "h ago" : "at the scan") : "now"}</div><div class="v num">${(r.alloc / 1e6).toFixed(2)}M <small>you'd be ${(l.slice * 100).toFixed(1)}%</small></div></div>
+      <div class="tile"><div class="k">Allocated to it ${r.chain && r.chain !== "base" ? (r.age_h != null ? r.age_h + "h ago" : "at the scan") : "now"}</div><div class="v num">${r.alloc ? (r.alloc / 1e6).toFixed(2) + "M" : "-"} <small>${l.slice != null ? `you'd be ${(l.slice * 100).toFixed(1)}%` : "not on this hour's scan"}</small></div></div>
     </div>
     <div class="addr">pool <code data-copy="${esc(r.pool)}">${esc(r.pool)}</code></div>
     <div class="addr">gauge <code data-copy="${esc(r.gauge)}">${esc(r.gauge)}</code></div></div></details>`;
@@ -635,7 +657,7 @@ function drawKnob(k) {
 }
 function dialHtml() {
   return `<div class="dial"><div class="seglabel">Strategy</div>
-    <div class="seg" id="presets">${["steady", "balanced", "aggressive", "custom"].map(k => `<button type="button" data-preset="${k}">${PRESET_NAME[k]}</button>`).join("")}</div>
+    <div class="seg" id="presets">${["steady", "balanced", "jpn", "cypher", "custom"].map(k => `<button type="button" data-preset="${k}" title="${esc(PRESET_NAME[k])}">${PRESET_BTN[k]}</button>`).join("")}</div>
     <div class="knobs">${KNOBS.map(([k, name, lo, hi, st]) => `<div class="knob"><b id="v-${k}"></b><div class="kd" id="k-${k}" role="slider" tabindex="0" aria-label="${name}" aria-valuemin="${lo}" aria-valuemax="${hi}">${knobSvg()}</div><span>${name}</span><input type="range" class="hidden" id="d-${k}" min="${lo}" max="${hi}" step="${st}" tabindex="-1" aria-hidden="true"></div>`).join("")}</div>
     <div class="dialfoot"><span style="display:inline-flex;gap:12px;flex-wrap:wrap"><label class="sw"><input type="checkbox" id="d-trust"> Trust spikes</label><label class="sw"><input type="checkbox" id="d-base"> Base only</label></span><a href="docs.html#dial">What each dial does</a></div></div>`;
 }
@@ -661,7 +683,7 @@ function updateDial() {
   const d = S.dial;
   $("d-n").value = d.n; $("d-memory").value = Math.round(d.memory * 100); $("d-trust").checked = d.trust; $("d-base").checked = !!d.baseOnly; $("d-caution").value = Math.round(d.caution * 100); $("d-streams").value = Math.round(d.streams * 100);
   for (const [k] of KNOBS) drawKnob(k);
-  document.querySelectorAll("#presets button").forEach(b => { b.classList.toggle("on", b.dataset.preset === d.preset); b.classList.toggle("agg", b.dataset.preset === "aggressive"); });
+  document.querySelectorAll("#presets button").forEach(b => { b.classList.toggle("on", b.dataset.preset === d.preset); b.classList.toggle("agg", b.dataset.preset === "jpn" || b.dataset.preset === "cypher"); });
 }
 function renderPlan() {
   const el = $("plan");
@@ -671,17 +693,18 @@ function renderPlan() {
   if (!$("dial")) {
     el.innerHTML = `<h2>Your split <span id="planHead"></span></h2><div class="body"><div id="dial">${dialHtml()}</div><div id="legs"></div></div>`;
     document.querySelectorAll("#presets button").forEach(b => b.addEventListener("click", () => { if (b.dataset.preset !== "custom") setDial({ ...PRESETS[b.dataset.preset], baseOnly: !!S.dial.baseOnly }); }));
-    for (const id of ["d-n", "d-memory", "d-caution", "d-streams"]) $(id).addEventListener("input", () => setDial(readSliders()));
+    for (const id of ["d-n", "d-memory", "d-caution", "d-streams"]) $(id).addEventListener("input", () => setDial({ ...readSliders(), src: id === "d-n" && S.dial.src === "jpn" ? "jpn" : null }));
     wireKnobs();
     $("d-trust").addEventListener("change", () => setDial(readSliders()));
-    $("d-base").addEventListener("change", () => setDial(readSliders()));
+    $("d-base").addEventListener("change", () => setDial({ ...readSliders(), src: S.dial.src || null }));
   }
   updateDial();
   $("planHead").textContent = `${PRESET_NAME[S.dial.preset]} · ${fmtTs(p.start)} · 47h`;
-  const types = [...new Set(p.legs.map(l => l.type))];
+  const types = [...new Set(p.legs.map(l => l.type))].filter(Boolean);
   const dried = S.locks.filter(L => L.dry || L.sent).length, sums = p.placed === 100, mine = S.locks.filter(owns), ready = S.locks.filter(canSend), sent = S.locks.filter(L => L.sent);
   let cta;
-  if (!sums) cta = `<button class="cta gbtn gviolet" disabled>Pick more pools to place 100%</button>`;
+  if (!sums) cta = p.src ? `<button class="cta gbtn gviolet" disabled>Can't sign this one</button><div class="csub">${p.legs.length ? "A pool in it isn't on our scanner's list of Base pools. Copy it into the Aero app if you trust it, or pick another preset" : "No picks to place right now"}</div>` + (p.legs.length ? `<button class="gbtn" id="cta" data-act="copy" style="margin-top:8px">Copy the split</button>` : "")
+    : `<button class="cta gbtn gviolet" disabled>Pick more pools to place 100%</button>`;
   else if (dried < S.locks.length) cta = `<button class="cta gbtn gviolet" id="cta" data-act="dry">Dry run ${S.locks.length > 1 ? "all " + S.locks.length + " locks" : "#" + S.locks[0].id}</button><div class="csub">A free rehearsal on the chain · nothing is signed</div>`;
   else if (ready.length) cta = `<button class="cta gbtn gviolet" id="cta" data-act="send">Allocate ${ready.length === 1 ? "#" + ready[0].id : ready.length + " locks"} · ${ready.length} signature${ready.length === 1 ? "" : "s"}</button><div class="csub">One allocate call per lock, to the Aero Voter, 0 ETH · dry run passed</div>`;
   else if (mine.length && sent.length === mine.length) cta = `<button class="cta gbtn ggreen" disabled>Allocated ✓</button><div class="csub">${sent.length} lock${sent.length === 1 ? "" : "s"} allocated this window</div>`;
@@ -695,7 +718,7 @@ function renderPlan() {
   const rows = p.perLock
     ? S.locks.map(L => `<div class="lockhead">#${L.id} <span class="num">${fmtA(lockAero(L))} AERO · ${isOpen(L) ? "open" : "opens " + esc(fmtTs(L.next))} · ${money(L.plan.expect_usd)}</span></div>` + (L.plan.legs.length ? L.plan.legs.map(poolRow).join("") : `<div class="small warn">No pool fits this lock under the rules.</div>`)).join("")
     : p.legs.map(poolRow).join("");
-  $("legs").innerHTML = stayBox + legend + rows + (p.warnings.length ? `<div class="banner warn small">${esc(p.warnings.join(" "))}</div>` : "") + cta;
+  $("legs").innerHTML = extNote() + stayBox + legend + rows + (p.warnings.length ? `<div class="banner warn small">${esc(p.warnings.join(" "))}</div>` : "") + cta;
   el.querySelectorAll("[data-copy]").forEach(c => c.addEventListener("click", () => copy(c.dataset.copy)));
   const c = $("cta"); if (c) c.addEventListener("click", () => c.dataset.act === "dry" ? dryAll() : c.dataset.act === "send" ? sendAll() : copy(splitText()));
 }
@@ -843,7 +866,7 @@ function renderWins() {
 }
 // ---------- "How each strategy did": every preset replayed on past scans, no look-ahead (data/backtest.json) ----------
 const BT_SIZES = [["1000", "1k"], ["30000", "30k"], ["100000", "100k"], ["1000000", "1M"]];
-const BT_ORDER = ["balanced", "steady", "aggressive", "aggressive_base", "n10", "n6", "n3", "n1", "spike12"];
+const BT_ORDER = ["balanced", "steady", "jpn", "cypher", "aggressive", "aggressive_base", "n10", "n6", "n3", "n1", "spike12"];
 const BT_NET = { optimism: "OP", arbitrum: "Arbitrum", ethereum: "Ethereum", ink: "Ink", robinhood: "Robinhood", arc: "Arc" };
 function renderTested() {
   const el = $("tested"), B = S.BT;
@@ -867,7 +890,7 @@ function renderTested() {
     <div class="seg" id="btsize">${BT_SIZES.filter(x => B.rows[x[0]]).map(([k, t]) => `<button type="button" data-s="${k}" class="${S.btSize === k ? "on" : ""}">${t} AERO</button>`).join("")}</div>
     <p class="small mut" style="margin:0 0 8px">Each strategy planned with only what was known at the time, every 3 hours from ${esc(new Date(B.first * 1000).toLocaleDateString([], { month: "short", day: "numeric" }))} to ${esc(new Date(B.last * 1000).toLocaleDateString([], { month: "short", day: "numeric" }))}, then paid from what the pools really paid over the next 47 hours (real pile-ons in). Dollars per 1,000 AERO per window.</p>
     <div class="tw"><table><tr><th>Strategy</th><th class="num">Median<br><small>middle half</small></th><th class="num">Worst to best</th><th class="num">Beat Balanced</th></tr>${rows}</table></div>
-    <p class="small mut2" style="margin:8px 0 0">"Beat Balanced" counts separate 2-day stretches. ${nets ? `Best single pool on another network beat Base's best after costs: ${esc(nets)} of the time.` : ""}${thin.length ? ` ${esc(thin.join(", "))} were scanned once a day until Nov 5, so their figures are rough.` : ""} Forecasts barely predicted payouts here, so expected dollars on this page are pulled toward what each setting typically paid per 1k AERO: Balanced ${typ(P0.balanced)}, Steady ${typ(P0.steady)}, Aggressive ${typ(P0.aggressive)}${S.dial && S.dial.preset === "custom" ? `, your Custom dials ${typ(cm)}` : ", Custom by the nearest tested dial setting"}. A small sample, refreshed every 3 hours. <a href="docs.html#tested">How it's tested</a></p></div>`;
+    <p class="small mut2" style="margin:8px 0 0">"Beat Balanced" counts separate 2-day stretches. ${nets ? `Best single pool on another network beat Base's best after costs: ${esc(nets)} of the time.` : ""}${thin.length ? ` ${esc(thin.join(", "))} were scanned once a day until Nov 5, so their figures are rough.` : ""} Forecasts barely predicted payouts here, so expected dollars on this page are pulled toward what each setting typically paid per 1k AERO: Balanced ${typ(P0.balanced)}, Steady ${typ(P0.steady)}${S.dial && S.dial.preset === "custom" ? `, your Custom dials ${typ(cm)}` : ", Custom by the nearest tested dial setting"}; JPN's and Cypher's picks use Balanced's. Their two rows are graded only from picks recorded live (since Nov 6 for Cypher), so they fill in over time. A small sample, refreshed every 3 hours. <a href="docs.html#tested">How it's tested</a></p></div>`;
   el.querySelectorAll("#btsize button").forEach(b => b.addEventListener("click", () => { S.btSize = b.dataset.s; renderTested(); }));
 }
 function renderCrowd() {

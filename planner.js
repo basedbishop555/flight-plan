@@ -216,6 +216,69 @@
     return { legs: [leg], start: D.starts[si], expect_usd: best.net, expect_low_usd: lo, expect_high_usd: hi, apr, warnings, placed: 100, opts: o };
   }
 
+  /* ---- outside opinions, "pure" (11/6/2026): the JPN's picks and Cypher's picks presets ----
+     The split comes from someone else's method, unchanged; our model only prices it (with the default dial, so every
+     preset's dollars compare like for like). plan.json `ext` carries both, Base only, each gauge checked against the
+     scanner's own Base gauge list (k = 1); a split holding a gauge the scanner doesn't know is shown but never signed.
+       jpn     JPN's Dune screener: his top N Base pools by score, weighted by score, in 5% steps (N = the Pools knob,
+               Auto = ext.jpn.n). Same rule as the scanner's screener.jpn_split, which the backtest grades.
+       cypher  saero.org's own advice for a typed lock, run by the scanner at a ladder of sizes: the rung nearest
+               this lock's size (log scale), its percentages rounded to whole numbers that sum to 100. */
+  function steps(ws, step) {
+    const tot = ws.reduce((a, b) => a + b, 0), units = Math.round(100 / step);
+    if (!(tot > 0)) return ws.map(() => 0);
+    const raw = ws.map(w => w / tot * units), out = raw.map(Math.floor);
+    raw.map((x, i) => [x - out[i], i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]).slice(0, units - out.reduce((a, b) => a + b, 0)).forEach(([, i]) => out[i]++);
+    return out.map(u => u * step);
+  }
+  function jpnSplit(X, n) {
+    const top = (X.rows || []).filter(r => r[3] > 0).slice().sort((a, b) => a[1] - b[1]).slice(0, Math.max(1, n || X.n || 5));
+    const pc = steps(top.map(r => r[3]), 5);
+    return top.map((r, i) => ({ gauge: r[0], pct: pc[i], name: r[2], known: !!r[6], rank: r[1], idx: r[4], flags: r[5] })).filter(x => x.pct > 0);
+  }
+  function cypherRung(X, aero) {
+    const ks = Object.keys(X.ladder || {}).map(Number).filter(k => k > 0);
+    if (!ks.length) return null;
+    return String(ks.reduce((a, b) => Math.abs(Math.log(b) - Math.log(Math.max(aero, 1))) < Math.abs(Math.log(a) - Math.log(Math.max(aero, 1))) ? b : a));
+  }
+  function cypherSplit(X, aero) {
+    const k = cypherRung(X, aero);
+    if (!k) return [];
+    const rows = X.ladder[k], pc = steps(rows.map(r => r[1]), 1);
+    return rows.map((r, i) => ({ gauge: r[0], pct: pc[i], name: r[2], known: !!r[3], rung: Number(k) })).filter(x => x.pct > 0);
+  }
+  function external(D, aero, startTs, live, src, n) {
+    const C = D.consts, si = startIndex(D, startTs), X = (D.ext || {})[src];
+    const none = why => ({ legs: [], start: D.starts[si], expect_usd: 0, expect_low_usd: 0, expect_high_usd: 0, apr: 0, placed: 0,
+                           warnings: [why], src, opts: Object.assign({}, DEFAULTS, { n: n || null }) });
+    if (!X) return none(src === "jpn" ? "JPN's screener picks aren't loaded right now." : "saero.org's picks aren't loaded right now.");
+    const picks = src === "jpn" ? jpnSplit(X, n) : cypherSplit(X, aero);
+    if (!picks.length) return none("No picks in the latest read.");
+    const byG = {};
+    for (const r of rowsAt(D, si, live, DEFAULTS)) if (r.gauge && r.chain === "base") byG[r.gauge.toLowerCase()] = r;
+    const meta = {};
+    for (const g of D.gauges) if (g.gauge && (g.chain || "base") === "base") meta[g.gauge.toLowerCase()] = g;
+    const chase = { stream: D.chase.stream, fee: D.chase.fee, small: D.chase.small, crowd: D.chase.crowd, caution: 1 };
+    const tot = { high: 0, expected: 0, low: 0 }, warnings = [];
+    let unknown = 0, unpriced = 0;
+    const legs = picks.map(p => {
+      const x = aero * p.pct / 100, r = byG[p.gauge.toLowerCase()], m = meta[p.gauge.toLowerCase()];
+      if (!p.known) unknown++;
+      let hi = 0, ex = 0, lo = 0;
+      if (r) { const f = chaseFor(C, r, chase, 1); hi = value(r, x, f[0]); ex = value(r, x, f[1]); lo = value(r, x, f[2]); } else unpriced++;
+      tot.high += hi; tot.expected += ex; tot.low += lo;
+      const row = r || { gid: "x:" + p.gauge.toLowerCase(), gauge: p.gauge, name: p.name, pool: m ? m.pool : "", alloc: m ? m.alloc : 0, type: "", fee_led: false };
+      return { pct: p.pct, aero: x, row, label: (m && m.name) || p.name, gauge: p.gauge, pool: (m && m.pool) || "", type: row.type, fee_led: row.fee_led,
+               expect_usd: ex, expect_low_usd: lo, expect_high_usd: hi, small: !!row.alloc && row.alloc < C.SMALL_POOL, slice: row.alloc ? x / (row.alloc + x) : null,
+               ext: { src, rank: p.rank, idx: p.idx, flags: p.flags, rung: p.rung, priced: !!r, known: p.known } };
+    });
+    if (unknown) warnings.push(`${unknown} of these pools ${unknown === 1 ? "is" : "are"} not on our scanner's list of Base pools, so Flight Plan won't sign this split.`);
+    if (unpriced) warnings.push(`Our model expects next to nothing from ${unpriced} of these pools over this window (a stock pool over a weekend, or a pool under its floor), so ${unpriced === 1 ? "it counts" : "they count"} as $0 in the estimate. ${unpriced === 1 ? "It stays" : "They stay"} in the split.`);
+    const apr = aero && D.px ? tot.expected / (aero * D.px) * 365 / (C.H47 / 86400) * 100 : 0;
+    return { legs, start: D.starts[si], expect_usd: tot.expected, expect_low_usd: tot.low, expect_high_usd: tot.high, apr, warnings,
+             placed: unknown ? 0 : 100, src, asOf: src === "jpn" ? X.fetched : X.ts, opts: Object.assign({}, DEFAULTS, { n: n || null }) };
+  }
+
   /** What your CURRENT votes are expected to earn over the same window, with the same model and dial (the private
    *  page's compare_now). votes = {gauge address (lowercase): AERO}. When `live` is given its pool sizes already have
    *  your own votes taken out; otherwise they are taken out here. Returns {usd, priced, unpriced} (AERO). */
@@ -237,5 +300,5 @@
     return { usd, priced, unpriced };
   }
 
-  return { poolRules, chaseFor, value, optimize, rowsAt, startIndex, plan, onePool, stay, weightsFor, feeDay, DEFAULTS, PLAN_V };
+  return { poolRules, chaseFor, value, optimize, rowsAt, startIndex, plan, onePool, stay, external, jpnSplit, cypherSplit, cypherRung, steps, weightsFor, feeDay, DEFAULTS, PLAN_V };
 });
