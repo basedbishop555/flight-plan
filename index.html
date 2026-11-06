@@ -475,7 +475,7 @@ function cyFrame() {
   return CY.ready;
 }
 async function cyData() {
-  if (CY.data && Date.now() / 1000 - CY.data.got < 1200) return CY.data;
+  if (CY.data && Date.now() / 1000 - CY.data.got < 300) return CY.data;
   const v = Math.floor(Date.now() / 600000);
   const [sum, cal, meta] = await Promise.all(["pools", "calendar", "meta"].map(n => fetch(`data/saero/${n}.json?v=${v}`).then(r => { if (!r.ok) throw new Error(`saero data ${n}: ${r.status}`); return r.json(); })));
   CY.data = { sum, cal, meta, got: Date.now() / 1000 };
