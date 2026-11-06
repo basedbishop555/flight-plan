@@ -10,7 +10,7 @@
   else root.Planner = factory();
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
-  const PLAN_V = 3;   // the data/plan.json format this planner reads (the publisher refuses a mismatch)
+  const PLAN_V = 4;   // the data/plan.json format this planner reads (the publisher refuses a mismatch)
 
   function poolRules(C, n) {
     if (!n) return [C.MIN_POOLS, C.MAX_POOLS, C.MAX_PCT, C.TYPE_MAX];
@@ -139,19 +139,20 @@
   function rowsAt(D, si, live, o) {
     o = Object.assign({}, DEFAULTS, o || {});
     const C = D.consts, out = [];
-    for (const [gi, hf, incW] of D.rows[si]) {
+    for (const [gi, hf, incW, x] of D.rows[si]) {
       const g = D.gauges[gi];
       if (o.exclude && o.exclude.has(g.gid)) continue;
+      if (x && !o.all) continue;            // v4 (11/6/2026): every pool is exported; x = why our rules skip it (see below)
       const la = live && g.gauge ? live[g.gauge.toLowerCase()] : undefined;
       const fd = feeDay(D, g, o);
       const fee_w = fd.fee * hf * (1 - (g.synth || 0) / 2 * (1 - C.SYNTH_HAIRCUT));
       const inc_w = incW * o.streams;
-      if (fee_w + inc_w < C.MIN_WINDOW_USD) continue;
+      if (!o.all && fee_w + inc_w < C.MIN_WINDOW_USD) continue;
       const type = g.stock ? "tokenized-stock" : inc_w > fee_w ? "stream-led" : g.alloc >= C.DEEP ? "deep fee" : "thin-token";
       out.push({ gid: g.gid, gauge: g.gauge, name: g.name, pool: g.pool, kind: g.kind, cut: g.cut, rank48: g.rank48,
                  fading: fd.fading, fee_day: fd.fee, streams: g.streams, alloc: la != null && la > 0 ? la : g.alloc, scanAlloc: g.alloc,
                  fee_w, inc_w, type, fee_led: fee_w >= inc_w, chain: g.chain || "base", chain_name: g.chain_name || "Base",
-                 cost: g.cost || 0, age_h: g.age_h == null ? null : g.age_h });
+                 cost: g.cost || 0, age_h: g.age_h == null ? null : g.age_h, x: x || 0, pick: g.pick !== 0 });
     }
     return out;
   }
@@ -196,8 +197,8 @@
     const C = D.consts, taken = o.taken || {};
     const chase = { stream: D.chase.stream, fee: D.chase.fee, small: D.chase.small, crowd: D.chase.crowd, caution: o.caution };
     let best = null;
-    for (const r0 of rowsAt(D, si, live, o)) {
-      if (r0.cut || (o.baseOnly && r0.chain !== "base")) continue;     // "Base only": no picks on other networks
+    for (const r0 of rowsAt(D, si, live, Object.assign({}, o, { all: true }))) {   // every pool on every network (11/6), priced as is
+      if (r0.cut || r0.x === 4 || (o.baseOnly && r0.chain !== "base")) continue;    // "Base only": no picks on other networks
       const mine = taken[r0.gid] || 0;
       if (mine + aero > C.SLICE_MAX * r0.alloc) continue;
       const r = mine ? Object.assign({}, r0, { alloc: r0.alloc + mine }) : r0;      // your other locks dilute it too
@@ -224,6 +225,7 @@
                Auto = ext.jpn.n). Same rule as the scanner's screener.jpn_split, which the backtest grades.
        cypher  saero.org's own advice for a typed lock, run by the scanner at a ladder of sizes: the rung nearest
                this lock's size (log scale), its percentages rounded to whole numbers that sum to 100. */
+  const NET_NAME = { base: "Base", optimism: "OP", arbitrum: "Arbitrum", ethereum: "Ethereum", ink: "Ink", robinhood: "Robinhood", arc: "Arc" };
   function steps(ws, step) {
     const tot = ws.reduce((a, b) => a + b, 0), units = Math.round(100 / step);
     if (!(tot > 0)) return ws.map(() => 0);
@@ -231,10 +233,10 @@
     raw.map((x, i) => [x - out[i], i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]).slice(0, units - out.reduce((a, b) => a + b, 0)).forEach(([, i]) => out[i]++);
     return out.map(u => u * step);
   }
-  function jpnSplit(X, n) {
-    const top = (X.rows || []).filter(r => r[3] > 0).slice().sort((a, b) => a[1] - b[1]).slice(0, Math.max(1, n || X.n || 5));
+  function jpnSplit(X, n, baseOnly) {
+    const top = (X.rows || []).filter(r => r[3] > 0 && (!baseOnly || (r[7] || "base") === "base")).slice().sort((a, b) => a[1] - b[1]).slice(0, Math.max(1, n || X.n || 5));
     const pc = steps(top.map(r => r[3]), 5);
-    return top.map((r, i) => ({ gauge: r[0], pct: pc[i], name: r[2], known: !!r[6], rank: r[1], idx: r[4], flags: r[5] })).filter(x => x.pct > 0);
+    return top.map((r, i) => ({ gauge: r[0], chain: r[7] || "base", pct: pc[i], name: r[2], known: !!r[6], rank: r[1], idx: r[4], flags: r[5] })).filter(x => x.pct > 0);
   }
   function cypherRung(X, aero) {
     const ks = Object.keys(X.ladder || {}).map(Number).filter(k => k > 0);
@@ -245,38 +247,44 @@
     const k = cypherRung(X, aero);
     if (!k) return [];
     const rows = X.ladder[k], pc = steps(rows.map(r => r[1]), 1);
-    return rows.map((r, i) => ({ gauge: r[0], pct: pc[i], name: r[2], known: !!r[3], rung: Number(k) })).filter(x => x.pct > 0);
+    return rows.map((r, i) => ({ gauge: r[0], chain: "base", pct: pc[i], name: r[2], known: !!r[3], rung: Number(k) })).filter(x => x.pct > 0);
   }
-  function external(D, aero, startTs, live, src, n) {
+  /** `picks` (optional) = a split already made elsewhere (Cypher's own planner run in the page's sandbox):
+   *  [{gauge, chain, pct, name, known}]. Otherwise JPN's from ext.jpn, or Cypher's ladder fallback. */
+  function external(D, aero, startTs, live, src, n, baseOnly, picks) {
     const C = D.consts, si = startIndex(D, startTs), X = (D.ext || {})[src];
     const none = why => ({ legs: [], start: D.starts[si], expect_usd: 0, expect_low_usd: 0, expect_high_usd: 0, apr: 0, placed: 0,
                            warnings: [why], src, opts: Object.assign({}, DEFAULTS, { n: n || null }) });
-    if (!X) return none(src === "jpn" ? "JPN's screener picks aren't loaded right now." : "saero.org's picks aren't loaded right now.");
-    const picks = src === "jpn" ? jpnSplit(X, n) : cypherSplit(X, aero);
+    if (!picks && !X) return none(src === "jpn" ? "JPN's screener picks aren't loaded right now." : "saero.org's picks aren't loaded right now.");
+    picks = picks || (src === "jpn" ? jpnSplit(X, n, baseOnly) : cypherSplit(X, aero));
     if (!picks.length) return none("No picks in the latest read.");
+    const key = (c, g) => (c || "base") + ":" + String(g).toLowerCase();
     const byG = {};
-    for (const r of rowsAt(D, si, live, DEFAULTS)) if (r.gauge && r.chain === "base") byG[r.gauge.toLowerCase()] = r;
+    for (const r of rowsAt(D, si, live, Object.assign({}, DEFAULTS, { all: true }))) if (r.gauge) byG[key(r.chain, r.gauge)] = r;
     const meta = {};
-    for (const g of D.gauges) if (g.gauge && (g.chain || "base") === "base") meta[g.gauge.toLowerCase()] = g;
+    for (const g of D.gauges) if (g.gauge) meta[key(g.chain, g.gauge)] = g;
     const chase = { stream: D.chase.stream, fee: D.chase.fee, small: D.chase.small, crowd: D.chase.crowd, caution: 1 };
     const tot = { high: 0, expected: 0, low: 0 }, warnings = [];
     let unknown = 0, unpriced = 0;
     const legs = picks.map(p => {
-      const x = aero * p.pct / 100, r = byG[p.gauge.toLowerCase()], m = meta[p.gauge.toLowerCase()];
+      const x = aero * p.pct / 100, r = byG[key(p.chain, p.gauge)], m = meta[key(p.chain, p.gauge)];
       if (!p.known) unknown++;
       let hi = 0, ex = 0, lo = 0;
-      if (r) { const f = chaseFor(C, r, chase, 1); hi = value(r, x, f[0]); ex = value(r, x, f[1]); lo = value(r, x, f[2]); } else unpriced++;
+      const cost = r && r.chain !== "base" ? r.cost || 0 : 0;      // a pool on another network pays its per-window cost
+      if (r) { const f = chaseFor(C, r, chase, 1); hi = value(r, x, f[0]) - cost; ex = value(r, x, f[1]) - cost; lo = value(r, x, f[2]) - cost; } else unpriced++;
       tot.high += hi; tot.expected += ex; tot.low += lo;
-      const row = r || { gid: "x:" + p.gauge.toLowerCase(), gauge: p.gauge, name: p.name, pool: m ? m.pool : "", alloc: m ? m.alloc : 0, type: "", fee_led: false };
+      const chain = p.chain || "base", cname = (r && r.chain_name) || (m && m.chain_name) || NET_NAME[chain] || chain;
+      const row = r || { gid: "x:" + key(chain, p.gauge), gauge: p.gauge, name: p.name, pool: m ? m.pool : "", alloc: m ? m.alloc : 0, type: "", fee_led: false, chain, chain_name: cname, cost: m ? m.cost || 0 : 0 };
       return { pct: p.pct, aero: x, row, label: (m && m.name) || p.name, gauge: p.gauge, pool: (m && m.pool) || "", type: row.type, fee_led: row.fee_led,
+               chain, chain_name: cname, cost,
                expect_usd: ex, expect_low_usd: lo, expect_high_usd: hi, small: !!row.alloc && row.alloc < C.SMALL_POOL, slice: row.alloc ? x / (row.alloc + x) : null,
                ext: { src, rank: p.rank, idx: p.idx, flags: p.flags, rung: p.rung, priced: !!r, known: p.known } };
     });
-    if (unknown) warnings.push(`${unknown} of these pools ${unknown === 1 ? "is" : "are"} not on our scanner's list of Base pools, so Flight Plan won't sign this split.`);
-    if (unpriced) warnings.push(`Our model expects next to nothing from ${unpriced} of these pools over this window (a stock pool over a weekend, or a pool under its floor), so ${unpriced === 1 ? "it counts" : "they count"} as $0 in the estimate. ${unpriced === 1 ? "It stays" : "They stay"} in the split.`);
+    if (unknown) warnings.push(`${unknown} of these pools ${unknown === 1 ? "is" : "are"} not on our scanner's list of Aero pools, so Flight Plan won't sign this split.`);
+    if (unpriced) warnings.push(`${unpriced} of these pools ${unpriced === 1 ? "has" : "have"} no reading from our scanner this hour, so ${unpriced === 1 ? "it counts" : "they count"} as $0 in the estimate. ${unpriced === 1 ? "It stays" : "They stay"} in the split.`);
     const apr = aero && D.px ? tot.expected / (aero * D.px) * 365 / (C.H47 / 86400) * 100 : 0;
     return { legs, start: D.starts[si], expect_usd: tot.expected, expect_low_usd: tot.low, expect_high_usd: tot.high, apr, warnings,
-             placed: unknown ? 0 : 100, src, asOf: src === "jpn" ? X.fetched : X.ts, opts: Object.assign({}, DEFAULTS, { n: n || null }) };
+             placed: unknown ? 0 : 100, src, asOf: X ? (src === "jpn" ? X.fetched : X.ts) : null, opts: Object.assign({}, DEFAULTS, { n: n || null }) };
   }
 
   /** What your CURRENT votes are expected to earn over the same window, with the same model and dial (the private

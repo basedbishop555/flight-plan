@@ -388,22 +388,22 @@ const lockAero = L => Number(ethers.formatUnits(L.staked, 18));
 const totalAero = () => S.locks.reduce((n, L) => n + lockAero(L), 0);
 const openTs = () => { const now = Date.now() / 1000, nx = S.locks.map(L => L.next).filter(Boolean); return Math.max(nx.length ? Math.min(...nx) : now, now); };
 /* ---------- the strategy dial: presets move four sliders; any drag = Custom; the split recalculates ---------- */
-/* 11/6/2026: two "pure" presets from friends' tools replace Aggressive (our copy of saero.org's method). Their splits
-   come from the outside method itself (planner.js external()); the knobs move to the closest match to that method, the
-   Pools knob changes how many of JPN's picks you take, and turning any other knob switches to Custom (our model). */
+/* 11/6/2026: two "pure" presets from friends' tools (JPN's screener, NYCypher's saero.org). Their splits come from the
+   outside method itself (planner.js external()); the knobs move to the closest match to that method, the Pools knob
+   changes how many of JPN's picks you take, and turning any other knob switches to Custom (our model). Aggressive (one
+   pool per lock, our model of saero.org's method) came back the same evening ("a fun option to test"). */
 const PRESETS = {
   steady:     { n: 0, memory: 0.25, trust: false, caution: 1.4, streams: 1 },
   balanced:   { n: 0, memory: 0.5,  trust: false, caution: 1,   streams: 1 },
+  aggressive: { n: 1, memory: 0,    trust: false, caution: 1,   streams: 1 },
   jpn:        { n: 0, memory: 0.75, trust: false, caution: 1,   streams: 1, src: "jpn" },     // his reads lean on 6-48h fees, crowd x0.85 on the apps' top 5, incentives ahead in full
   cypher:     { n: 0, memory: 0,    trust: false, caution: 1,   streams: 1, src: "cypher" },  // his 4-day fee read, incentives in full
 };
-const OLD_AGGRESSIVE = { n: 1, memory: 0, trust: false, caution: 1, streams: 1 };
-const PRESET_NAME = { steady: "Steady", balanced: "Balanced", jpn: "JPN's picks", cypher: "Cypher's picks", custom: "Custom" };
-const PRESET_BTN = { steady: "Steady", balanced: "Balanced", jpn: "JPN", cypher: "Cypher", custom: "Custom" };
+const PRESET_NAME = { steady: "Steady", balanced: "Balanced", aggressive: "Aggressive", jpn: "JPN's picks", cypher: "Cypher's picks", custom: "Custom" };
+const PRESET_BTN = { steady: "Steady", balanced: "Balanced", aggressive: "Aggressive", jpn: "JPN", cypher: "Cypher", custom: "Custom" };
 function loadDial() {
   let d = null; try { d = JSON.parse(store.get("dial", "null")); } catch (e) {}
   if (!d || typeof d !== "object") { d = { ...PRESETS.balanced }; const old = Number(store.get("pools", 0)) || 0; if (old) d.n = old; }
-  if (!d.src && Object.entries(OLD_AGGRESSIVE).every(([k, x]) => d[k] === x)) d = { ...PRESETS.cypher, baseOnly: d.baseOnly };   // old Aggressive -> Cypher's picks
   const v = { n: Math.max(0, Math.min(10, Math.round(Number(d.n) || 0))), memory: clamp(d.memory, 0, 1, 0.5), trust: !!d.trust, caution: clamp(d.caution, 0, 2, 1), streams: clamp(d.streams, 0, 1, 1), baseOnly: !!d.baseOnly,
               src: d.src === "jpn" || d.src === "cypher" ? d.src : null };
   v.preset = matchPreset(v); return v;
@@ -412,7 +412,7 @@ function clamp(x, lo, hi, dflt) { x = Number(x); return Number.isFinite(x) ? Mat
 function matchPreset(v) { if (v.src) return v.src; for (const [k, q] of Object.entries(PRESETS)) if (!q.src && q.n === v.n && Math.abs(q.memory - v.memory) < 1e-9 && q.trust === v.trust && Math.abs(q.caution - v.caution) < 1e-9 && Math.abs(q.streams - v.streams) < 1e-9) return k; return "custom"; }
 function setDial(v) { S.dial = { ...v, preset: matchPreset(v) }; store.set("dial", JSON.stringify(S.dial)); replan(); render(); }
 const dialOpts = () => ({ n: S.dial.n || null, memory: S.dial.memory, trust: S.dial.trust, caution: S.dial.caution, streams: S.dial.streams, baseOnly: !!S.dial.baseOnly });
-const perLock = () => (S.dial.n === 1 || S.dial.src === "cypher") && S.locks.length > 1;   // Cypher's advice is sized per lock
+const perLock = () => (S.dial.n === 1 && S.locks.length > 1) || (S.dial.src === "cypher" && S.locks.length > 0);   // Cypher's advice is per lock
 /* Backtest calibration (data/backtest.json, 11/5/2026). Replayed on past scans, forecasts barely predicted payouts, so
    each setting's expected dollars are pulled toward what that setting typically paid: per 1k AERO,
    shown = rm + b x (forecast - fm), where fm / rm are the setting's typical forecast and payout and b how far its
@@ -442,8 +442,114 @@ function calib(pl) {
   pl.apr = ex0 ? pl.apr * pl.expect_usd / ex0 : pl.apr; pl.cal = f;
   return pl;
 }
+/* ---------- Cypher's picks, exactly (11/6/2026 pm: "exactly what his app would pick across all networks and the
+   exact number of pools"). saero.org's own planner, loaded from his site into a sandboxed frame (cypher-frame.html:
+   scripts only, no access to this page, your wallet, storage or the network), runs on THESE locks with his own data
+   (data/saero/, copied from saero.org every hour) and the same lock details his site reads: amount, every network's
+   allocations, cooldown. His answer comes back as plain data and is checked before use. Until it's back (or if it
+   fails) the split is his advice for the nearest lock size, from the scanner's hourly run. ---------- */
+const CY = { ready: null, data: null, seq: 0, wait: {}, res: null, key: "", busy: false, err: null };
+const CY_NET = { 8453: "base", 10: "optimism", 1: "ethereum", 42161: "arbitrum", 57073: "ink", 4663: "robinhood", 5042: "arc" };
+const CY_POOL = /^(base|optimism|ethereum|arbitrum|ink|robinhood|arc):0x[0-9a-f]{40}$/;
+function cyFrame() {
+  if (CY.ready) return CY.ready;
+  CY.ready = new Promise((ok, no) => {
+    const f = document.createElement("iframe");
+    f.setAttribute("sandbox", "allow-scripts"); f.src = "cypher-frame.html"; f.hidden = true; f.title = "saero.org planner (sandboxed)";
+    const t = setTimeout(() => { CY.ready = null; no(new Error("saero.org's planner frame didn't start")); }, 20000);
+    window.addEventListener("message", e => {
+      if (e.source !== f.contentWindow) return;
+      const m = e.data || {};
+      if (m.type === "frame-ready") { clearTimeout(t); ok(f); }
+      else if (m.type === "advice" && CY.wait[m.id]) { CY.wait[m.id](m); delete CY.wait[m.id]; }
+    });
+    document.body.appendChild(f);
+  });
+  return CY.ready;
+}
+async function cyData() {
+  if (CY.data && Date.now() / 1000 - CY.data.got < 1200) return CY.data;
+  const v = Math.floor(Date.now() / 600000);
+  const [sum, cal, meta] = await Promise.all(["pools", "calendar", "meta"].map(n => fetch(`data/saero/${n}.json?v=${v}`).then(r => { if (!r.ok) throw new Error(`saero data ${n}: ${r.status}`); return r.json(); })));
+  CY.data = { sum, cal, meta, got: Date.now() / 1000 };
+  return CY.data;
+}
+// a lock in saero.org's own shape (his wallet.js): amount, allocs [{pool "network:gauge", weight}] on every network read
+// (1% specks left out, as his site does), elsewhere = sAERO on a network that couldn't be read, per-network cooldowns
+function cyLock(L) {
+  const amt = lockAero(L), allocs = [];
+  for (const [g, v] of Object.entries(L.current || {})) { const w = Number(ethers.formatUnits(v, 18)); if (w > 0.01 * amt) allocs.push({ pool: "base:" + g, weight: w }); }
+  for (const lf of L.leaf || []) if (!lf.unread) for (const [g, w] of Object.entries(lf.allocs)) if (w > 0.01 * amt) allocs.push({ pool: lf.chain + ":" + g, weight: w });
+  const chains = [{ chain: "base", budget: Number(ethers.formatUnits(L.booked || 0n, 18)), lastAllocated: L.la || null, cooldownEnd: L.next || null }]
+    .concat((L.leaf || []).filter(lf => !lf.unread).map(lf => ({ chain: lf.chain, budget: lf.budget, lastAllocated: lf.la, cooldownEnd: lf.next })));
+  const cools = chains.filter(c => c.budget > 0 && c.cooldownEnd).map(c => c.cooldownEnd), las = chains.map(c => c.lastAllocated || 0);
+  return { id: String(L.id), name: "#" + L.id, amount: amt, permanent: !!L.permanent, lastAllocated: Math.max(...las) || null,
+           cooldownEnd: cools.length ? Math.max(...cools) : (L.next || null), chains, elsewhere: (L.leaf || []).filter(lf => lf.unread).reduce((a, lf) => a + lf.budget, 0),
+           allocs: allocs.sort((a, b) => b.weight - a.weight) };
+}
+// what each lock holds on its other networks (his site reads these too): budget from the Root Voter on Base, then the
+// LeafVoter (same address on every network) on that network; a network that doesn't answer counts as `elsewhere`
+async function readLeaf(locks) {
+  const SN = window.SweepNets, todo = locks.filter(L => L.elsewhere.length);
+  if (!todo.length) return;
+  const bq = todo.flatMap(L => L.elsewhere.map(c => ({ L, c, call: { target: C.VOTER, callData: I.voter.encodeFunctionData("allocationChainAmounts", [L.id, c]) } })));
+  const br = await multicall(bq.map(x => x.call));
+  const by = {};
+  bq.forEach((x, i) => { const v = dec(I.voter, "allocationChainAmounts", br[i]); x.L.leaf = x.L.leaf || []; const lf = { chain: CY_NET[x.c] || "chain" + x.c, cid: x.c, budget: v ? Number(ethers.formatUnits(v[0], 18)) : 0, allocs: {}, la: null, next: null, unread: true }; x.L.leaf.push(lf); (by[x.c] = by[x.c] || []).push([x.L, lf]); });
+  await Promise.all(Object.entries(by).map(async ([cid, list]) => {
+    const net = SN && SN.byId(Number(cid));
+    if (!net || !CY_NET[cid]) return;
+    try {
+      const r1 = await SN.multicall(net, list.flatMap(([L]) => [{ target: C.LEAF, callData: I.leaf.encodeFunctionData("tokenStates", [L.id]) }, { target: C.LEAF, callData: I.leaf.encodeFunctionData("allocatedGauges", [L.id]) }]));
+      const q = [];
+      list.forEach(([L, lf], k) => {
+        const ts = dec(I.leaf, "tokenStates", r1[2 * k]), gs = dec(I.leaf, "allocatedGauges", r1[2 * k + 1]);
+        if (!ts || !gs) return;
+        lf.la = Number(ts[1]) || null; lf.next = lf.la ? lf.la + S.cool : null; lf.unread = false;
+        for (const g of gs[0]) q.push([lf, g.toLowerCase(), { target: C.LEAF, callData: I.leaf.encodeFunctionData("allocations", [L.id, g]) }]);
+      });
+      const r2 = q.length ? await SN.multicall(net, q.map(x => x[2])) : [];
+      r2.forEach((r, i) => { const v = dec(I.leaf, "allocations", r); if (v) q[i][0].allocs[q[i][1]] = Number(ethers.formatUnits(v[0], 18)); });
+    } catch (e) { log(`${NET[cid] || "chain " + cid} allocations unreadable (${e.message}); counted the way saero.org does.`, "warn"); }
+  }));
+}
+const cyKey = () => S.locks.map(L => L.id + ":" + L.read).join(",") + "|" + (S.dial && S.dial.baseOnly ? "base" : "all");
+async function cyAdvise() {
+  const key = cyKey(); CY.busy = true; CY.err = null;
+  try {
+    const [f, D] = await Promise.all([cyFrame(), cyData()]);
+    const id = ++CY.seq;
+    const m = await new Promise((ok, no) => {
+      CY.wait[id] = ok; setTimeout(() => { delete CY.wait[id]; no(new Error("saero.org's planner took too long")); }, 30000);
+      f.contentWindow.postMessage({ type: "advise", id, v: D.meta.code_v, sum: D.sum, cal: D.cal, locks: S.locks.map(cyLock), now: Math.floor(Date.now() / 1000), nets: S.dial.baseOnly ? ["base"] : null }, "*");
+    });
+    if (m.error) throw new Error(m.error);
+    const byName = {};
+    for (const e of m.locks || []) {
+      const rows = (e.best || []).filter(r => CY_POOL.test(r.pool) && r.pct > 0 && r.pct <= 100);
+      const tot = rows.reduce((a, r) => a + r.pct, 0);
+      if (!rows.length || rows.length !== (e.best || []).length || tot < 99 || tot > 101) continue;     // anything odd: that lock falls back
+      const pc = P.steps(rows.map(r => r.pct), 1);
+      byName[e.name] = { picks: rows.map((r, i) => { const [chain, gauge] = r.pool.split(":"); return { gauge, chain, pct: pc[i], name: r.name, known: true, kept: r.kept }; }).filter(x => x.pct > 0),
+                         move: e.wouldMove, n: e.poolsN, best: e.bestUsdPerDay, stay: e.stayUsdPerDay, gain: e.gain, state: e.state };
+    }
+    CY.res = { at: Date.now() / 1000, dataAt: D.meta.data_at, byName }; CY.key = key;
+    log(`Cypher's picks: saero.org's planner ran on ${Object.keys(byName).length} of ${S.locks.length} lock${S.locks.length === 1 ? "" : "s"}.`);
+  } catch (e) { CY.err = e.message || String(e); CY.key = key; CY.res = null; log("Cypher's picks: " + CY.err + "; showing his advice for the nearest lock size.", "warn"); }
+  CY.busy = false;
+  if (S.dial && S.dial.src === "cypher") { replan(); render(); }
+}
+// his split for one lock (null = use the nearest-size fallback); known = the gauge is on our scanner's list (checked here)
+function cyPicks(L) {
+  if (!S.dial || S.dial.src !== "cypher" || !CY.res || CY.key !== cyKey()) return null;
+  const a = CY.res.byName["#" + L.id]; if (!a) return null;
+  const known = new Set(S.D.gauges.filter(g => g.gauge).map(g => (g.chain || "base") + ":" + g.gauge.toLowerCase()));
+  for (const k of (S.D.ext && S.D.ext.jpn && S.D.ext.jpn.rows) || []) if (k[6]) known.add((k[7] || "base") + ":" + k[0].toLowerCase());
+  return a.picks.map(p => ({ ...p, known: known.has(p.chain + ":" + p.gauge) || p.kept }));
+}
 function replan() {
   if (!S.dial) S.dial = loadDial();
+  if (S.dial.src === "cypher" && S.locks.length && cyKey() !== CY.key && !CY.busy) cyAdvise();   // his planner on these locks (async; replans when back)
   for (const L of S.locks) { L.dry = null; L.call = null; L.plan = null; if (!L.sent) L.status = ""; }
   S.plan = null;
   if (!S.locks.length || totalAero() <= 0) return;
@@ -451,7 +557,7 @@ function replan() {
   if (perLock()) {
     const taken = {}, legs = [], warnings = new Set(); let usd = 0, lo = 0, hi = 0, placed = 100, g0 = 0, g1 = 0;
     for (const L of S.locks.slice().sort((a, b) => lockAero(b) - lockAero(a))) {    // biggest lock picks first
-      const raw = S.dial.src ? P.external(S.D, lockAero(L), Math.max(now, L.next || now), S.live, S.dial.src, S.dial.n || null)
+      const raw = S.dial.src ? P.external(S.D, lockAero(L), Math.max(now, L.next || now), S.live, S.dial.src, S.dial.n || null, !!S.dial.baseOnly, cyPicks(L))
         : P.plan(S.D, lockAero(L), Math.max(now, L.next || now), 1, S.live, { ...dialOpts(), taken: { ...taken } });
       for (const l of raw.legs) g0 += l.expect_usd + (l.cost || 0);
       const pl = calib(raw); for (const l of pl.legs) g1 += l.expect_usd + (l.cost || 0);
@@ -461,7 +567,7 @@ function replan() {
     const aero = totalAero(), apr = aero && S.D.px ? usd / (aero * S.D.px) * 365 / (S.D.consts.H47 / 86400) * 100 : 0;
     S.plan = { legs, start: openTs(), expect_usd: usd, expect_low_usd: lo, expect_high_usd: hi, apr, warnings: [...warnings], placed, perLock: true, cal: g0 > 0 ? g1 / g0 : 1, src: S.dial.src || null };
   } else {
-    S.plan = calib(S.dial.src ? P.external(S.D, totalAero(), openTs(), S.live, S.dial.src, S.dial.n || null) : P.plan(S.D, totalAero(), openTs(), null, S.live, dialOpts()));
+    S.plan = calib(S.dial.src ? P.external(S.D, totalAero(), openTs(), S.live, S.dial.src, S.dial.n || null, !!S.dial.baseOnly) : P.plan(S.D, totalAero(), openTs(), null, S.live, dialOpts()));
     for (const L of S.locks) L.plan = S.plan;
   }
 }
@@ -587,7 +693,7 @@ function renderHero() {
   if (S.account) pills.push(S.locks.some(owns) ? `<span class="tag ok">Yours · can sign</span>` : `<span class="tag">Not your locks · read-only</span>`);
   else pills.push(`<span class="tag">Read-only · connect to sign</span>`);
   const sv = p ? stayVerdict() : null;
-  if (sv && !sv.unknown) pills.push(sv.move ? `<span class="tag ok">Move: +${esc(money(sv.gain))}</span>` : `<span class="tag">Staying is fine</span>`);
+  if (sv && !sv.unknown && !(S.dial && S.dial.src === "cypher")) pills.push(sv.move ? `<span class="tag ok">Move: +${esc(money(sv.gain))}</span>` : `<span class="tag">Staying is fine</span>`);
   if (p) {
     const crowd = p.legs.filter(l => l.row.rank48 && l.row.rank48 <= 5).length; if (crowd) pills.push(`<span class="tag warn">${crowd} crowded</span>`);
     const fad = p.legs.filter(l => l.row.fading).length; if (fad) pills.push(`<span class="tag warn">${fad} fading</span>`);
@@ -604,11 +710,24 @@ const jpnRank = g => { const X = S.D && S.D.ext && S.D.ext.jpn; if (!X || !g) re
 function extNote() {
   const src = S.dial && S.dial.src, X = src && S.D && S.D.ext && S.D.ext[src];
   if (!src) return "";
-  if (!X) return `<div class="banner warn small" style="margin:0 0 10px">${src === "jpn" ? "JPN's" : "Cypher's"} picks aren't in this hour's data. Try Balanced, or check back after the next hourly update.</div>`;
-  const tail = ` <b>Pure:</b> none of our rules apply; our model only prices the split so every preset's dollars compare. The knobs show the closest match to the method${src === "jpn" ? "; the Pools knob changes how many of his picks you take" : ""}, and turning ${src === "jpn" ? "any other" : "any"} knob switches to Custom (our model). Base pools only, so Flight Plan can sign it. <a href="docs.html#dial">More</a>`;
-  if (src === "jpn") return `<div class="banner small" style="margin:0 0 10px"><b>JPN's picks</b>: the top ${S.dial.n || X.n} Base pools from JPN's <a href="${esc(X.url)}" target="_blank" rel="noopener">Aero v3 Allocation Screener</a> on Dune, weighted by his score (mid and low cases after dilution, steadier fees, x0.85 for pools the allocator apps already rank top 5). His read: ${esc(ago(X.fetched))}.${tail}</div>`;
-  const rungs = S.plan && S.plan.perLock ? [...new Set(S.locks.map(L => L.plan && L.plan.legs[0] && L.plan.legs[0].ext ? L.plan.legs[0].ext.rung : null).filter(Boolean))].sort((a, b) => a - b) : (S.plan && S.plan.legs[0] && S.plan.legs[0].ext ? [S.plan.legs[0].ext.rung] : []);
-  return `<div class="banner small" style="margin:0 0 10px"><b>Cypher's picks</b>: what NYCypher's <a href="${esc(X.url)}" target="_blank" rel="noopener">saero.org</a> advises for a ${rungs.map(fmtA).join(" / ") || "similar"} AERO lock (nearest size we ask it about), from his own planner, read ${esc(ago(X.ts))}.${tail}</div>`;
+  const nets = S.dial.baseOnly
+    ? (src === "cypher" ? "Base only (your switch) = his own Base setting: new picks go to Base pools, but AERO a lock already has on another network may stay there, as his site advises; such a lock gets a copy button for the Aero app." : "Base only (your switch), so Flight Plan can sign it.")
+    : "Every network. A split that uses a network other than Base gets a copy button for the Aero app; Flight Plan signs Base only. Turn on Base only to keep it signable here.";
+  if (src === "jpn") {
+    if (!X) return `<div class="banner warn small" style="margin:0 0 10px">JPN's picks aren't in this hour's data. Try Balanced, or check back after the next hourly update.</div>`;
+    return `<div class="banner small" style="margin:0 0 10px"><b>JPN's picks</b>: the top ${S.dial.n || X.n} pools from JPN's <a href="${esc(X.url)}" target="_blank" rel="noopener">Aero v3 Allocation Screener</a> on Dune, weighted by his score (mid and low cases after dilution, steadier fees, x0.85 for pools the allocator apps already rank top 5). His read: ${esc(ago(X.fetched))}. ${nets} <b>Pure:</b> none of our rules apply; our model only prices the split so every preset's dollars compare. The Pools knob changes how many of his picks you take; turning any other knob switches to Custom (our model). <a href="docs.html#friends">More</a></div>`;
+  }
+  const exact = CY.res && CY.key === cyKey() ? S.locks.filter(L => CY.res.byName["#" + L.id]) : [];
+  const head = exact.length
+    ? `what NYCypher's <a href="https://www.saero.org/" target="_blank" rel="noopener">saero.org</a> picks for ${exact.length === S.locks.length ? (S.locks.length === 1 ? "this lock" : "each of these locks") : `${exact.length} of these ${S.locks.length} locks`}: his own planner, run in a sealed-off frame on your locks' real state (amount, every network's allocations, cooldown) with his data from ${esc(ago(CY.res.dataAt))}, so the pools and the number of pools are his.`
+    : CY.busy ? `loading NYCypher's <a href="https://www.saero.org/" target="_blank" rel="noopener">saero.org</a> planner to run on your locks; meanwhile, his advice for the nearest lock size.`
+    : `his <a href="https://www.saero.org/" target="_blank" rel="noopener">saero.org</a> advice for the nearest lock size (his planner couldn't run on your locks just now${CY.err ? ": " + esc(CY.err) : ""}).`;
+  let verdict = "";
+  if (exact.length) {
+    const mv = exact.filter(L => CY.res.byName["#" + L.id].move), gain = mv.reduce((a, L) => a + (CY.res.byName["#" + L.id].gain || 0), 0);
+    verdict = mv.length ? ` <b>His call: move ${mv.length === exact.length ? (exact.length === 1 ? "now" : "all " + exact.length) : mv.length + " of " + exact.length}</b>${gain > 0 ? ` (about +${esc(money(gain))} a day)` : ""}.` : ` <b>His call: stay</b> (the gain doesn't clear his bar right now); this is the split he'd use when you do move.`;
+  }
+  return `<div class="banner small" style="margin:0 0 10px"><b>Cypher's picks</b>: ${head}${verdict} ${nets} <b>Pure:</b> none of our rules apply; our model only prices it. Turning any knob switches to Custom (our model). <a href="docs.html#friends">More</a></div>`;
 }
 function poolRow(l) {
   const r = l.row, col = typeColor(r.type);
@@ -657,7 +776,7 @@ function drawKnob(k) {
 }
 function dialHtml() {
   return `<div class="dial"><div class="seglabel">Strategy</div>
-    <div class="seg" id="presets">${["steady", "balanced", "jpn", "cypher", "custom"].map(k => `<button type="button" data-preset="${k}" title="${esc(PRESET_NAME[k])}">${PRESET_BTN[k]}</button>`).join("")}</div>
+    <div class="seg" id="presets">${["steady", "balanced", "aggressive", "jpn", "cypher", "custom"].map(k => `<button type="button" data-preset="${k}" title="${esc(PRESET_NAME[k])}">${PRESET_BTN[k]}</button>`).join("")}</div>
     <div class="knobs">${KNOBS.map(([k, name, lo, hi, st]) => `<div class="knob"><b id="v-${k}"></b><div class="kd" id="k-${k}" role="slider" tabindex="0" aria-label="${name}" aria-valuemin="${lo}" aria-valuemax="${hi}">${knobSvg()}</div><span>${name}</span><input type="range" class="hidden" id="d-${k}" min="${lo}" max="${hi}" step="${st}" tabindex="-1" aria-hidden="true"></div>`).join("")}</div>
     <div class="dialfoot"><span style="display:inline-flex;gap:12px;flex-wrap:wrap"><label class="sw"><input type="checkbox" id="d-trust"> Trust spikes</label><label class="sw"><input type="checkbox" id="d-base"> Base only</label></span><a href="docs.html#dial">What each dial does</a></div></div>`;
 }
@@ -683,7 +802,7 @@ function updateDial() {
   const d = S.dial;
   $("d-n").value = d.n; $("d-memory").value = Math.round(d.memory * 100); $("d-trust").checked = d.trust; $("d-base").checked = !!d.baseOnly; $("d-caution").value = Math.round(d.caution * 100); $("d-streams").value = Math.round(d.streams * 100);
   for (const [k] of KNOBS) drawKnob(k);
-  document.querySelectorAll("#presets button").forEach(b => { b.classList.toggle("on", b.dataset.preset === d.preset); b.classList.toggle("agg", b.dataset.preset === "jpn" || b.dataset.preset === "cypher"); });
+  document.querySelectorAll("#presets button").forEach(b => { b.classList.toggle("on", b.dataset.preset === d.preset); b.classList.toggle("agg", ["aggressive", "jpn", "cypher"].includes(b.dataset.preset)); });
 }
 function renderPlan() {
   const el = $("plan");
@@ -710,7 +829,7 @@ function renderPlan() {
   else if (mine.length && sent.length === mine.length) cta = `<button class="cta gbtn ggreen" disabled>Allocated ✓</button><div class="csub">${sent.length} lock${sent.length === 1 ? "" : "s"} allocated this window</div>`;
   else if (mine.length && mine.some(L => L.dry && L.dry.ok && !isOpen(L))) cta = `<button class="cta gbtn gviolet" disabled>Opens ${esc(fmtTs(Math.min(...mine.filter(L => !isOpen(L)).map(L => L.next))))}</button><div class="csub">Dry run OK · the Allocate button unlocks when the window opens</div>`;
   else { const ok = S.locks.filter(L => L.dry && L.dry.ok).length; cta = `<button class="cta gbtn gviolet" id="cta" data-act="copy">Copy the split for the Aero app</button><div class="csub">${ok} of ${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} dry-ran OK · ${S.account ? "connect the wallet that owns these locks to sign here, or" : "connect to sign here, or"} allocate these percentages in the Aero app</div>`; }
-  const sv = stayVerdict(), pctTxt2 = x => !isFinite(x) ? "new allocation" : (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(0) + "%";
+  const sv = S.dial.src === "cypher" ? null : stayVerdict(), pctTxt2 = x => !isFinite(x) ? "new allocation" : (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(0) + "%";
   const stayBox = !sv ? "" : sv.unknown
     ? `<div class="banner small" style="margin:0 0 10px"><b>Move or stay:</b> can't compare: ${Math.round(sv.share * 100)}% of your Base allocation sits in pools this page doesn't price (retired or off the scan), or every lock allocates on another network.</div>`
     : `<div class="banner ${sv.move ? "ok" : ""} small" style="margin:0 0 10px"><b>${sv.move ? "Worth moving" : "Staying is about as good"}.</b> Your current allocation: ${money(sv.stayUsd)} this window · this split: ${money(sv.planUsd)} (<b class="num">${sv.gain >= 0 ? "+" : "−"}${money(Math.abs(sv.gain))}</b>, ${pctTxt2(sv.pct)}).${sv.move ? "" : ` The bar to move is +${MOVE_PCT}% and +${money(MOVE_USD_DAY * S.D.consts.H47 / 86400)} a window after about ${money(sv.fees)} in network fees; an allocation keeps earning until you change it, so staying costs nothing.`}${sv.parked > 1 ? ` ${fmtA(sv.parked)} AERO isn't allocated at all right now.` : ""}${sv.elsewhere > 0 ? ` Locks allocated on other networks are left out of this comparison.` : ""} <a href="docs.html#stay">How</a></div>`;
@@ -722,7 +841,8 @@ function renderPlan() {
   el.querySelectorAll("[data-copy]").forEach(c => c.addEventListener("click", () => copy(c.dataset.copy)));
   const c = $("cta"); if (c) c.addEventListener("click", () => c.dataset.act === "dry" ? dryAll() : c.dataset.act === "send" ? sendAll() : copy(splitText()));
 }
-function splitText() { return `Flight Plan split (${PRESET_NAME[S.dial.preset]}), window from ${fmtTs(S.plan.start)}:\n` + (S.plan.perLock ? S.locks.map(L => `#${L.id}: ` + L.plan.legs.map(l => `${l.pct}% ${l.label}${l.chain && l.chain !== "base" ? " (" + l.chain_name + ")" : ""}`).join(", ")).join("\n") : S.plan.legs.map(l => `${l.pct}% ${l.label}`).join("\n")); }
+const legsText = legs => legs.map(l => `${l.pct}% ${l.label}${l.chain && l.chain !== "base" ? " (" + (l.chain_name || l.chain) + ")" : ""}`).join(", ");
+function splitText() { return `Flight Plan split (${PRESET_NAME[S.dial.preset]}), window from ${fmtTs(S.plan.start)}:\n` + (S.plan.perLock ? S.locks.map(L => `#${L.id}: ` + L.plan.legs.map(l => `${l.pct}% ${l.label}${l.chain && l.chain !== "base" ? " (" + l.chain_name + ")" : ""}`).join(", ")).join("\n") : S.plan.legs.map(l => `${l.pct}% ${l.label}${l.chain && l.chain !== "base" ? " (" + (l.chain_name || l.chain) + ")" : ""}`).join("\n")); }
 function renderLocks() {
   const el = $("locks");
   if (!S.locks.length) { el.classList.add("hidden"); return; }
@@ -740,7 +860,7 @@ function renderLocks() {
   el.querySelectorAll("[data-dry]").forEach(b => b.addEventListener("click", () => dryRun(S.locks.find(L => L.id === Number(b.dataset.dry)))));
   el.querySelectorAll("[data-send]").forEach(b => b.addEventListener("click", () => send(S.locks.find(L => L.id === Number(b.dataset.send)))));
   el.querySelectorAll("[data-copy]").forEach(c => c.addEventListener("click", () => copy(c.dataset.copy)));
-  el.querySelectorAll("[data-copyoff]").forEach(c => c.addEventListener("click", e => { e.preventDefault(); const L = S.locks.find(x => x.id === Number(c.dataset.copyoff)), o = L && offPick(L); if (o) copy(`Lock #${L.id}: 100% ${o.label} on ${o.chain_name} (allocate it in the Aero app)`); }));
+  el.querySelectorAll("[data-copyoff]").forEach(c => c.addEventListener("click", e => { e.preventDefault(); const L = S.locks.find(x => x.id === Number(c.dataset.copyoff)), o = L && offPick(L); if (o) copy(`Lock #${L.id}: ${legsText(planFor(L).legs)} (allocate it in the Aero app)`); }));
 }
 const voteTxt = x => x.vote != null && Math.abs(x.vote - x.apr) >= 0.005 ? `allocated part ${(x.vote * 100).toFixed(1)}%` : "";
 // "Now" looks back (Earned: the last 12 hours) or forward (Forecast: what the current votes pay at today's pool rates,
@@ -866,7 +986,7 @@ function renderWins() {
 }
 // ---------- "How each strategy did": every preset replayed on past scans, no look-ahead (data/backtest.json) ----------
 const BT_SIZES = [["1000", "1k"], ["30000", "30k"], ["100000", "100k"], ["1000000", "1M"]];
-const BT_ORDER = ["balanced", "steady", "jpn", "cypher", "aggressive", "aggressive_base", "n10", "n6", "n3", "n1", "spike12"];
+const BT_ORDER = ["balanced", "steady", "aggressive", "jpn", "cypher", "aggressive_base", "n10", "n6", "n3", "n1", "spike12"];
 const BT_NET = { optimism: "OP", arbitrum: "Arbitrum", ethereum: "Ethereum", ink: "Ink", robinhood: "Robinhood", arc: "Arc" };
 function renderTested() {
   const el = $("tested"), B = S.BT;
@@ -890,7 +1010,7 @@ function renderTested() {
     <div class="seg" id="btsize">${BT_SIZES.filter(x => B.rows[x[0]]).map(([k, t]) => `<button type="button" data-s="${k}" class="${S.btSize === k ? "on" : ""}">${t} AERO</button>`).join("")}</div>
     <p class="small mut" style="margin:0 0 8px">Each strategy planned with only what was known at the time, every 3 hours from ${esc(new Date(B.first * 1000).toLocaleDateString([], { month: "short", day: "numeric" }))} to ${esc(new Date(B.last * 1000).toLocaleDateString([], { month: "short", day: "numeric" }))}, then paid from what the pools really paid over the next 47 hours (real pile-ons in). Dollars per 1,000 AERO per window.</p>
     <div class="tw"><table><tr><th>Strategy</th><th class="num">Median<br><small>middle half</small></th><th class="num">Worst to best</th><th class="num">Beat Balanced</th></tr>${rows}</table></div>
-    <p class="small mut2" style="margin:8px 0 0">"Beat Balanced" counts separate 2-day stretches. ${nets ? `Best single pool on another network beat Base's best after costs: ${esc(nets)} of the time.` : ""}${thin.length ? ` ${esc(thin.join(", "))} were scanned once a day until Nov 5, so their figures are rough.` : ""} Forecasts barely predicted payouts here, so expected dollars on this page are pulled toward what each setting typically paid per 1k AERO: Balanced ${typ(P0.balanced)}, Steady ${typ(P0.steady)}${S.dial && S.dial.preset === "custom" ? `, your Custom dials ${typ(cm)}` : ", Custom by the nearest tested dial setting"}; JPN's and Cypher's picks use Balanced's. Their two rows are graded only from picks recorded live (since Nov 6 for Cypher), so they fill in over time. A small sample, refreshed every 3 hours. <a href="docs.html#tested">How it's tested</a></p></div>`;
+    <p class="small mut2" style="margin:8px 0 0">"Beat Balanced" counts separate 2-day stretches. ${nets ? `Best single pool on another network beat Base's best after costs: ${esc(nets)} of the time.` : ""}${thin.length ? ` ${esc(thin.join(", "))} were scanned once a day until Nov 5, so their figures are rough.` : ""} Forecasts barely predicted payouts here, so expected dollars on this page are pulled toward what each setting typically paid per 1k AERO: Balanced ${typ(P0.balanced)}, Steady ${typ(P0.steady)}, Aggressive ${typ(P0.aggressive)}${S.dial && S.dial.preset === "custom" ? `, your Custom dials ${typ(cm)}` : ", Custom by the nearest tested dial setting"}; JPN's and Cypher's picks use Balanced's. Their two rows are graded only from picks recorded live (since Nov 6 for Cypher), so they fill in over time. A small sample, refreshed every 3 hours. <a href="docs.html#tested">How it's tested</a></p></div>`;
   el.querySelectorAll("#btsize button").forEach(b => b.addEventListener("click", () => { S.btSize = b.dataset.s; renderTested(); }));
 }
 function renderCrowd() {
@@ -917,7 +1037,8 @@ async function dryRun(L) {
   const off = offPick(L);
   if (off) {
     L.dry = { ok: false, offbase: true };
-    L.status = `<div class="banner warn"><b>Allocate this in the Aero app (${esc(off.chain_name)}):</b> #${L.id} → 100% ${esc(off.label)}. Flight Plan signs Base allocations only, so it can't rehearse or send this one. Expected ${money(off.expect_usd)} after about ${money(off.cost)} in ${esc(off.chain_name)} network costs; pool allocations read ${off.row.age_h == null ? "at the last scan" : off.row.age_h + "h ago"}. <a href="#" data-copyoff="${L.id}">Copy it</a> · <a href="docs.html#networks">Why</a></div>`;
+    const pl = planFor(L), nets = [...new Set(pl.legs.map(l => l.chain_name || "Base"))];
+    L.status = `<div class="banner warn"><b>Allocate this in the Aero app (${esc(nets.join(" + "))}):</b> #${L.id} → ${esc(legsText(pl.legs))}. Flight Plan signs Base allocations only, so it can't rehearse or send a split that uses another network. Expected ${money(pl.expect_usd)}${pl.legs.some(l => l.cost) ? ` after about ${money(pl.legs.reduce((a, l) => a + (l.cost || 0), 0))} in network costs` : ""}. <a href="#" data-copyoff="${L.id}">Copy it</a> · <a href="docs.html#networks">Why</a></div>`;
     return render();
   }
   if (L.booked === 0n && L.elsewhere.length) {
@@ -1377,6 +1498,7 @@ async function lookup(raw) {
     const ids = await discover(a);
     const all = ids.length ? await readLocks(ids) : [];
     S.locks = all.filter(L => L.staked > 0n); S.empty = all.length - S.locks.length;
+    await readLeaf(S.locks).catch(e => log("Other-network allocations unavailable: " + e.message, "warn"));
     for (const L of S.locks) { const h = store.get("sent:" + L.id); if (h && L.la && Date.now() / 1000 - L.la < 600) L.sent = h; }
     S.live = S.locks.length ? await readLive().catch(e => { log("Live pool sizes unavailable, using the last scan: " + e.message, "warn"); return null; }) : null;
     replan();
