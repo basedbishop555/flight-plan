@@ -135,6 +135,8 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
 .rwh{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut2);font-weight:700;padding:10px 0 4px;border-top:1px solid var(--line2)}
 .rw{display:grid;grid-template-columns:minmax(0,1fr) auto auto minmax(3.2em,auto) minmax(3.6em,auto);gap:0 10px;align-items:baseline;padding:6px 0;font-size:13px;border-top:1px dashed var(--line2)}
 .rw.rwc{white-space:nowrap;font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut2);font-weight:700;padding:2px 0 3px;border-top:0}.rw.rwc>div:not(:first-child){text-align:right}
+/* one grid per table: each row is a subgrid, so the header and every row share the same column widths */
+@supports (grid-template-columns:subgrid){.rtab,.rwt{display:grid}.rtab{grid-template-columns:minmax(0,1fr) auto auto auto auto;column-gap:9px}.rwt{grid-template-columns:minmax(0,1fr) auto auto minmax(3.2em,auto) minmax(3.6em,auto);column-gap:10px}.rtab>.rt,.rwt>.rw{grid-column:1/-1;grid-template-columns:subgrid}}
 .rw .wl{color:var(--fg);font-weight:600;min-width:0}.rw .wl small{color:var(--mut2);font-weight:500}
 .rw .wy{font-weight:800;font-size:14.5px;text-align:right;white-space:nowrap}.rw .wy small{display:block;font-size:11px;font-weight:500;color:var(--mut2)}
 .rw .wa{font-size:13px;font-weight:600;color:var(--mut);text-align:right;white-space:nowrap}
@@ -163,7 +165,7 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
 .hidden{display:none!important}
 #log{font:11.5px/1.45 var(--mono);white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;color:var(--mut)}
-@media (max-width:420px){table{font-size:12px}th,td{padding:5px 3px}.hv{font-size:40px}.ring.big{width:66px;height:66px}.ppct{font-size:23px}.rt,.rw{gap:0 7px}.rt .ty{font-size:17px}.rt .tv{font-size:14px}.rt small{font-size:10px}.wm span{display:none}}
+@media (max-width:420px){table{font-size:12px}th,td{padding:5px 3px}.hv{font-size:40px}.ring.big{width:66px;height:66px}.ppct{font-size:23px}.rt,.rw,.rtab,.rwt{gap:0 7px}.rt .ty{font-size:17px}.rt .tv{font-size:14px}.rt small{font-size:10px}.wm span{display:none}}
 </style></head><body>
 <header class="hdr">
   <a class="wm" href="./"><img src="icons/icon-192.png" alt="">Flight Plan</a>
@@ -943,7 +945,7 @@ const vsTxt = vs => vs == null ? "-" : Math.abs(vs) < 0.5 ? "0%" : (vs >= 0 ? "+
 function rankRows(idxs, thr, compact) {
   const Rk = S.RK, names = { now: "Now", fwd: "Est. next 47h", "2d": "2 days", "7d": "7 days", life: "Lifetime" };
   const head = `<div class="rt rth"><div></div><div>You</div><div>Avg</div><div>vs avg</div><div>Rank</div></div>`;
-  return head + ["now", "fwd", "2d", "7d", "life"].map(k => {
+  return `<div class="rtab">` + head + ["now", "fwd", "2d", "7d", "life"].map(k => {
     const x = rankLine(k, idxs, S.mode, thr);
     if (!x) return `<div class="rt"><div class="p">${names[k]}</div><div class="mut2 small" style="grid-column:2 / 6">${k === "life" ? "valuing claims" : k === "fwd" ? "after the next scan" : "building history"}</div></div>`;
     const wk = x.apr * 1000 * Rk.px / 52, good = x.apr >= x.avg, vt = voteTxt(x), vs = x.avg ? (x.apr / x.avg - 1) * 100 : null;
@@ -954,7 +956,7 @@ function rankRows(idxs, thr, compact) {
       <div class="ta num">${(x.avg * 100).toFixed(1)}%${compact ? "" : `<small>med ${(x.med * 100).toFixed(1)}%</small>`}</div>
       <div class="tv num ${vs == null ? "mut2" : vs >= 0 ? "ok" : "warn"}">${vsTxt(vs)}</div>
       <div class="tk num ${x.top <= 25 ? "ok" : x.top <= 50 ? "acc" : "mut2"}">top ${x.top < 10 ? x.top.toFixed(1) : Math.round(x.top)}%<small title="of ${x.of.toLocaleString()}">#${x.rank.toLocaleString()}</small></div></div>`;
-  }).join("");
+  }).join("") + `</div>`;
 }
 function histRows(ids, thr) {
   const H = S.H;
@@ -966,8 +968,8 @@ function histRows(ids, thr) {
     return new Date(w.wk * 1000).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", timeZone: ET })
       + (w.partial ? ` <small>from ${clock(w.from)}</small>` : w.final && w.to - w.from < 18 * 3600 ? ` <small>${Math.round((w.to - w.from) / 3600)}h read</small>` : "");
   };
-  const head = `<div class="rwh"><span>You vs the average, over time</span><span class="seg tight"><button type="button" data-logv="week" class="${S.logv === "week" ? "on" : ""}">By week</button><button type="button" data-logv="day" class="${S.logv === "day" ? "on" : ""}">By day</button></span></div>
-    <div class="rw rwc"><div>${S.logv === "day" ? "Day" : "Week"}</div><div>You</div><div>Avg</div><div>vs avg</div><div>${S.mode === "wallet" ? "Wallet rank" : "Rank"}</div></div>`;
+  const head = `<div class="rwh"><span>You vs the average, over time</span><span class="seg tight"><button type="button" data-logv="week" class="${S.logv === "week" ? "on" : ""}">By week</button><button type="button" data-logv="day" class="${S.logv === "day" ? "on" : ""}">By day</button></span></div>`;
+  const cols = `<div class="rw rwc"><div>${S.logv === "day" ? "Day" : "Week"}</div><div>You</div><div>Avg</div><div>vs avg</div><div>${S.mode === "wallet" ? "Wallet rank" : "Rank"}</div></div>`;
   const rows = L.map((w, i) => {
     const x = histLine(w, ids, S.mode, thr);
     if (!x) return `<div class="rw"><div class="wl">${label(w, i)}</div><div class="wy mut2">-</div><div class="wa mut2">-</div><div class="wv mut2">-</div><div class="wr mut2">not tracked yet</div></div>`;
@@ -980,7 +982,7 @@ function histRows(ids, thr) {
   }).join("");
   const running = L[0] && !L[0].final ? `<div class="small mut2" style="margin:4px 0 0">The running row ends at the last every-lock read (${esc(ago(L[0].to))}; every lock is read about every 3 hours). Days run midnight to midnight US Eastern; weeks are Aero epochs (Thursday 00:00 UTC).</div>` : "";
   const since = S.logv === "day" && H.days_since ? `<div class="small mut2" style="margin:4px 0 6px">The daily log starts ${new Date(H.days_since * 1000).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", timeZone: ET })}: the reads only reach back about 8 days, and a lock only has history from the day it was first tracked.</div>` : "";
-  return head + (rows || `<div class="small mut2" style="padding:6px 0">Nothing logged yet.</div>`) + running + since;
+  return head + (rows ? `<div class="rwt">${cols}${rows}</div>` : `<div class="small mut2" style="padding:6px 0">Nothing logged yet.</div>`) + running + since;
 }
 function renderRank() {
   const el = $("rank");
