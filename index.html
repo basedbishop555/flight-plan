@@ -123,17 +123,21 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px} .chip{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:3px 9px;background:var(--card);display:inline-flex;gap:6px;align-items:center}
 .rcard{border:1px solid var(--line);border-radius:14px;padding:4px 12px 2px;margin:0 0 10px;background:var(--card)}
 .rch{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;padding:8px 0 4px}.rch b{font-size:15.5px;letter-spacing:-.2px}.rch span{font-size:12px;color:var(--mut2)}
-.rrow{display:grid;grid-template-columns:5.4em 1fr auto;gap:4px 10px;align-items:center;padding:10px 0;border-top:1px solid var(--line2)}
-.rrow .p{font-size:13px;color:var(--mut);font-weight:600} .rrow .apr{font-size:24px;font-weight:800;letter-spacing:-.6px;line-height:1}
-.rrow .apr small{display:block;font-size:11.5px;font-weight:500;color:var(--mut2);letter-spacing:0;margin-top:3px}
-.rrow .rk{text-align:right;font-size:13px;color:var(--c3);font-weight:700} .rrow .rk .tag{display:inline-block;margin-top:4px}
-.rrow .sub{grid-column:2 / 4;font-size:12px;color:var(--mut2)}
-.rcard.cmp .rrow{padding:7px 0} .rcard.cmp .rrow .apr{font-size:19px}
+.rt{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto auto;gap:0 9px;align-items:baseline;padding:9px 0;border-top:1px solid var(--line2)}
+.rt>div:not(:first-child){text-align:right;white-space:nowrap}
+.rt.rth{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut2);font-weight:700;padding:2px 0 3px;border-top:0;white-space:nowrap}
+.rt .p{font-size:13px;color:var(--mut);font-weight:600;min-width:0}
+.rt small{display:block;font-size:10.5px;font-weight:500;color:var(--mut2);letter-spacing:0;margin-top:3px}
+.rt .ty{font-size:21px;font-weight:800;letter-spacing:-.5px;line-height:1}
+.rt .ta{font-size:13.5px;font-weight:600;color:var(--mut)} .rt .tv{font-size:15px;font-weight:800}
+.rt .tk{font-size:13px;font-weight:700}
+.rcard.cmp .rt{padding:6px 0} .rcard.cmp .rt .ty{font-size:16px}
 .rwh{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut2);font-weight:700;padding:10px 0 4px;border-top:1px solid var(--line2)}
-.rw{display:grid;grid-template-columns:minmax(0,1fr) auto 3.6em auto;gap:0 10px;align-items:baseline;padding:6px 0;font-size:13px;border-top:1px dashed var(--line2)}
+.rw{display:grid;grid-template-columns:minmax(0,1fr) auto auto minmax(3.2em,auto) minmax(3.6em,auto);gap:0 10px;align-items:baseline;padding:6px 0;font-size:13px;border-top:1px dashed var(--line2)}
 .rw.rwc{white-space:nowrap;font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut2);font-weight:700;padding:2px 0 3px;border-top:0}.rw.rwc>div:not(:first-child){text-align:right}
 .rw .wl{color:var(--fg);font-weight:600;min-width:0}.rw .wl small{color:var(--mut2);font-weight:500}
 .rw .wy{font-weight:800;font-size:14.5px;text-align:right;white-space:nowrap}.rw .wy small{display:block;font-size:11px;font-weight:500;color:var(--mut2)}
+.rw .wa{font-size:13px;font-weight:600;color:var(--mut);text-align:right;white-space:nowrap}
 .rw .wv{font-weight:800;font-size:15.5px;text-align:right;white-space:nowrap}
 .rw .wr{font-size:12.5px;color:var(--acc);font-weight:700;text-align:right;white-space:nowrap}.rw .wr small{display:block;font-size:10.5px;font-weight:500;color:var(--mut2)}
 .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:13px} th,td{border-bottom:1px solid var(--line2);padding:6px 6px;text-align:left;vertical-align:top;white-space:nowrap} th{color:var(--mut2);font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;font-weight:600} td.num,th.num{text-align:right}
@@ -159,7 +163,7 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
 .hidden{display:none!important}
 #log{font:11.5px/1.45 var(--mono);white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;color:var(--mut)}
-@media (max-width:420px){table{font-size:12px}th,td{padding:5px 3px}.hv{font-size:40px}.ring.big{width:66px;height:66px}.ppct{font-size:23px}.rrow .apr{font-size:21px}.wm span{display:none}}
+@media (max-width:420px){table{font-size:12px}th,td{padding:5px 3px}.hv{font-size:40px}.ring.big{width:66px;height:66px}.ppct{font-size:23px}.rt,.rw{gap:0 7px}.rt .ty{font-size:17px}.rt .tv{font-size:14px}.rt small{font-size:10px}.wm span{display:none}}
 </style></head><body>
 <header class="hdr">
   <a class="wm" href="./"><img src="icons/icon-192.png" alt="">Flight Plan</a>
@@ -293,7 +297,7 @@ async function waitReceipt(hash) {
 
 // ---------- state ----------
 const S = { empty: 0, D: null, RK: null, H: null, histBusy: false, CR: null, addr: null, account: null, provider: null, locks: [], live: null, plan: null,
-            dial: null, ST: null, winsBr: null, mode: store.get("mode", "lock"), nowv: store.get("nowv", "now") === "fwd" ? "fwd" : "now", logv: store.get("logv", "week") === "day" ? "day" : "week",
+            dial: null, ST: null, winsBr: null, mode: store.get("mode", "lock"), logv: store.get("logv", "week") === "day" ? "day" : "week",
             bracket: null, busy: false, cool: 169200 };
 const LOCK_MAX = 60;          // locks read per wallet (6 chain calls each; the biggest wallets hold hundreds)
 const viewer = () => S.addr;
@@ -656,7 +660,7 @@ function decodeRank(Rk) {
   const earn = new Map();
   if (Rk.earn) { const E = Rk.earn, l = E.l || []; let i = 0; for (let k = 0; k < E.i.length; k++) { i += E.i[k]; earn.set(i, { usd: E.e[k] / 100, unclaimed: E.u[k] / 100, since: E.s[k], life: l[k] != null && l[k] >= 0 ? l[k] / 100 : null, lifeSince: (E.ls || [])[k] || null }); } }
   const idOf = new Map(Rk.ids.map((id, i) => [id, i]));
-  return { ...Rk, per, idOf, earn, groups: Rk.groups || {} };
+  return { ...Rk, per, idOf, earn, groups: Rk.groups || {}, team: new Set(Rk.team || []) };
 }
 function decodeHist(H) {
   const idOf = new Map(H.ids.map((id, i) => [id, i]));
@@ -666,7 +670,7 @@ function decodeHist(H) {
     const w = b.w.r.map((r, k) => ({ r: r / 1000, a: b.w.a[k] }));
     return { ...b, rows, byI: new Map(rows.map(x => [x.i, x])), w };
   };
-  return { ...H, idOf, weeks: H.weeks.map(bucket), days: H.days.map(bucket) };
+  return { ...H, idOf, team: new Set(H.team || []), weeks: H.weeks.map(bucket), days: H.days.map(bucket) };
 }
 function stats(list, thr) {   // average = weighted by AERO (what the average AERO earned); median = the typical lock
   const sel = list.filter(x => x.a >= thr), a = sel.map(x => x.r).sort((x, y) => x - y); if (!a.length) return null;
@@ -674,7 +678,7 @@ function stats(list, thr) {   // average = weighted by AERO (what the average AE
 function rankOf(st, apr) { let lo = 0, hi = st.a.length; while (lo < hi) { const m = (lo + hi) >> 1; if (st.a[m] <= apr) lo = m + 1; else hi = m; } const better = st.a.length - lo; return { rank: better + 1, of: st.a.length, top: (better + 1) / st.a.length * 100 }; }
 function wallets(rows, Rk) {
   const acc = new Map();
-  for (const x of rows) { const g = Rk.grp[x.i]; const w = acc.get(g) || { c: 0, a: 0, ra: 0, vv: 0, va: 0 }; w.c += x.c; w.a += x.a; w.ra += x.r * x.a; w.vv += x.v * x.va; w.va += x.va; acc.set(g, w); }
+  for (const x of rows) { if (Rk.team.has(x.i)) continue; const g = Rk.grp[x.i]; const w = acc.get(g) || { c: 0, a: 0, ra: 0, vv: 0, va: 0 }; w.c += x.c; w.a += x.a; w.ra += x.r * x.a; w.vv += x.v * x.va; w.va += x.va; acc.set(g, w); }
   const out = [];
   for (const [g, w] of acc) if (w.va >= Rk.min_aero && w.a > 0) out.push({ g, c: w.c, a: w.a, r: w.ra / w.a, v: w.va ? w.vv / w.va : null, va: w.va });
   return out;
@@ -691,14 +695,14 @@ function rankLine(period, idxs, mode, thr) {
   const Rk = S.RK, p = Rk && Rk.per[period]; if (!p) return null;
   const mine = idxs.map(i => p.byI.get(i)).filter(Boolean); if (!mine.length) return null;
   const me = combine(mine); if (!me) return null;
-  const pool = mode === "wallet" ? walletPool(period) : p.rows.filter(x => x.f);
+  const pool = mode === "wallet" ? walletPool(period) : p.rows.filter(x => x.f && !Rk.team.has(x.i));   // the Aero team's 4 locks sit out (as on saero.org)
   const st = stats(pool, thr); if (!st) return null;
   return { ...me, ...rankOf(st, me.apr), avg: st.avg, med: st.med };
 }
 function histLine(b, ids, mode, thr) {      // ids = sAERO token ids; history.json numbers its locks itself (H.idOf)
   const mine = ids.map(id => S.H.idOf.get(id)).filter(i => i != null).map(i => b.byI.get(i)).filter(Boolean); if (!mine.length) return null;
   const me = combine(mine); if (!me) return null;
-  const st = stats(mode === "wallet" ? b.w : b.rows, thr);
+  const st = stats(mode === "wallet" ? b.w : b.rows.filter(x => !S.H.team.has(x.i)), thr);
   return st ? { ...me, ...rankOf(st, me.apr), avg: st.avg, med: st.med } : { ...me, avg: null };
 }
 const lockIdxs = ids => ids.map(id => S.RK.idOf.get(id)).filter(i => i != null);
@@ -929,21 +933,25 @@ function renderLocks() {
   el.querySelectorAll("[data-copyoff]").forEach(c => c.addEventListener("click", e => { e.preventDefault(); const L = S.locks.find(x => x.id === Number(c.dataset.copyoff)), o = L && offPick(L); if (o) copy(`Lock #${L.id}: ${legsText(planFor(L).legs)} (allocate it in the Aero app)`); }));
 }
 const voteTxt = x => x.vote != null && Math.abs(x.vote - x.apr) >= 0.005 ? `allocated part ${(x.vote * 100).toFixed(1)}%` : "";
-// "Now" looks back (Earned: the last 12 hours) or forward (Forecast: what the current votes pay at today's pool rates,
-// raw); Lifetime = everything earned since the lock first voted (every claim on every network + what is waiting)
+// "Now" looks back (earned over about the last 12 hours, between two every-lock reads); "Est. next 47h" looks forward
+// (what the current votes pay at today's pool rates, raw); Lifetime = everything earned since the lock first voted
+// (every claim on every network + what is waiting)
 const lifeSince = idxs => { let m = null; for (const i of idxs) { const e = S.RK.earn.get(i); if (e && e.lifeSince) m = m == null ? e.lifeSince : Math.min(m, e.lifeSince); } return m; };
+const vsTxt = vs => vs == null ? "-" : Math.abs(vs) < 0.5 ? "0%" : (vs >= 0 ? "+" : "−") + Math.abs(vs).toFixed(0) + "%";
 function rankRows(idxs, thr, compact) {
-  const Rk = S.RK, names = { now: "Now", fwd: "Now", "2d": "2 days", "7d": "7 days", life: "Lifetime" };
-  return [S.nowv, "2d", "7d", "life"].map(k => {
+  const Rk = S.RK, names = { now: "Now", fwd: "Est. next 47h", "2d": "2 days", "7d": "7 days", life: "Lifetime" };
+  const head = `<div class="rt rth"><div></div><div>You</div><div>Avg</div><div>vs avg</div><div>Rank</div></div>`;
+  return head + ["now", "fwd", "2d", "7d", "life"].map(k => {
     const x = rankLine(k, idxs, S.mode, thr);
-    if (!x) return `<div class="rrow"><div class="p">${names[k]}</div><div class="mut2 small">${k === "life" ? "valuing claims" : k === "fwd" ? "after the next scan" : "building history"}</div><div></div></div>`;
-    const wk = x.apr * 1000 * Rk.px / 52, good = x.apr >= x.avg, vt = voteTxt(x);
-    const per = Rk.per[k], sm = t => `<small style="display:block;font-weight:500;color:var(--mut2);font-size:11px">${t}</small>`, ls = k === "life" && lifeSince(idxs);
+    if (!x) return `<div class="rt"><div class="p">${names[k]}</div><div class="mut2 small" style="grid-column:2 / 6">${k === "life" ? "valuing claims" : k === "fwd" ? "after the next scan" : "building history"}</div></div>`;
+    const wk = x.apr * 1000 * Rk.px / 52, good = x.apr >= x.avg, vt = voteTxt(x), vs = x.avg ? (x.apr / x.avg - 1) * 100 : null;
+    const per = Rk.per[k], sm = t => `<small>${t}</small>`, ls = k === "life" && lifeSince(idxs);
     const span = k === "now" && per ? sm(`${clock(per.t0).replace(" ET", "")} to ${clock(per.t1)}`) : k === "fwd" ? sm("forecast") : ls ? sm("since " + new Date(ls * 1000).toLocaleDateString([], { month: "numeric", day: "numeric" })) : "";
-    return `<div class="rrow"><div class="p">${names[k]}${span}</div>
-      <div class="apr num ${good ? "ok" : "warn"}">${(x.apr * 100).toFixed(1)}%<small>${vt ? vt + " · " : ""}$${wk.toFixed(2)}/wk per 1k</small></div>
-      <div class="rk num">#${x.rank.toLocaleString()} <span class="mut2" style="font-weight:500">of ${x.of.toLocaleString()}</span><br><span class="tag ${x.top <= 25 ? "ok" : x.top <= 50 ? "acc" : ""}">top ${x.top < 10 ? x.top.toFixed(1) : Math.round(x.top)}%</span></div>
-      ${compact ? "" : `<div class="sub">avg ${(x.avg * 100).toFixed(1)}% · median ${(x.med * 100).toFixed(1)}%</div>`}</div>`;
+    return `<div class="rt"><div class="p">${names[k]}${span}</div>
+      <div class="ty num ${good ? "ok" : "warn"}">${(x.apr * 100).toFixed(1)}%${compact ? "" : `<small>${vt ? vt + "<br>" : ""}$${wk.toFixed(2)}/wk/1k</small>`}</div>
+      <div class="ta num">${(x.avg * 100).toFixed(1)}%${compact ? "" : `<small>med ${(x.med * 100).toFixed(1)}%</small>`}</div>
+      <div class="tv num ${vs == null ? "mut2" : vs >= 0 ? "ok" : "warn"}">${vsTxt(vs)}</div>
+      <div class="tk num ${x.top <= 25 ? "ok" : x.top <= 50 ? "acc" : "mut2"}">top ${x.top < 10 ? x.top.toFixed(1) : Math.round(x.top)}%<small title="of ${x.of.toLocaleString()}">#${x.rank.toLocaleString()}</small></div></div>`;
   }).join("");
 }
 function histRows(ids, thr) {
@@ -957,14 +965,15 @@ function histRows(ids, thr) {
       + (w.partial ? ` <small>from ${clock(w.from)}</small>` : w.final && w.to - w.from < 18 * 3600 ? ` <small>${Math.round((w.to - w.from) / 3600)}h read</small>` : "");
   };
   const head = `<div class="rwh"><span>You vs the average, over time</span><span class="seg tight"><button type="button" data-logv="week" class="${S.logv === "week" ? "on" : ""}">By week</button><button type="button" data-logv="day" class="${S.logv === "day" ? "on" : ""}">By day</button></span></div>
-    <div class="rw rwc"><div>${S.logv === "day" ? "Day" : "Week"}</div><div>You</div><div>vs avg</div><div>${S.mode === "wallet" ? "Wallet rank" : "Rank"}</div></div>`;
+    <div class="rw rwc"><div>${S.logv === "day" ? "Day" : "Week"}</div><div>You</div><div>Avg</div><div>vs avg</div><div>${S.mode === "wallet" ? "Wallet rank" : "Rank"}</div></div>`;
   const rows = L.map((w, i) => {
     const x = histLine(w, ids, S.mode, thr);
-    if (!x) return `<div class="rw"><div class="wl">${label(w, i)}</div><div class="wy mut2">-</div><div class="wv mut2">-</div><div class="wr mut2">not tracked yet</div></div>`;
+    if (!x) return `<div class="rw"><div class="wl">${label(w, i)}</div><div class="wy mut2">-</div><div class="wa mut2">-</div><div class="wv mut2">-</div><div class="wr mut2">not tracked yet</div></div>`;
     const vs = x.avg ? (x.apr / x.avg - 1) * 100 : null, cls = vs == null ? "mut2" : vs >= 0 ? "ok" : "warn", vt = voteTxt(x);
     return `<div class="rw"><div class="wl">${label(w, i)}</div>
-      <div class="wy num">${(x.apr * 100).toFixed(1)}%<small>${x.avg != null ? "avg " + (x.avg * 100).toFixed(1) + "%" : ""}${vt ? "<br>" + vt : ""}</small></div>
-      <div class="wv num ${cls}">${vs == null ? "-" : Math.abs(vs) < 0.5 ? "0%" : (vs >= 0 ? "+" : "−") + Math.abs(vs).toFixed(0) + "%"}</div>
+      <div class="wy num">${(x.apr * 100).toFixed(1)}%${vt ? "<small>" + vt + "</small>" : ""}</div>
+      <div class="wa num">${x.avg != null ? (x.avg * 100).toFixed(1) + "%" : "-"}</div>
+      <div class="wv num ${cls}">${vsTxt(vs)}</div>
       <div class="wr num">${x.rank ? "#" + x.rank.toLocaleString() + `<small>of ${x.of.toLocaleString()}</small>` : "-"}</div></div>`;
   }).join("");
   const running = L[0] && !L[0].final ? `<div class="small mut2" style="margin:4px 0 0">The running row ends at the last every-lock read (${esc(ago(L[0].to))}; every lock is read about every 3 hours). Days run midnight to midnight US Eastern; weeks are Aero epochs (Thursday 00:00 UTC).</div>` : "";
@@ -984,11 +993,9 @@ function renderRank() {
   const cmp = Object.entries(Rk.groups).map(([name, g]) => `<div class="rcard cmp"><div class="rch"><b>${esc(name)}</b><span class="num">${g.length} lock${g.length === 1 ? "" : "s"}</span></div>${rankRows(g, thr, true)}</div>`).join("");
   el.innerHTML = `<h2>vs every ${S.mode === "wallet" ? "wallet" : "lock"} <span>APR on the whole lock</span></h2><div class="body">
     <div class="seg" id="mode"><button type="button" data-m="lock" class="${S.mode === "lock" ? "on" : ""}">Every lock</button><button type="button" data-m="wallet" class="${S.mode === "wallet" ? "on" : ""}">Every wallet</button></div>
-    <div class="seg" id="nowv"><button type="button" data-n="now" class="${S.nowv === "now" ? "on" : ""}">Now: earned</button><button type="button" data-n="fwd" class="${S.nowv === "fwd" ? "on" : ""}">Now: forecast</button></div>
     <div class="seg" id="brk">${br.map(([k]) => `<button type="button" data-b="${k}" class="${S.bracket === k ? "on" : ""}">${label[k] || k}</button>`).join("")}</div>
     ${you}${cmp ? `<div class="seglabel" style="margin-top:4px">Compare with</div>${cmp}` : ""}
-    <p class="small mut2" style="margin:8px 0 0">All your locks counted as one. The average is weighted by AERO; the median is the typical lock. "Now: earned" looks back over about the last 12 hours, between two every-lock reads (the times are under it); "Now: forecast" looks ahead: what each lock's current allocation would pay at today's pool rates if nothing moved (4-day fees with spikes capped, plus live incentives, your own size counted in the pool). Lifetime is everything a lock has earned since it first allocated: every claim on every network plus what is waiting, at today's prices; "Today so far" in the history below starts at midnight, so the two cover different hours and can differ a lot when rewards land in a lump. Autopilot and 40acres are products that allocate for many lockers; each is shown as one combined entry. <a href="docs.html#rank">How it's measured</a></p></div>`;
-  el.querySelectorAll("#nowv button").forEach(b => b.addEventListener("click", () => { S.nowv = b.dataset.n; store.set("nowv", S.nowv); renderRank(); }));
+    <p class="small mut2" style="margin:8px 0 0">All your locks counted as one. The average is weighted by AERO and leaves out the Aero team's 4 locks (about half of all sAERO; they sit out of the rank too); vs avg is your APR against it; the median is the typical lock. "Now" looks back over about the last 12 hours, between two every-lock reads (the times are under it); $/wk/1k is dollars a week per 1,000 AERO; the # under the rank is your place. "Est. next 47h" looks ahead: what each lock's current allocation would pay at today's pool rates if nothing moved (4-day fees with spikes capped, plus live incentives, your own size counted in the pool). Lifetime is everything a lock has earned since it first allocated: every claim on every network plus what is waiting, at today's prices; "Today so far" in the history below starts at midnight, so the two cover different hours and can differ a lot when rewards land in a lump. Autopilot and 40acres are products that allocate for many lockers; each is shown as one combined entry. <a href="docs.html#rank">How it's measured</a></p></div>`;
   el.querySelectorAll("#mode button").forEach(b => b.addEventListener("click", () => { S.mode = b.dataset.m; store.set("mode", S.mode); renderRank(); }));
   el.querySelectorAll("#brk button").forEach(b => b.addEventListener("click", () => { S.bracket = b.dataset.b; store.set("bracket", S.bracket); renderRank(); }));
   el.querySelectorAll("[data-logv]").forEach(b => b.addEventListener("click", () => { S.logv = b.dataset.logv; store.set("logv", S.logv); renderRank(); }));
