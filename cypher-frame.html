@@ -1,0 +1,107 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://www.saero.org 'unsafe-inline'; connect-src 'none'; img-src 'none'; style-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Cypher's picks (sandboxed)</title></head>
+<body><script>
+/* Cypher's picks, exactly (11/6/2026). Flight Plan opens this page in a hidden iframe with sandbox="allow-scripts"
+   (no same-origin): it cannot touch Flight Plan's page, your wallet, cookies or storage, and the policy above blocks
+   every network request except loading saero.org's own planner (plan.js) from saero.org. Flight Plan posts saero.org's
+   public data and your locks' public on-chain state; this page runs NYCypher's advise() on them, unchanged, and posts
+   back plain data, which Flight Plan checks before showing anything. MIT licensed (this file); plan.js is his.
+   Two answers per lock: his Advice tab (advise(): move now or stay) and his Plan tab ("every lock moved now, together":
+   the split his lock cards show). plan.js has no Plan-tab function (it lives in his page code), so planTab() below
+   follows the same steps with his plan.js maths; Flight Plan shows the Plan tab's split. */
+(function () {
+  "use strict";
+  var loading = null;
+  function load(v) {
+    if (window.SaeroPlan) return Promise.resolve();
+    if (loading) return loading;
+    loading = new Promise(function (ok, no) {
+      var s = document.createElement("script");
+      s.src = "https://www.saero.org/plan.js" + (v ? "?v=" + encodeURIComponent(v) : "");
+      s.onload = function () { window.SaeroPlan ? ok() : no(new Error("saero.org's planner loaded without its API")); };
+      s.onerror = function () { loading = null; no(new Error("saero.org's planner did not load")); };
+      document.head.appendChild(s);
+    });
+    return loading;
+  }
+  function rows(e) {
+    var best = (e.explain && e.explain.best) || [];
+    return best.filter(function (r) { return r && r.pool && r.pct > 0; }).map(function (r) {
+      return { pool: String(r.pool).toLowerCase(), pct: Number(r.pct), name: String((r.pair || "") + (r.kind ? " " + r.kind : "")).slice(0, 48), kept: !!r.kept };
+    });
+  }
+  // His Plan tab, step for step: one split of the locks' summed movable sAERO from his planner (bestSplit over poolsFor
+  // with his minimum pool size, then again over the first N pools: N = maxPools per 50k+ lock + 1 per smaller lock, at
+  // most 20 per big lock; small locks only = 3 each), dust under 0.4% dropped; whole pools handed out biggest first to
+  // the lock with the most room left, each lock's pools scaled to its movable part; a lock left with no pool takes the
+  // plan pool where it earns the most. sAERO on networks outside `nets`, and on networks that couldn't be read, stays.
+  // Dollars: his estimate scale (estKOf) and the extra over staying cut by gainKOf, as his cards show.
+  function planTab(SP, sum, locks, nets, maxPools, minSize) {
+    var P = SP.planner(sum), net = function (pool) { return String(pool).split(":")[0]; };
+    var ls = locks.filter(function (l) { return l.amount > 0; }).sort(function (a, b) { return b.amount - a.amount; });
+    var rows = ls.map(function (l) {
+      var keptA = nets ? (l.allocs || []).filter(function (a) { return a.weight > 0 && nets.indexOf(net(a.pool)) < 0; }) : [];
+      var away = Math.max(0, Math.min(l.amount, l.elsewhere || 0)), k = SP.estKOf(sum, l.amount);
+      var keptW = keptA.reduce(function (t, a) { return t + a.weight; }, 0);
+      return { l: l, keptA: keptA, away: away, k: k, move: Math.max(0, l.amount - away - keptW), stay: k * (P.stakeFair(l) + away * P.Y) };
+    });
+    var X = rows.reduce(function (t, r) { return t + r.move; }, 0);
+    var nBig = rows.filter(function (r) { return r.l.amount >= 50000; }).length, nSmall = rows.length - nBig;
+    var N = nBig ? Math.min(20 * nBig, maxPools * nBig + nSmall) : 3 * nSmall;
+    var mine = new Map();
+    rows.forEach(function (r) { (r.l.allocs || []).forEach(function (a) { if (r.keptA.indexOf(a) < 0) mine.set(a.pool, (mine.get(a.pool) || 0) + a.weight); }); });
+    var pools = P.poolsFor({ minSize: minSize, nets: nets });
+    var full = X > 0 ? P.bestSplit(pools, X, mine) : [];
+    var a = full.length ? P.bestSplit(full.slice(0, N).map(function (c) { return c.p; }), X, mine).filter(function (c) { return c.x >= 0.004 * X; }) : [];
+    var tot = a.reduce(function (t, c) { return t + c.x; }, 0);
+    a.forEach(function (c) { c.x = c.x * X / tot; });
+    var left = rows.map(function (r) { return r.move; }), per = rows.map(function () { return []; });
+    for (var q = 0; q < a.length; q++) {
+      var i = -1;
+      for (var j = 0; j < rows.length; j++) if (rows[j].move > 0 && (i < 0 || left[j] > left[i])) i = j;
+      if (i < 0) break;
+      per[i].push(Object.assign({}, a[q])); left[i] -= a[q].x;
+    }
+    per.forEach(function (items, i) { var t = items.reduce(function (u, c) { return u + c.x; }, 0); items.forEach(function (c) { c.x = t ? c.x * rows[i].move / t : 0; }); });
+    var inPool = new Map();
+    per.forEach(function (items) { items.forEach(function (c) { inPool.set(c.p.id, (inPool.get(c.p.id) || 0) + c.x); }); });
+    rows.forEach(function (r, i) {
+      if (per[i].length || !(r.move > 0) || !a.length) return;
+      var c = a.reduce(function (u, v) { return P.R(v.p) / (v.W + (inPool.get(v.p.id) || 0) + r.move) > P.R(u.p) / (u.W + (inPool.get(u.p.id) || 0) + r.move) ? v : u; });
+      per[i].push(Object.assign({}, c, { x: r.move })); inPool.set(c.p.id, (inPool.get(c.p.id) || 0) + r.move);
+    });
+    return rows.map(function (r, i) {
+      var pays = per[i].map(function (c) { return r.k * P.R(c.p) * c.x / (c.W + inPool.get(c.p.id)); });
+      var kept = r.keptA.map(function (x) { return { pool: String(x.pool).toLowerCase(), x: x.weight, pay: r.k * P.stakeFair({ allocs: [x] }) }; });
+      if (r.away > 0) kept.push({ pool: null, x: r.away, pay: r.k * r.away * P.Y });
+      var raw = pays.reduce(function (t, v) { return t + v; }, 0) + kept.reduce(function (t, x) { return t + x.pay; }, 0);
+      var plan = raw > r.stay && raw > 0 ? r.stay + SP.gainKOf(sum, r.l.amount) * (raw - r.stay) : raw;
+      var pct = SP.wholePct(per[i].map(function (c) { return c.x; }), r.l.amount, Math.round(100 * r.move / r.l.amount));
+      return { name: String(r.l.name), plan: plan, stay: r.stay,
+               items: per[i].map(function (c, j) { return { pool: String(c.p.id).toLowerCase(), pct: pct[j], name: String((c.p.n || "") + (c.p.k ? " " + c.p.k : "")).slice(0, 48) }; }),
+               kept: kept.map(function (x) { return { pool: x.pool, pct: Math.round(100 * x.x / r.l.amount) }; }) };
+    });
+  }
+  window.addEventListener("message", function (ev) {
+    if (ev.source !== window.parent) return;
+    var m = ev.data || {};
+    if (m.type !== "advise") return;
+    load(m.v).then(function () {
+      var A = window.SaeroPlan.advise({ sum: m.sum, locks: m.locks, cal: m.cal, now: m.now, nets: m.nets || null });
+      var out = (A.locks || []).map(function (e) {
+        return { name: String(e.name || ""), wouldMove: !!e.wouldMove, poolsN: Number(e.poolsN) || null, state: typeof e.state === "string" ? e.state : null,
+                 bestUsdPerDay: Number(e.bestUsdPerDay) || 0, stayUsdPerDay: Number(e.stayUsdPerDay) || 0, gain: Number(e.gain) || 0, best: rows(e) };
+      });
+      var plan = null, planErr = null;
+      try { plan = planTab(window.SaeroPlan, m.sum, m.locks, m.nets || null, m.maxPools || 8, m.minSize || 100000); }
+      catch (e2) { planErr = String((e2 && e2.message) || e2); }
+      window.parent.postMessage({ type: "advice", id: m.id, locks: out, plan: plan, planErr: planErr }, "*");
+    }).catch(function (err) {
+      window.parent.postMessage({ type: "advice", id: m.id, error: String((err && err.message) || err) }, "*");
+    });
+  });
+  window.parent.postMessage({ type: "frame-ready" }, "*");
+})();
+</script></body></html>
