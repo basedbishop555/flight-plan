@@ -180,6 +180,7 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
 </form>
 <p class="hint">Paste any address to look (read-only). Connect a wallet to sign allocations and sweeps for what it owns: one signature per lock, dry-run first, never an approval on sAERO. <a href="#" id="safelink">What it signs</a></p>
 
+<div class="banner warn hidden" id="crowdwarn" style="margin:0 0 12px"></div>
 <section class="card glow hero" id="hero"></section>
 <section class="card" id="plan"></section>
 <section class="card" id="locks"></section>
@@ -1090,7 +1091,26 @@ function renderTested() {
     <p class="small mut2" style="margin:8px 0 0">"Beat Balanced" counts separate 2-day stretches. ${nets ? `Best single pool on another network beat Base's best after costs: ${esc(nets)} of the time.` : ""}${thin.length ? ` ${esc(thin.join(", "))} were scanned once a day until Nov 5, so their figures are rough.` : ""} Forecasts barely predicted payouts here, so expected dollars on this page are pulled toward what each setting typically paid per 1k AERO: Balanced ${typ(P0.balanced)}, Steady ${typ(P0.steady)}, Aggressive ${typ(P0.aggressive)}${S.dial && S.dial.preset === "custom" ? `, your Custom dials ${typ(cm)}` : ", Custom by the nearest tested dial setting"}; JPN's and Cypher's picks use Balanced's. Their two rows are graded only from picks recorded live (since Nov 6 for Cypher), so they fill in over time. A small sample, refreshed every 3 hours. <a href="docs.html#tested">How it's tested</a></p></div>`;
   el.querySelectorAll("#btsize button").forEach(b => b.addEventListener("click", () => { S.btSize = b.dataset.s; renderTested(); }));
 }
+// Crowd-window warning: any hour in the next 4 (or the one running now) where 100M+ sAERO comes off its 47-hour
+// cooldown. Locks that move then can shift what the pools pay, so it shows at the top of the page from 4 hours out.
+const WARN_BIG = 100e6, WARN_AHEAD = 4 * 3600;
+function renderCrowdWarn() {
+  const el = $("crowdwarn"), now = Date.now() / 1000, C = S.CR;
+  const big = C ? (C.fwd || []).filter(x => x[1] >= WARN_BIG && x[0] + 3600 > now && x[0] < now + WARN_AHEAD) : [];
+  if (!big.length) { el.classList.add("hidden"); return; }
+  const c1 = (C.curve || []).find(c => c[0] === "0-1h"), share = c1 && c1[1] != null ? c1[1] / 100 : null;
+  const span = t => `${clock(t).replace(" ET", "")} to ${clock(t + 3600)}`;
+  const when = t => { const m = Math.round((t - now) / 60); return m <= 0 ? "now" : m < 60 ? `in ${m} min` : `in ${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`; };
+  const lines = big.map(x => `<b>${(x[1] / 1e6).toFixed(0)}M sAERO</b> comes off its cooldown ${span(x[0])}${big.length > 1 ? ` (${when(x[0])})` : ""}`
+    + (share ? `. About ${Math.round(share * 100)}% of sAERO usually moves within an hour of its window opening, so roughly <b>${(x[1] * share / 1e6).toFixed(0)}M</b> could move then` : ""));
+  const day = t => new Date(t * 1000).toLocaleDateString([], { weekday: "short", timeZone: ET }) + " " + clock(t).replace(" ET", "");
+  const mine = S.locks.filter(L => L.next).map(L => L.next <= now ? `#${L.id} is open now` : `#${L.id} opens ${day(L.next)}`);
+  el.innerHTML = `<b>⚠ Crowd window ${when(big[0][0])}.</b> ${lines.join(". ")}. Pool rates can shift once they move.`
+    + (mine.length ? ` Your locks: ${mine.join(" · ")}.` : "") + ` <a href="#crowd">See the chart</a>`;
+  el.classList.remove("hidden");
+}
 function renderCrowd() {
+  renderCrowdWarn();
   const el = $("crowd");
   if (!S.CR || !window.CrowdChart) { el.classList.add("hidden"); return; }
   el.classList.remove("hidden");
@@ -1769,6 +1789,13 @@ async function lookup(raw) {
 }
 $("find").addEventListener("submit", e => { e.preventDefault(); lookup($("addr").value); });
 setInterval(() => { if (!document.hidden && S.locks.length) { renderHero(); renderLocks(); } }, 30000);
+// a page left open keeps the warning current: the countdown every minute, fresh crowd data every 15
+let crowdAt = Date.now();
+setInterval(() => {
+  if (document.hidden) return;
+  if (Date.now() - crowdAt > 15 * 60000) { crowdAt = Date.now(); fetch("data/crowd.json?v=" + Math.floor(crowdAt / 600000)).then(x => x.json()).then(c => { S.CR = c; renderCrowd(); }).catch(() => {}); }
+  else renderCrowdWarn();
+}, 60000);
 
 render();
 loadData().then(() => { const q = new URLSearchParams(location.search).get("addr"); if (q) lookup(q); }).catch(e => { if (!/refreshed/.test(e.message)) $("fresh").textContent = "Pool data unavailable"; log("Data load failed: " + e.message, "bad"); });
