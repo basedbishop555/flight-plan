@@ -242,6 +242,7 @@ window.onerror = function (msg, src, line) { try { var h = document.getElementBy
 <script src="sweep-routes.js"></script>
 <script src="sweep-nets.js"></script>
 <script src="crowd.js"></script>
+<script src="install.js" defer></script>
 <script>
 (() => {
 "use strict";
@@ -468,13 +469,15 @@ function cyFrame() {
     const f = document.createElement("iframe");
     f.setAttribute("sandbox", "allow-scripts"); f.src = "cypher-frame.html?v=" + CY_FRAME_V;   // versioned: a cached old frame can't linger
     f.hidden = true; f.title = "saero.org planner (sandboxed)";
-    const t = setTimeout(() => { CY.ready = null; no(new Error("saero.org's planner frame didn't start")); }, 20000);
-    window.addEventListener("message", e => {
+    const onMsg = e => {
       if (e.source !== f.contentWindow) return;
       const m = e.data || {};
       if (m.type === "frame-ready") { clearTimeout(t); ok(f); }
       else if (m.type === "advice" && CY.wait[m.id]) { CY.wait[m.id](m); delete CY.wait[m.id]; }
-    });
+    };
+    // didn't start: drop this frame and its listener, so each retry starts clean instead of piling up dead frames
+    const t = setTimeout(() => { window.removeEventListener("message", onMsg); f.remove(); CY.ready = null; no(new Error("saero.org's planner frame didn't start")); }, 20000);
+    window.addEventListener("message", onMsg);
     document.body.appendChild(f);
   });
   return CY.ready;
@@ -563,7 +566,7 @@ function cyPicks(L) {
   const a = CY.res.byName["#" + L.id]; if (!a) return null;
   const known = new Set(S.D.gauges.filter(g => g.gauge).map(g => (g.chain || "base") + ":" + g.gauge.toLowerCase()));
   for (const k of (S.D.ext && S.D.ext.jpn && S.D.ext.jpn.rows) || []) if (k[6]) known.add((k[7] || "base") + ":" + k[0].toLowerCase());
-  return a.picks.map(p => ({ ...p, known: known.has(p.chain + ":" + p.gauge) || p.kept }));
+  return Object.assign(a.picks.map(p => ({ ...p, known: known.has(p.chain + ":" + p.gauge) || p.kept })), { away: a.away });   // away: planner.external
 }
 function replan() {
   if (!S.dial) S.dial = loadDial();
@@ -1171,6 +1174,7 @@ async function send(L) {
     if (!g.ok) throw new Error("guard tripped: " + g.why);
     L.status = `<div class="banner">Waiting for your signature… check the To address (the Aero Voter) and 0 ETH.</div>`; render();
     log(`Sending allocate #${L.id} (${call.legs.length} gauges) for signature…`);
+    await assertBase();
     const hash = await S.provider.request({ method: "eth_sendTransaction", params: [{ from: S.account, to: call.to, data: call.data, value: "0x0" }] });
     L.sent = hash; L.status = `<div class="banner">Sent <a href="https://basescan.org/tx/${hash}" target="_blank" rel="noopener">${hash.slice(0, 12)}…</a>, waiting for confirmation…</div>`; render();
     log(`#${L.id} sent ${hash}`);
@@ -1196,7 +1200,11 @@ const xrpc = (cid, method, params) => Number(cid) === C.CHAIN_ID ? rpc(method, p
 const ethUsd = () => ((window.SweepNets && window.SweepNets.byId(C.CHAIN_ID)) || {}).native_usd || 2400;
 const ethTxt = w => { const e = Number(ethers.formatEther(w)); return `${e.toFixed(e < 0.001 ? 6 : 5)} ETH (~${money(e * ethUsd())})`; };
 const netNm = c => XA.netName(Number(c));
-const xSplit = L => planFor(L).legs.map(l => ({ chain: l.chain || "base", gauge: l.gauge, pct: l.pct, label: l.label }));
+// a pool Cypher keeps on another network signs its exact current amount there (read live), not his rounded percent, so
+// a network he leaves alone stays alone: no fee, no extra step
+const keptWei = (L, l) => { const lf = (L.leaf || []).find(x => !x.unread && x.chain === l.chain), w = lf && lf.allocsRaw[l.gauge.toLowerCase()]; return w > 0n ? w : null; };
+const xSplit = L => planFor(L).legs.map(l => { const w = l.ext && l.ext.kept ? keptWei(L, l) : null;
+  return { chain: l.chain || "base", gauge: l.gauge, pct: l.pct, label: l.label, ...(w ? { wei: w } : {}) }; });
 const xAllowed = sp => new Set(sp.map(s => XA.ID_OF[s.chain] + ":" + s.gauge.toLowerCase()));
 const xShape = st => JSON.stringify(st, (k, v) => typeof v === "bigint" ? v.toString() : v);
 const xRec = L => { try { return JSON.parse(store.get("xsent:" + L.id, "null")); } catch (e) { return null; } };
@@ -1313,6 +1321,7 @@ async function sendX(L) {
     const done = L.xDone || 0, n = done + r.steps.length;
     L.status = `<div class="banner">Waiting for your signature${n > 1 ? ` (step ${done + 1} of ${n})` : ""}… check: To the Aero Voter, Value ${esc(s.call.total > 0n ? ethTxt(s.call.total) : "0 ETH")}.</div>`; render();
     log(`Sending allocate #${L.id} step ${done + 1} of ${n} (${s.touched.map(netNm).join(" + ")}, ${ethers.formatEther(s.call.total)} ETH) for signature…`);
+    await assertBase();                                            // this one carries ETH: never on the wrong network
     const hash = await S.provider.request({ method: "eth_sendTransaction", params: [{ from: S.account, to: s.call.to, data: s.call.data, value: s.call.value }] });
     store.set("xsent:" + L.id, JSON.stringify({ at: now, cids: [...new Set(s.touched.concat(s.step.chainDispatches.map(c => c.chainId)))], hash }));
     L.status = `<div class="banner">Sent <a href="https://basescan.org/tx/${hash}" target="_blank" rel="noopener">${hash.slice(0, 12)}…</a>, waiting for Base to confirm…</div>`; render();
@@ -1357,7 +1366,7 @@ async function connect() {
   const accs = await eth.request({ method: "eth_requestAccounts" });
   if (!accs || !accs[0]) throw new Error("no account");
   S.account = ethers.getAddress(accs[0]);
-  await ensureChain();
+  try { await ensureChain(); } catch (e) { log("Not on Base yet: " + (e.message || e) + ". Signing will ask again.", "warn"); }
   if (!S.hooked && eth.on) {
     S.hooked = true;
     eth.on("accountsChanged", a => { S.account = a[0] ? ethers.getAddress(a[0]) : null; renderPill(); log(S.account ? `Account changed to ${S.account}` : "Wallet disconnected."); SW.rows = []; SW.byNet = {}; SW.gas = {}; SW.cid = null; SW.plan = null; SW.dry = null; renderSweep(); if (S.account) lookup(S.account); else render(); });
@@ -1369,7 +1378,14 @@ async function connect() {
 }
 async function ensureChain() {
   const id = await S.provider.request({ method: "eth_chainId" });
-  if (id !== C.CHAIN_HEX) { log(`Wallet is on chain ${parseInt(id, 16)}; asking it to switch to Base…`, "warn"); await S.provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: C.CHAIN_HEX }] }); }
+  if (parseInt(id, 16) !== C.CHAIN_ID) { log(`Wallet is on chain ${parseInt(id, 16)}; asking it to switch to Base…`, "warn"); await S.provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: C.CHAIN_HEX }] }); }
+  await assertBase();                                             // some wallets answer the switch without switching
+}
+// Read the wallet's network again and refuse unless it is Base: run right before every Base eth_sendTransaction, because
+// the user can change networks during the seconds-long re-checks between ensureChain() and the prompt.
+async function assertBase() {
+  const id = parseInt(await S.provider.request({ method: "eth_chainId" }), 16);
+  if (id !== C.CHAIN_ID) throw new Error(`the wallet is on chain ${id}, not Base; switch it to Base and try again`);
 }
 $("wpill").addEventListener("click", () => { if (!S.account) connect().catch(e => { log("Connect failed: " + (e.message || e), "bad"); toast("connect cancelled"); }); });
 
@@ -1399,10 +1415,28 @@ function useNet(n) { SWN = n; MR = n.mr; MQ = n.mq; USDC = n.stableAddr; }
 const CMD_CL = 0x00, CMD_V2 = 0x08, FLAG_ALLOW_REVERT = 0x80, DUST_ALLOW_REVERT_USD = 0.25;
 const coder = ethers.AbiCoder.defaultAbiCoder();
 const APPROVE_SEL = I.erc20.getFunction("approve").selector, EXEC_SEL = I.mr.getFunction("execute").selector;
-// Guard: a call may only be (a) approve(Metarouter, amount) on a token this scan found in the wallet, or (b) execute() on the Metarouter.
-function callIsAllowed(c, rows) {
+// Guard: a call may only be (a) approve(Metarouter, amount) on a token this scan found in the wallet, or (b) execute() on
+// the Metarouter whose decoded swaps are exactly the rows: one per row, in order, that row's token, pools, whole balance
+// and minimum, paid by you, output to `owner` (you), and a deadline within the hour.
+const SWAP_T = ["tuple(address[] pools,address tokenIn,tuple(uint8 mode,uint256 value) amountIn,bool payerIsUser,uint256 minAmountOut,address recipient)"];
+function execIsAllowed(data, rows, owner) {
+  try {
+    const [cmds, inputs, deadline] = I.mr.decodeFunctionData("execute", data), cb = ethers.getBytes(cmds), now = Date.now() / 1000;
+    if (cb.length !== rows.length || inputs.length !== rows.length) return false;
+    if (!(Number(deadline) > now && Number(deadline) < now + 3600)) return false;
+    return rows.every((r, i) => {
+      const kind = cb[i] & ~FLAG_ALLOW_REVERT, want = r.best.route.kinds[0] === "cl" ? CMD_CL : CMD_V2;
+      if (kind !== want || (cb[i] & FLAG_ALLOW_REVERT) !== (r.allowRevert ? FLAG_ALLOW_REVERT : 0)) return false;
+      const [[pools, tokenIn, [mode, value], payerIsUser, minOut, recipient]] = coder.decode(SWAP_T, inputs[i]);
+      return tokenIn.toLowerCase() === r.address.toLowerCase() && Number(mode) === 0 && value === r.balance && payerIsUser === true &&
+             minOut === r.minOut && recipient.toLowerCase() === owner.toLowerCase() &&
+             pools.length === r.best.route.pools.length && pools.every((x, k) => x.toLowerCase() === r.best.route.pools[k].toLowerCase());
+    });
+  } catch (e) { return false; }
+}
+function callIsAllowed(c, rows, owner) {
   const to = c.to.toLowerCase();
-  if (to === MR.toLowerCase()) return c.data.startsWith(EXEC_SEL);
+  if (to === MR.toLowerCase()) return c.data.startsWith(EXEC_SEL) && execIsAllowed(c.data, rows, owner);
   if (!rows.some(r => r.address.toLowerCase() === to)) return false;
   if (!c.data.startsWith(APPROVE_SEL)) return false;
   const [spender, amount] = I.erc20.decodeFunctionData("approve", c.data);
@@ -1520,6 +1554,10 @@ async function swBridgeSend() {
   const b = BR; if (!b || !b.dry.ok || !S.account || ethers.getAddress(S.account) !== b.owner) return;
   const el = $("swBridge"); $("brSign").disabled = true;
   const prog = m => { el.innerHTML = `<div class="banner small">${esc(m)}</div>`; };
+  if (b.items.some(x => Date.now() - x.at > SN.QUOTE_MS)) {      // never sign a quote the user hasn't seen: fetch, show, tap again
+    log("The Relay quote is over 90s old; getting a fresh one. Check the amounts and tap Sign again.", "warn");
+    return swGetGas(b.items.map(x => x.net.chainId));
+  }
   const r = await SN.bridgeSend(S.provider, b.owner, b.items, log, prog);
   const nets = b.items.map(x => x.net);
   await Promise.all(nets.map(n => swGasRead(n, b.owner).catch(() => null)));
@@ -1574,12 +1612,11 @@ function swBuildPlan(ownerIn) {
   for (const r of sel) {
     const kind = r.best.route.kinds[0];
     cmds.push((kind === "cl" ? CMD_CL : CMD_V2) | (r.allowRevert ? FLAG_ALLOW_REVERT : 0));
-    inputs.push(coder.encode(["tuple(address[] pools,address tokenIn,tuple(uint8 mode,uint256 value) amountIn,bool payerIsUser,uint256 minAmountOut,address recipient)"],
-      [[r.best.route.pools, r.address, [0, r.balance], true, r.minOut, owner]]));
+    inputs.push(coder.encode(SWAP_T, [[r.best.route.pools, r.address, [0, r.balance], true, r.minOut, owner]]));
   }
   const deadline = Math.floor(Date.now() / 1000) + 20 * 60;
   const exec = { to: MR, data: I.mr.encodeFunctionData("execute", [ethers.hexlify(new Uint8Array(cmds)), inputs, deadline]), desc: `ONE swap: ${sel.length} swap${sel.length === 1 ? "" : "s"} through the Metarouter, ${SWN.stable} lands in ${short(owner)} on ${SWN.name}` };
-  for (const c of [...approvals, exec]) if (!callIsAllowed(c, sel)) throw new Error("internal guard: unexpected call to " + c.to);
+  for (const c of [...approvals, exec]) if (!callIsAllowed(c, sel, owner)) throw new Error("internal guard: unexpected call to " + c.to);
   SW.plan = { owner, approvals, exec, deadline, sel }; SW.dry = null;
   const bytes = (exec.data.length - 2) / 2;
   $("swPlan").innerHTML = `<ol class="steplist">${approvals.map(a => `<li><b>Approve ${esc(a.sym)}</b> · To <code>${a.to}</code> (the ${esc(a.sym)} token) · spender <code>${MR}</code> (Metarouter) · amount <b>${esc(a.amount)}</b> · 0 ETH</li>`).join("")}
@@ -1661,7 +1698,7 @@ async function swSend() {
   try { const g = await swGasRead(SWN, p.owner, SW.dry.gas); if (!g.ok) { renderNets(); renderGas(); log(`Not enough ${SWN.gas} for gas on ${SWN.name}; nothing sent.`, "bad"); return; } } catch (e) { /* the wallet will refuse if gas is short */ }
   await SN.ensureNet(S.provider, SWN, log);
   const all = [...p.approvals, p.exec];
-  for (const c of all) if (!callIsAllowed(c, p.sel)) { log("Guard tripped: refusing to send to " + c.to, "bad"); return; }
+  for (const c of all) if (!callIsAllowed(c, p.sel, S.account)) { log("Guard tripped: refusing to send to " + c.to + " (it isn't exactly the swap shown, or its deadline passed; dry-run again)", "bad"); return; }
   $("btnSend").disabled = true; $("btnDry").disabled = true;
   const prog = m => { $("swOut").innerHTML = `<div class="banner small">${m}</div>`; };
   let atomic = false;
@@ -1677,12 +1714,8 @@ async function swSend() {
       prog("Waiting for your signature (one batch)…" + walletNote(p.sel.length, SW.dry && SW.dry.got));
       const id = await S.provider.request({ method: "wallet_sendCalls", params: [{ version: "2.0.0", chainId: SWN.hex, from: S.account, atomicRequired: true, calls: all.map(c => ({ to: c.to, data: c.data, value: "0x0" })) }] });
       log(`Batch submitted (${all.length} calls in one signature), id ${JSON.stringify(id).slice(0, 80)}. Waiting…`);
-      for (let i = 0; i < 90; i++) {
-        const s = await S.provider.request({ method: "wallet_getCallsStatus", params: [typeof id === "string" ? id : id.id] });
-        if (s.status === 200 || s.status === "CONFIRMED") { log("Batch confirmed.", "ok"); (s.receipts || []).forEach(r => r.transactionHash && txs.push(r.transactionHash)); break; }
-        if (s.status >= 400) throw new Error("batch failed: " + JSON.stringify(s).slice(0, 200));
-        await new Promise(r => setTimeout(r, 2000));
-      }
+      txs.push(...await SN.waitCalls(S.provider, id));          // throws unless confirmed: never "Swept ✓" on a guess
+      log("Batch confirmed.", "ok");
     } else {
       for (const [i, c] of all.entries()) {
         prog(`Signature ${i + 1} of ${all.length}: ${esc(c.desc)}` + (c === p.exec ? walletNote(p.sel.length, SW.dry && SW.dry.got) : ""));

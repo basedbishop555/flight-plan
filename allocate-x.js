@@ -72,8 +72,9 @@
   const netName = (cid) => (cid === C.BASE ? "Base" : (C.NETS[cid] || {}).name || "chain " + cid);
   const sum = (xs) => xs.reduce((a, b) => a + b, 0n);
 
-  /** split rows {chainId | chain (key), gauge, pct, label} over the WHOLE stake -> legs with exact wei, summing to
-   *  the stake (integer-division remainder on the largest leg), each network's legs ascending by gauge address. */
+  /** split rows {chainId | chain (key), gauge, pct, label, wei?} over the WHOLE stake -> legs with exact wei, summing to
+   *  the stake (integer-division remainder on the largest leg), each network's legs ascending by gauge address.
+   *  A row with `wei` keeps exactly that amount (a pool left as it is); the other rows share what's left by percent. */
   function targetLegs(split, staked) {
     if (!Array.isArray(split) || !split.length) throw new Error("empty split");
     staked = BigInt(staked);
@@ -84,16 +85,25 @@
       if (lower(s.gauge) === C.DEALLOC) throw new Error("the deallocation sentinel is not a pool");
       const pct = Number(s.pct);
       if (!(pct > 0) || pct > 100) throw new Error(`bad percent for ${s.label}`);
-      return { chainId: cid, gauge: lower(s.gauge), pct, label: s.label || "", allocated: (staked * BigInt(Math.round(pct * 100))) / 10000n };
+      const fixed = s.wei != null;
+      if (fixed && !(BigInt(s.wei) > 0n && BigInt(s.wei) <= staked)) throw new Error(`bad amount for ${s.label}`);
+      return { chainId: cid, gauge: lower(s.gauge), pct, label: s.label || "", fixed, allocated: fixed ? BigInt(s.wei) : (staked * BigInt(Math.round(pct * 100))) / 10000n };
     });
     const total = rows.reduce((n, r) => n + r.pct, 0);
     if (Math.abs(total - 100) > 1e-6) throw new Error(`split sums to ${total}%, not 100%`);
     const seen = new Set();
     for (const r of rows) { const k = r.chainId + ":" + r.gauge; if (seen.has(k)) throw new Error(`pool ${r.label || r.gauge} listed twice`); seen.add(k); }
+    const kept = sum(rows.filter((r) => r.fixed).map((r) => r.allocated)), free = rows.filter((r) => !r.fixed);
+    if (kept > staked) throw new Error("kept amounts exceed the stake");
+    if (kept > 0n && free.length) {                                  // the percent rows fill exactly what the kept rows leave
+      const bp = free.map((r) => BigInt(Math.round(r.pct * 100))), bt = sum(bp);
+      if (bt <= 0n) throw new Error("the moved pools have no share");
+      free.forEach((r, i) => { r.allocated = ((staked - kept) * bp[i]) / bt; });
+    }
     const s = sum(rows.map((r) => r.allocated));
     if (s > staked) throw new Error("rounding overshoot");
-    if (s < staked) { const big = rows.reduce((a, b) => (b.allocated > a.allocated ? b : a)); big.allocated += staked - s; }
-    for (const r of rows) if (r.allocated <= 0n) throw new Error(`zero allocation for ${r.label}`);
+    if (s < staked) { const big = (free.length ? free : rows).reduce((a, b) => (b.allocated > a.allocated ? b : a)); big.allocated += staked - s; }
+    for (const r of rows) { if (r.allocated <= 0n) throw new Error(`zero allocation for ${r.label}`); delete r.fixed; }
     rows.sort((a, b) => a.chainId - b.chainId || (BigInt(a.gauge) < BigInt(b.gauge) ? -1 : 1));
     return rows;
   }
@@ -255,12 +265,12 @@
   /** the Base side of every network a plan touches, live: adapter must still be the pinned one; return cost */
   async function readBridge(ethers, rpc, cids) {
     const out = {};
-    for (const cid of cids) {
-      const [ad] = await ethCall(ethers, rpc, C.BASE, C.ORCH, ABI.orch, "adapters", [cid]);
+    await Promise.all(cids.map(async (cid) => {                     // every network at once: these reads don't depend on each other
+      const [[ad], [cost]] = await Promise.all([ethCall(ethers, rpc, C.BASE, C.ORCH, ABI.orch, "adapters", [cid]),
+                                                ethCall(ethers, rpc, C.BASE, C.ORCH, ABI.orch, "deallocationReturnCost", [cid])]);
       if (lower(ad) !== C.NETS[cid].rootAdapter) throw new Error(`Aero changed its ${netName(cid)} bridge adapter; Flight Plan needs an update before it can send there`);
-      const [cost] = await ethCall(ethers, rpc, C.BASE, C.ORCH, ABI.orch, "deallocationReturnCost", [cid]);
       out[cid] = { cost: BigInt(cost) };
-    }
+    }));
     return out;
   }
   async function quote(ethers, rpc, cid, message, gasLimit, refund) {
@@ -329,15 +339,16 @@
     const plan = planSteps(p), now = p.now || Math.floor(Date.now() / 1000), arrive = p.arrive || 120, opens = { ...(p.opens || {}) };
     if (!plan.steps.length) return { plan, steps: [], ok: true, why: "nothing to change" };
     const leafs = [...new Set(plan.steps.flatMap((s) => s.chainDispatches.concat(s.gaugeDispatches).map((x) => x.chainId)))].filter((c) => c !== C.BASE);
-    const bridge = await readBridge(ethers, rpc, leafs);
-    // each network's own 47-hour clock (a network the lock left earlier keeps its clock), when the caller hasn't read it
-    for (const cid of leafs) if (opens[cid] == null) {
+    // the bridge side on Base and each network's own 47-hour clock (a network the lock left earlier keeps its clock, read
+    // here when the caller hasn't), all at once
+    const clocks = leafs.filter((cid) => opens[cid] == null).map(async (cid) => {
       try {
-        const ts = await ethCall(ethers, rpc, cid, C.LEAF, ABI.leaf, "tokenStates", [p.tokenId]);
-        const [cd] = await ethCall(ethers, rpc, cid, C.LEAF, ["function allocationCooldown() view returns (uint48)"], "allocationCooldown", []);
+        const [ts, [cd]] = await Promise.all([ethCall(ethers, rpc, cid, C.LEAF, ABI.leaf, "tokenStates", [p.tokenId]),
+                                              ethCall(ethers, rpc, cid, C.LEAF, ["function allocationCooldown() view returns (uint48)"], "allocationCooldown", [])]);
         opens[cid] = Number(ts[1]) ? Number(ts[1]) + Number(cd) : 0;
       } catch (e) { opens[cid] = 0; }        // unreadable: the replay below still catches a running clock
-    }
+    });
+    const [bridge] = await Promise.all([readBridge(ethers, rpc, leafs), ...clocks]);
     const nOld = (cid) => Object.keys(((p.current || {})[cid]) || {}).length;
     // a step can be rehearsed only when everything it depends on has landed: a step waiting for AERO to come back from
     // another network is planned (and shown) but not simulated until it's back
@@ -346,11 +357,11 @@
     const openAt = (s) => Math.max(now, ...touched(s).map((c) => opens[c] || 0));
     // round 1: generous gas, quoted fees -> simulate -> the real messages + the gas they use there
     const feesFor = async (s, gasOf, msgOf) => {
-      const fees = {}, caps = {}, quoted = {};
-      for (const kind of ["chain", "gauge"]) for (const x of kind === "chain" ? s.chainDispatches : s.gaugeDispatches) {
-        if (x.chainId === C.BASE) continue;
-        const cid = x.chainId, gl = gasOf(cid, kind, x), body = msgOf ? msgOf(cid, kind) : "0x" + "00".repeat(400);
-        const q = await quote(ethers, rpc, cid, body, gl, p.owner), ret = kind === "gauge" && x.dealloc > 0n ? bridge[cid].cost : 0n;
+      const fees = {}, caps = {}, quoted = {}, todo = [];
+      for (const kind of ["chain", "gauge"]) for (const x of kind === "chain" ? s.chainDispatches : s.gaugeDispatches) if (x.chainId !== C.BASE) todo.push([kind, x]);
+      const qs = await Promise.all(todo.map(([kind, x]) => quote(ethers, rpc, x.chainId, msgOf ? msgOf(x.chainId, kind) : "0x" + "00".repeat(400), gasOf(x.chainId, kind, x), p.owner)));
+      for (const [k, [kind, x]] of todo.entries()) {
+        const cid = x.chainId, gl = gasOf(cid, kind, x), q = qs[k], ret = kind === "gauge" && x.dealloc > 0n ? bridge[cid].cost : 0n;
         (fees[cid] = fees[cid] || {})[kind] = { gasLimit: gl, value: q + (q * C.PAD_PCT + 99n) / 100n + ret };
         (caps[cid] = caps[cid] || {})[kind] = q + (q * C.CAP_PCT) / 100n + ret;
         (quoted[cid] = quoted[cid] || {})[kind] = q + ret;
@@ -358,7 +369,7 @@
       return { fees, caps, quoted };
     };
     const g1 = (cid, kind, x) => (kind === "chain" ? C.CHAIN_GAS : guessGas(x.gauges.length + (x.dealloc > 0n ? 1 : 0), nOld(cid)));
-    const r1 = []; for (const s of live) r1.push(await feesFor(s, g1));
+    const r1 = await Promise.all(live.map((s) => feesFor(s, g1)));
     const calls1 = live.map((s, i) => encodeStep(ethers, { tokenId: p.tokenId, owner: p.owner, step: s, fees: r1[i].fees }));
     const baseGauges = (i) => (live[i].gaugeDispatches.find((g) => g.chainId === C.BASE) || { gauges: [] }).gauges.map((g) => g.gauge);
     const sim1 = live.length ? await simBase(ethers, rpc, p.owner, calls1, openAt(live[0]), p.tokenId, baseGauges) : [];
@@ -374,13 +385,13 @@
       const msgOf = (cid, kind) => sm.msgs[want.findIndex((w) => w[0] === cid && w[1] === kind)].body;
       // replay on each other network, at the later of arrival and that network's clock
       const leaf = {};
-      for (const cid of [...new Set(want.map((w) => w[0]))]) {
+      await Promise.all([...new Set(want.map((w) => w[0]))].map(async (cid) => {   // each network's replay at once
         const msgs = want.map((w, k) => (w[0] === cid ? sm.msgs[k] : null)).filter(Boolean);
         const gs = (s.gaugeDispatches.find((g) => g.chainId === cid) || { gauges: [] }).gauges.map((g) => g.gauge);
         const at = Math.max(openAt(s), now) + arrive;
         try { leaf[cid] = await simLeaf(ethers, rpc, cid, p.tokenId, msgs, gs, Math.max(at, (opens[cid] || 0) + 60)); }
         catch (e) { leaf[cid] = { error: e.message || String(e) }; }
-      }
+      }));
       // gas for each message = what it used there x 1.4 + 60k, rounded up to 50k; then the exact quote for the exact message
       const used = (cid, kind) => { const L = leaf[cid]; if (!L || !L.handled) return null; const k = want.filter((w) => w[0] === cid).findIndex((w) => w[1] === kind); return L.handled[k] ? L.handled[k].gas : null; };
       const g2 = (cid, kind) => { const u = used(cid, kind); return u ? Math.min(C.GAS_MAX, Math.max(C.GAS_MIN, roundUp(u * 1.4 + 60000, 50000))) : (kind === "chain" ? C.CHAIN_GAS : C.GAS_MAX); };

@@ -274,11 +274,31 @@
     if (bad >= 0) return { ok: false, why: `The ${items[bad].net.name} deposit failed in the dry run: ${JSON.stringify(res[0].calls[bad].error || res[0].calls[bad].returnData).slice(0, 160)}`, total };
     return { ok: true, total, gas: res[0].calls.reduce((t, c) => t + parseInt(c.gasUsed, 16), 0) };
   }
+  // Wait for a wallet_sendCalls batch (EIP-5792) to land. Returns its tx hashes; throws if it failed, reverted, or is
+  // still unconfirmed after ~3 minutes, so a caller never reports success for a batch it hasn't seen confirmed.
+  async function waitCalls(provider, id) {
+    const key = typeof id === "string" ? id : id.id;
+    for (let i = 0; i < 90; i++) {
+      const s = await provider.request({ method: "wallet_getCallsStatus", params: [key] });
+      if (s.status === 200 || s.status === "CONFIRMED") {
+        const rs = s.receipts || [];
+        if (rs.some(r => r.status === "0x0" || r.status === 0)) throw new Error("the batch reverted on chain: " + JSON.stringify(s).slice(0, 200));
+        return rs.map(r => r.transactionHash).filter(Boolean);
+      }
+      if (s.status >= 400) throw new Error("batch failed: " + JSON.stringify(s).slice(0, 200));
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    throw new Error("the batch still isn't confirmed after 3 minutes; check your wallet's activity before trying again");
+  }
+  const QUOTE_MS = 90000;            // a Relay quote older than this is never signed; the page fetches and shows a fresh one
   // Sign on Base (one batch when the wallet can, else one by one), then wait for Relay to fill each order
   async function bridgeSend(provider, account, items, log, prog) {
     const base = byId(8453);
-    for (let i = 0; i < items.length; i++) if (Date.now() - items[i].at > 90000) { log(`Quote for ${items[i].net.name} is over 90s old; refreshing.`); items[i] = await bridgeQuote(items[i].net, account); }
+    const old = items.filter(b => Date.now() - b.at > QUOTE_MS);
+    if (old.length) throw Object.assign(new Error(`the Relay quote for ${old.map(b => b.net.name).join(", ")} is over 90s old; get a fresh one and check it before signing`), { stale: true });
     items.forEach(b => bridgeCheck(b, account));
+    const dry = await bridgeDry(items, account);                   // again, right before signing: balance or quote may have moved
+    if (!dry.ok) throw new Error("dry run before signing: " + dry.why);
     await ensureNet(provider, base, log);
     const calls = items.map(b => ({ to: b.tx.to, data: b.tx.data, value: "0x" + b.value.toString(16) }));
     for (const c of calls) bridgeCheck(items[calls.indexOf(c)], account);
@@ -290,12 +310,7 @@
     if (atomic) {
       prog(`Waiting for your signature (${calls.length} bridges, one batch)…`);
       const id = await provider.request({ method: "wallet_sendCalls", params: [{ version: "2.0.0", chainId: "0x2105", from: account, atomicRequired: true, calls }] });
-      for (let i = 0; i < 90; i++) {
-        const s = await provider.request({ method: "wallet_getCallsStatus", params: [typeof id === "string" ? id : id.id] });
-        if (s.status === 200 || s.status === "CONFIRMED") { (s.receipts || []).forEach(r => r.transactionHash && txs.push(r.transactionHash)); break; }
-        if (s.status >= 400) throw new Error("batch failed: " + JSON.stringify(s).slice(0, 200));
-        await new Promise(r => setTimeout(r, 2000));
-      }
+      txs.push(...await waitCalls(provider, id));
     } else {
       for (const [i, c] of calls.entries()) {
         prog(`Signature ${i + 1} of ${calls.length}: bridge ${gasAmt(items[i].value)} ETH to ${items[i].net.name}`);
@@ -318,6 +333,6 @@
     return { txs, done };
   }
 
-  window.SweepNets = { NETS, byId, rpc, call, multicall, simSwapGas, stableBalance, bridgeQuote, bridgeCheck, bridgeDry, bridgeSend, bridgeUsd, RELAY_DEPOSITORY, waitReceipt, scan, gasGuess, gasCheck, gasAmt, gasUsd, suggest, relayUrl, ensureNet,
+  window.SweepNets = { NETS, byId, rpc, call, multicall, simSwapGas, stableBalance, bridgeQuote, bridgeCheck, bridgeDry, bridgeSend, bridgeUsd, waitCalls, QUOTE_MS, RELAY_DEPOSITORY, waitReceipt, scan, gasGuess, gasCheck, gasAmt, gasUsd, suggest, relayUrl, ensureNet,
     txUrl: (net, h) => `${net.explorer}/tx/${h}` };
 })();

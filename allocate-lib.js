@@ -1,4 +1,5 @@
-/* allocate-lib.js: builds and checks the ONE allocate call (Flight Plan only dry-runs it; it never sends):
+/* allocate-lib.js: builds and checks the Base-only allocate call (the page dry-runs it, then sends it only after the
+ * owner signs; cross-network calls, which carry Hyperlane fees, are allocate-x.js's):
  * root Voter.allocate(tokenId, chainDispatches, gaugeDispatches, refundRecipient) on Base, for a stake the
  * connected account owns, value 0. The encoding was proved byte-for-byte against real
  * allocate transactions signed in the Aero app (October 2026).

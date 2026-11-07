@@ -263,12 +263,14 @@
        cypher  saero.org's own advice for a typed lock, run by the scanner at a ladder of sizes: the rung nearest
                this lock's size (log scale), its percentages rounded to whole numbers that sum to 100. */
   const NET_NAME = { base: "Base", optimism: "OP", arbitrum: "Arbitrum", ethereum: "Ethereum", ink: "Ink", robinhood: "Robinhood", arc: "Arc" };
-  function steps(ws, step) {
-    const tot = ws.reduce((a, b) => a + b, 0), units = Math.round(100 / step);
+  function steps(ws, step) { return fillTo(ws, Math.round(100 / step)).map(u => u * step); }
+  /** weights -> whole numbers summing to exactly `units` (largest remainder) */
+  function fillTo(ws, units) {
+    const tot = ws.reduce((a, b) => a + b, 0);
     if (!(tot > 0)) return ws.map(() => 0);
     const raw = ws.map(w => w / tot * units), out = raw.map(Math.floor);
     raw.map((x, i) => [x - out[i], i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]).slice(0, units - out.reduce((a, b) => a + b, 0)).forEach(([, i]) => out[i]++);
-    return out.map(u => u * step);
+    return out;
   }
   function jpnSplit(X, n, baseOnly) {
     const top = (X.rows || []).filter(r => r[3] > 0 && (!baseOnly || (r[7] || "base") === "base")).slice().sort((a, b) => a[1] - b[1]).slice(0, Math.max(1, n || X.n || 5));
@@ -287,7 +289,8 @@
     return rows.map((r, i) => ({ gauge: r[0], chain: "base", pct: pc[i], name: r[2], known: !!r[3], rung: Number(k) })).filter(x => x.pct > 0);
   }
   /** `picks` (optional) = a split already made elsewhere (Cypher's own planner run in the page's sandbox):
-   *  [{gauge, chain, pct, name, known}]. Otherwise JPN's from ext.jpn, or Cypher's ladder fallback. */
+   *  [{gauge, chain, pct, name, known, kept}], with `picks.away` = the percent on a network that couldn't be read.
+   *  Otherwise JPN's from ext.jpn, or Cypher's ladder fallback. */
   function external(D, aero, startTs, live, src, n, baseOnly, picks) {
     const C = D.consts, si = startIndex(D, startTs), X = (D.ext || {})[src];
     const none = why => ({ legs: [], start: D.starts[si], expect_usd: 0, expect_low_usd: 0, expect_high_usd: 0, apr: 0, placed: 0,
@@ -295,6 +298,15 @@
     if (!picks && !X) return none(src === "jpn" ? "JPN's screener picks aren't loaded right now." : "saero.org's picks aren't loaded right now.");
     picks = picks || (src === "jpn" ? jpnSplit(X, n, baseOnly) : cypherSplit(X, aero));
     if (!picks.length) return none("No picks in the latest read.");
+    // Cypher's Plan tab rounds the pools moved, the pools kept on other networks and the unread share separately, so a
+    // whole split can total 99-101%. Spread that drift over the moved pools; kept pools stay as they are (the page signs
+    // their exact current amounts). A real unread share (picks.away) is never filled: that split can't be signed.
+    const away = Number(picks.away) || 0, keptPct = picks.filter(p => p.kept).reduce((t, p) => t + p.pct, 0);
+    const rawPct = picks.reduce((t, p) => t + p.pct, 0), free = picks.filter(p => !p.kept);
+    if (!(away > 0) && rawPct !== 100 && Math.abs(rawPct - 100) <= 2 && free.length && keptPct < 100) {
+      const pc = fillTo(free.map(p => p.pct), 100 - keptPct);
+      picks = picks.map(p => p.kept ? p : Object.assign({}, p, { pct: pc[free.indexOf(p)] })).filter(p => p.pct > 0);
+    }
     const key = (c, g) => (c || "base") + ":" + String(g).toLowerCase();
     const byG = {};
     for (const r of rowsAt(D, si, live, Object.assign({}, DEFAULTS, { all: true }))) if (r.gauge) byG[key(r.chain, r.gauge)] = r;
@@ -315,12 +327,13 @@
       return { pct: p.pct, aero: x, row, label: (m && m.name) || p.name, gauge: p.gauge, pool: (m && m.pool) || "", type: row.type, fee_led: row.fee_led,
                chain, chain_name: cname, cost,
                expect_usd: ex, expect_low_usd: lo, expect_high_usd: hi, small: !!row.alloc && row.alloc < C.SMALL_POOL, slice: row.alloc ? x / (row.alloc + x) : null,
-               ext: { src, rank: p.rank, idx: p.idx, flags: p.flags, rung: p.rung, priced: !!r, known: p.known } };
+               ext: { src, rank: p.rank, idx: p.idx, flags: p.flags, rung: p.rung, priced: !!r, known: p.known, kept: !!p.kept } };
     });
     if (unknown) warnings.push(`${unknown} of these pools ${unknown === 1 ? "is" : "are"} not on our scanner's list of Aero pools, so Flight Plan won't sign this split.`);
     if (unpriced) warnings.push(`${unpriced} of these pools ${unpriced === 1 ? "has" : "have"} no reading from our scanner this hour, so ${unpriced === 1 ? "it counts" : "they count"} as $0 in the estimate. ${unpriced === 1 ? "It stays" : "They stay"} in the split.`);
     const sumPct = legs.reduce((t, l) => t + l.pct, 0);
-    if (sumPct !== 100) warnings.push(`${100 - sumPct}% of this lock stays on a network that couldn't be read just now, so Flight Plan can't sign this split.`);
+    if (sumPct !== 100) warnings.push(away > 0 ? `${Math.round(away)}% of this lock stays on a network that couldn't be read just now, so Flight Plan can't sign this split.`
+                                                : `This split adds up to ${Math.round(sumPct)}%, not 100%, so Flight Plan can't sign it.`);
     const apr = aero && D.px ? tot.expected / (aero * D.px) * 365 / (C.H47 / 86400) * 100 : 0;
     return { legs, start: D.starts[si], expect_usd: tot.expected, expect_low_usd: tot.low, expect_high_usd: tot.high, apr, warnings,
              placed: unknown || sumPct !== 100 ? 0 : 100, src, asOf: X ? (src === "jpn" ? X.fetched : X.ts) : null, opts: Object.assign({}, DEFAULTS, { n: n || null }) };

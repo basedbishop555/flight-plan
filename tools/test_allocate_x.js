@@ -99,6 +99,15 @@ function rebuild(tx) {
   const s1 = p.steps[0], s2 = p.steps[1];
   check(p.steps.length === 2 && s1.gaugeDispatches.map((g) => g.chainId).join() === "10,8453" && s2.chainDispatches.map((c) => c.chainId).join() === "42161" && s2.waitFor.join() === "10",
         "grown stake, Base + OP -> Base + Arbitrum: step 1 trims Base and empties OP, step 2 (after OP's return) sends to Arbitrum");
+  // a pool kept on another network (Cypher's picks, Base only): 3.4% on OP rounded to 3% for show, signed at its exact wei
+  const op34 = W(1000) * 34n / 1000n;
+  p = X.planSteps({ staked: W(1000), booked: { 8453: W(1000) - op34, 10: op34 }, current: { 8453: { [gB1]: W(1000) - op34 }, 10: { [gO1]: op34 } },
+                    split: [{ chain: "base", gauge: gB2, pct: 97 }, { chain: "optimism", gauge: gO1, pct: 3, wei: op34 }] });
+  check(p.steps.length === 1 && p.skipped.join() === "10" && p.target[10] === op34 && p.target[8453] === W(1000) - op34 && !p.steps[0].chainDispatches.length,
+    "a kept pool signs its exact amount: OP left alone, one Base-only step, no network fee");
+  p = X.planSteps({ staked: W(1000), booked: { 8453: W(1000) - op34, 10: op34 }, current: { 8453: { [gB1]: W(1000) - op34 }, 10: { [gO1]: op34 } },
+                    split: [{ chain: "base", gauge: gB2, pct: 97 }, { chain: "optimism", gauge: gO1, pct: 3 }] });
+  check(p.steps.length === 2, "the same split by rounded percent alone would move OP (why kept pools carry wei)");
   let threw = ""; try { X.planSteps({ staked: W(1), booked: {}, split: [{ chain: "base", gauge: X.C.DEALLOC, pct: 100 }] }); } catch (x) { threw = x.message; }
   check(/sentinel/.test(threw), "a split naming the deallocation sentinel as a pool is refused", threw);
   threw = ""; try { X.planSteps({ staked: W(1), booked: {}, split: [{ chainId: 137, gauge: gB1, pct: 100 }] }); } catch (x) { threw = x.message; }

@@ -19,7 +19,8 @@ sweep your claimed rewards into USDC through Aero's Metarouter. Or copy the spli
 - `planner.js` is the planning model: each pool's expected fees and incentives over a 47-hour window, your own
   dilution, a pile-on factor for crowded pools, and the caps (per pool, per pool type, at most 10% of any pool).
   `tools/check.js` checks it against reference plans.
-- `allocate-lib.js` builds and checks the one allocate call the page may send (the guard).
+- `allocate-lib.js` builds and checks the Base-only allocate call (the guard); `allocate-x.js` plans, rehearses and
+  checks allocate calls that reach other networks.
 - `sweep-routes.js` lists candidate USDC routes through Aero's new pools; the page re-quotes them live.
 - `crowd.js` draws the crowd chart from `data/crowd.json`.
 - `data/plan.json` (pool estimates, hourly), `data/rank.json` (every lock's earnings over 12 hours, 1 day, 2 days
@@ -29,11 +30,19 @@ sweep your claimed rewards into USDC through Aero's Metarouter. Or copy the spli
 
 ## Safety
 
-Exactly three kinds of signature, only with the owning wallet connected and only after a passing dry run: one
-`allocate` to the Aero Voter per lock you own (0 ETH, moves your allocation, not tokens), an exact-amount `approve` to the
-Metarouter on a reward token the scan found, and one Metarouter `execute` that sells those rewards for USDC to your
-own wallet. Never an approval on sAERO, never `setApprovalForAll`, never a transfer or claim, never a value other
-than 0. Check the address bar says flight-plan.app. Details: `docs.html#safe`.
+Four kinds of signature, only with the owning wallet connected and only after a passing dry run:
+
+- `allocate` to the Aero Voter on Base for a lock you own (moves your allocation, not tokens). **0 ETH** when the split
+  stays on Base. A split that uses another network carries that network's Hyperlane message fee as ETH on the same
+  Base call: the amount shown under its dry run, never more than 0.03 ETH.
+- An exact-amount `approve` to the Metarouter on a reward token the scan found (0 ETH).
+- One Metarouter `execute` that sells those rewards for USDC to your own wallet (0 ETH).
+- Only when you tap **Get gas**: Relay's `depositNative` on Base, carrying the small amount of ETH shown (hard cap
+  0.006 ETH), delivered to your own address on the network that needs gas.
+
+Never an approval on sAERO, never `setApprovalForAll`, never a transfer or claim, and never ETH except the
+allocate fee or the Get-gas amount the page showed you. Check the address bar says flight-plan.app. Details:
+`docs.html#safe`.
 
 Not financial advice. Estimates can be wrong and pools change fast.
 
