@@ -131,7 +131,22 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
 .rt .ty{font-size:21px;font-weight:800;letter-spacing:-.5px;line-height:1}
 .rt .ta{font-size:13.5px;font-weight:600;color:var(--mut)} .rt .tv{font-size:15px;font-weight:800}
 .rt .tk{font-size:13px;font-weight:700}
-.rcard.cmp .rt{padding:6px 0} .rcard.cmp .rt .ty{font-size:16px}
+/* "Rank among locks": you, each allocator product and the average holder in one table (APR + place per period) */
+.ctab{margin:2px 0 4px}
+.ct{display:grid;grid-template-columns:minmax(6.5em,1fr) repeat(4,4.3em);gap:0 10px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line2)}
+.ct>div:not(:first-child){text-align:right;white-space:nowrap}
+.ct.cth{font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut2);font-weight:700;padding:2px 0 4px;border-top:0;align-items:end}.ct.cth>div{line-height:1.25}
+.ct .cn{font-size:13.5px;color:var(--fg);font-weight:600;min-width:0}.ct.me .cn{color:var(--c3)}
+.ct .cn i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:6px;vertical-align:3px}.ct .cn i.dash{background:repeating-linear-gradient(90deg,var(--mut2) 0 4px,transparent 4px 7px)!important}
+.ct small{display:block;font-size:10.5px;font-weight:500;color:var(--mut2);margin-top:2px}
+.ct .cv b{font-size:16px;font-weight:800;letter-spacing:-.3px}.ct.avg .cv b{color:var(--mut);font-weight:600}
+@supports (grid-template-columns:subgrid){.ctab{display:grid;grid-template-columns:minmax(6.5em,1fr) repeat(4,auto);column-gap:12px}.ctab>.ct{grid-column:1/-1;grid-template-columns:subgrid}}
+.viz .ln{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round} .viz .ln.me{stroke-width:2.5} .viz .ln.avg{stroke-width:1.5;stroke-dasharray:4 3}
+.viz .dt{stroke:var(--card);stroke-width:1.5} .viz .cxh{stroke:var(--mut2);stroke-width:1}
+.tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+/* phones: each row's name sits on its own line above its four numbers, so the numbers get the full width */
+@media (max-width:520px){.ct,.ctab{grid-template-columns:repeat(4,minmax(0,1fr))!important}.ct.cth>div:first-child{display:none}
+  .ct .cn{grid-column:1/-1;margin:0 0 3px}.ct .cn small{display:inline;margin:0 0 0 6px}.ct{padding:7px 0}}
 .rwh{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut2);font-weight:700;padding:10px 0 4px;border-top:1px solid var(--line2)}
 .rw{display:grid;grid-template-columns:minmax(0,1fr) auto auto minmax(3.2em,auto) minmax(3.6em,auto);gap:0 10px;align-items:baseline;padding:6px 0;font-size:13px;border-top:1px dashed var(--line2)}
 .rw.rwc{white-space:nowrap;font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut2);font-weight:700;padding:2px 0 3px;border-top:0}.rw.rwc>div:not(:first-child){text-align:right}
@@ -165,7 +180,7 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
 .hidden{display:none!important}
 #log{font:11.5px/1.45 var(--mono);white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;color:var(--mut)}
-@media (max-width:420px){table{font-size:12px}th,td{padding:5px 3px}.hv{font-size:40px}.ring.big{width:66px;height:66px}.ppct{font-size:23px}.rt,.rw,.rtab,.rwt{gap:0 7px}.rt .ty{font-size:17px}.rt .tv{font-size:14px}.rt small{font-size:10px}.wm span{display:none}}
+@media (max-width:420px){.ct{gap:0 7px}.ctab{column-gap:8px}.ct .cv b{font-size:14.5px}.ct .cn{font-size:12.5px}table{font-size:12px}th,td{padding:5px 3px}.hv{font-size:40px}.ring.big{width:66px;height:66px}.ppct{font-size:23px}.rt,.rw,.rtab,.rwt{gap:0 7px}.rt .ty{font-size:17px}.rt .tv{font-size:14px}.rt small{font-size:10px}.wm span{display:none}}
 </style></head><body>
 <header class="hdr">
   <a class="wm" href="./"><img src="icons/icon-192.png" alt="">Flight Plan</a>
@@ -300,7 +315,7 @@ async function waitReceipt(hash) {
 
 // ---------- state ----------
 const S = { empty: 0, D: null, RK: null, H: null, histBusy: false, CR: null, addr: null, account: null, provider: null, locks: [], live: null, plan: null,
-            dial: null, ST: null, winsBr: null, mode: store.get("mode", "lock"), logv: store.get("logv", "week") === "day" ? "day" : "week",
+            dial: null, ST: null, winsBr: null, mode: store.get("mode", "lock"), aprv: store.get("aprv", "week"), logv: store.get("logv", "week") === "day" ? "day" : "week",
             bracket: null, busy: false, cool: 169200 };
 const LOCK_MAX = 60;          // locks read per wallet (6 chain calls each; the biggest wallets hold hundreds)
 const viewer = () => S.addr;
@@ -696,12 +711,18 @@ function combine(mine) {
   const vm = mine.filter(x => x.va > 0), vote = vm.length ? vm.reduce((s, x) => s + x.v * x.va, 0) / vm.reduce((s, x) => s + x.va, 0) : null;
   return { apr, vote, aero: a, usd_day: mine.reduce((s, x) => s + (x.c || 0), 0) };
 }
+const STCACHE = new Map();
+function periodStats(period, mode, thr) {    // the field you're ranked in: every lock (or wallet) at least thr AERO
+  const Rk = S.RK, p = Rk && Rk.per[period]; if (!p) return null;
+  const key = period + "|" + mode + "|" + thr;
+  if (!STCACHE.has(key)) STCACHE.set(key, stats(mode === "wallet" ? walletPool(period) : p.rows.filter(x => x.f && !Rk.team.has(x.i)), thr));   // the Aero team's 4 locks sit out (as on saero.org)
+  return STCACHE.get(key);
+}
 function rankLine(period, idxs, mode, thr) {
   const Rk = S.RK, p = Rk && Rk.per[period]; if (!p) return null;
   const mine = idxs.map(i => p.byI.get(i)).filter(Boolean); if (!mine.length) return null;
   const me = combine(mine); if (!me) return null;
-  const pool = mode === "wallet" ? walletPool(period) : p.rows.filter(x => x.f && !Rk.team.has(x.i));   // the Aero team's 4 locks sit out (as on saero.org)
-  const st = stats(pool, thr); if (!st) return null;
+  const st = periodStats(period, mode, thr); if (!st) return null;
   return { ...me, ...rankOf(st, me.apr), avg: st.avg, med: st.med };
 }
 function histLine(b, ids, mode, thr) {      // ids = sAERO token ids; history.json numbers its locks itself (H.idOf)
@@ -943,7 +964,7 @@ const voteTxt = x => x.vote != null && Math.abs(x.vote - x.apr) >= 0.005 ? `allo
 // (every claim on every network + what is waiting)
 const lifeSince = idxs => { let m = null; for (const i of idxs) { const e = S.RK.earn.get(i); if (e && e.lifeSince) m = m == null ? e.lifeSince : Math.min(m, e.lifeSince); } return m; };
 const vsTxt = vs => vs == null ? "-" : Math.abs(vs) < 0.5 ? "0%" : (vs >= 0 ? "+" : "−") + Math.abs(vs).toFixed(0) + "%";
-function rankRows(idxs, thr, compact) {
+function rankRows(idxs, thr) {
   const Rk = S.RK, names = { now: "Now", fwd: "Est. next 47h", "2d": "2 days", "7d": "7 days", life: "Lifetime" };
   const head = `<div class="rt rth"><div></div><div>You</div><div>Avg</div><div>vs avg</div><div>Rank</div></div>`;
   return `<div class="rtab">` + head + ["now", "fwd", "2d", "7d", "life"].map(k => {
@@ -953,8 +974,8 @@ function rankRows(idxs, thr, compact) {
     const per = Rk.per[k], sm = t => `<small>${t}</small>`, ls = k === "life" && lifeSince(idxs);
     const span = k === "now" && per ? sm(`${clock(per.t0).replace(" ET", "")} to ${clock(per.t1)}`) : k === "fwd" ? sm("forecast") : ls ? sm("since " + new Date(ls * 1000).toLocaleDateString([], { month: "numeric", day: "numeric" })) : "";
     return `<div class="rt"><div class="p">${names[k]}${span}</div>
-      <div class="ty num ${good ? "ok" : "warn"}">${(x.apr * 100).toFixed(1)}%${compact ? "" : `<small>${vt ? vt + "<br>" : ""}$${wk.toFixed(2)}/wk/1k</small>`}</div>
-      <div class="ta num">${(x.avg * 100).toFixed(1)}%${compact ? "" : `<small>med ${(x.med * 100).toFixed(1)}%</small>`}</div>
+      <div class="ty num ${good ? "ok" : "warn"}">${(x.apr * 100).toFixed(1)}%<small>${vt ? vt + "<br>" : ""}$${wk.toFixed(2)}/wk/1k</small></div>
+      <div class="ta num">${(x.avg * 100).toFixed(1)}%<small>med ${(x.med * 100).toFixed(1)}%</small></div>
       <div class="tv num ${vs == null ? "mut2" : vs >= 0 ? "ok" : "warn"}">${vsTxt(vs)}</div>
       <div class="tk num ${x.top <= 25 ? "ok" : x.top <= 50 ? "acc" : "mut2"}">top ${x.top < 10 ? x.top.toFixed(1) : Math.round(x.top)}%<small title="of ${x.of.toLocaleString()}">#${x.rank.toLocaleString()}</small></div></div>`;
   }).join("") + `</div>`;
@@ -985,6 +1006,97 @@ function histRows(ids, thr) {
   const since = S.logv === "day" && H.days_since ? `<div class="small mut2" style="margin:4px 0 6px">The daily log starts ${new Date(H.days_since * 1000).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", timeZone: ET })}: the reads only reach back about 8 days, and a lock only has history from the day it was first tracked.</div>` : "";
   return head + (rows ? `<div class="rwt">${cols}${rows}</div>` : `<div class="small mut2" style="padding:6px 0">Nothing logged yet.</div>`) + running + since;
 }
+// ---------- "Rank among locks": you, each allocator product and the average holder side by side ----------
+// one row each, one column per period (APR on the whole lock + place); then the same rows as a daily APR line chart
+const CMP_COLS = [["fwd", "Est. next<br>47h"], ["2d", "Last<br>2 days"], ["7d", "Last<br>7 days"], ["life", "Life-<br>time"]];
+const SER = ["var(--s1)", "var(--s2)", "var(--s3)"];      // fixed order: a product keeps its colour whatever else shows
+function cmpEntities(idxs) {
+  const n = k => `${k.toLocaleString()} lock${k === 1 ? "" : "s"}${k > 1 ? " as one" : ""}`;
+  const out = idxs.length ? [{ name: "My locks", sub: n(idxs.length), idxs, col: "var(--fg)", me: true }] : [];
+  Object.entries(S.RK.groups).forEach(([name, g], k) => out.push({ name, sub: n(g.length), idxs: g, col: SER[k] || null }));
+  return out;
+}
+function cmpTable(ents, thr) {
+  const head = `<div class="ct cth"><div></div>${CMP_COLS.map(([, t]) => `<div>${t}</div>`).join("")}</div>`;
+  const rows = ents.map(e => `<div class="ct${e.me ? " me" : ""}"><div class="cn">${e.col ? `<i style="background:${e.col}"></i>` : ""}${esc(e.name)}<small>${e.sub}</small></div>` + CMP_COLS.map(([k]) => {
+    const x = rankLine(k, e.idxs, S.mode, thr);
+    if (!x) return `<div class="cv mut2">-</div>`;
+    return `<div class="cv num"><b class="${x.apr >= x.avg ? "ok" : "warn"}">${(x.apr * 100).toFixed(1)}%</b><small title="${x.rank.toLocaleString()} of ${x.of.toLocaleString()}">#${x.rank.toLocaleString()}/${x.of.toLocaleString()}</small></div>`;
+  }).join("") + `</div>`).join("");
+  const avg = `<div class="ct avg"><div class="cn mut"><i class="dash"></i>Average ${S.mode === "wallet" ? "wallet" : "holder"}<small>weighted by AERO</small></div>` + CMP_COLS.map(([k]) => {
+    const st = periodStats(k, S.mode, thr); return `<div class="cv num">${st ? `<b>${(st.avg * 100).toFixed(1)}%</b>` : `<span class="mut2">-</span>`}</div>`;
+  }).join("") + `</div>`;
+  return `<div class="ctab">${head}${rows}${avg}</div>`;
+}
+const APR_RANGES = [["week", "Week", 8], ["month", "Month", 31], ["3m", "3 months", 92], ["all", "All", Infinity]];
+function aprSeries(ents, thr) {      // oldest day first; null where a row has no reading that day
+  const H = S.H, days = H.days.slice().reverse(), Rk = S.RK;
+  const lines = ents.filter(e => e.col).map(e => {
+    const ids = e.idxs.map(i => Rk.ids[i]);
+    return { ...e, v: days.map(d => { const x = histLine(d, ids, S.mode, thr); return x ? x.apr : null; }) };
+  });
+  lines.push({ name: `Average ${S.mode === "wallet" ? "wallet" : "holder"}`, col: "var(--mut2)", avg: true,
+    v: days.map(d => { const st = stats(S.mode === "wallet" ? d.w : d.rows.filter(x => !H.team.has(x.i)), thr); return st ? st.avg : null; }) });
+  return { days, lines };
+}
+function aprChart(ents, thr) {
+  const H = S.H, head = `<div class="rwh"><span>Daily APR</span>`;
+  if (!H) return head + `</div><div class="small mut2" style="padding:6px 0">${S.histBusy ? "Loading the history…" : "History unavailable."}</div>`;
+  const n = H.days.length, opts = APR_RANGES.filter(([, , m], i) => i === 0 || n > APR_RANGES[i - 1][2]);
+  if (!opts.some(o => o[0] === S.aprv)) S.aprv = "week";
+  const seg = opts.length > 1 ? `<span class="seg tight">${opts.map(([k, t]) => `<button type="button" data-aprv="${k}" class="${S.aprv === k ? "on" : ""}">${t}</button>`).join("")}</span>` : "";
+  const all = aprSeries(ents, thr), cut = Math.max(0, n - APR_RANGES.find(o => o[0] === S.aprv)[2]);
+  const days = all.days.slice(cut), lines = all.lines.map(l => ({ ...l, v: l.v.slice(cut) }));
+  S.aprData = { days, lines };
+  if (days.length < 2) return head + seg + `</div><div class="small mut2" style="padding:6px 0">Not enough days logged yet.</div>`;
+  const vals = lines.flatMap(l => l.v).filter(v => v != null).map(v => v * 100), top = Math.max(5, ...vals);
+  let step = 100; for (const s of [5, 10, 20, 25, 50, 100]) if (top / s <= 4) { step = s; break; }
+  const ymax = step * Math.ceil(top / step), W = 400, Ht = 200, L = 32, R = 10, T = 8, B = 22, pw = W - L - R, ph = Ht - T - B;
+  const X = j => L + (days.length === 1 ? pw / 2 : j / (days.length - 1) * pw), Y = v => T + ph - Math.max(0, v * 100) / ymax * ph;
+  const g = [];
+  for (let v = 0; v <= ymax; v += step) g.push(`<line x1="${L}" x2="${W - R}" y1="${Y(v / 100).toFixed(1)}" y2="${Y(v / 100).toFixed(1)}" class="cg"/><text x="${L - 5}" y="${(Y(v / 100) + 3.5).toFixed(1)}" class="cx" text-anchor="end">${v}%</text>`);
+  const every = Math.ceil(days.length / 8), lab = d => new Date(d.wk * 1000).toLocaleDateString([], { month: "numeric", day: "numeric", timeZone: ET });
+  days.forEach((d, j) => { if ((days.length - 1 - j) % every === 0) g.push(`<text x="${X(j).toFixed(1)}" y="${Ht - 6}" class="cx" text-anchor="middle">${lab(d)}</text>`); });
+  g.push(`<line class="cxh" x1="0" x2="0" y1="${T}" y2="${T + ph}" style="display:none"/>`);
+  const dots = days.length <= 16;
+  // the average and the products first, your line last (on top)
+  [...lines.filter(l => !l.me), ...lines.filter(l => l.me)].forEach(l => {
+    let d = "", pen = false;
+    l.v.forEach((v, j) => { if (v == null) { pen = false; return; } d += (pen ? "L" : "M") + X(j).toFixed(1) + "," + Y(v).toFixed(1); pen = true; });
+    if (d) g.push(`<path class="ln${l.me ? " me" : ""}${l.avg ? " avg" : ""}" d="${d}" style="stroke:${l.col}"/>`);
+    if (dots && !l.avg) l.v.forEach((v, j) => { if (v != null) g.push(`<circle class="dt" cx="${X(j).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="${l.me ? 3.5 : 3}" style="fill:${l.col}"/>`); });
+  });
+  const cw = pw / Math.max(1, days.length - 1);
+  const hits = days.map((d, j) => `<rect class="ch" x="${Math.max(L, X(j) - cw / 2).toFixed(1)}" y="${T}" width="${(Math.min(W - R, X(j) + cw / 2) - Math.max(L, X(j) - cw / 2)).toFixed(1)}" height="${ph}" data-j="${j}" data-x="${X(j).toFixed(1)}"/>`).join("");
+  const lg = `<div class="lg">${lines.map(l => `<span><i class="ln" style="background:${l.col}${l.avg ? ";opacity:.7" : ""}"></i>${esc(l.name)}</span>`).join("")}</div>`;
+  const pc = v => v == null ? "-" : (v * 100).toFixed(1) + "%";
+  const table = `<details style="margin-top:6px"><summary class="small mut" style="cursor:pointer">Table view (APR per day)</summary><div class="tw" style="margin-top:6px"><table><tr><th>Day</th>${lines.map(l => `<th class="num">${esc(l.name)}</th>`).join("")}</tr>`
+    + days.map((d, j) => `<tr><td>${lab(d)}${d.final ? "" : " <small class='mut2'>so far</small>"}</td>${lines.map(l => `<td class="num">${pc(l.v[j])}</td>`).join("")}</tr>`).reverse().join("") + `</table></div></details>`;
+  return head + seg + `</div><div class="viz" id="aprviz">${lg}<svg viewBox="0 0 ${W} ${Ht}" role="img" aria-label="Daily APR on the whole lock: your locks, each allocator product and the average, per day">${g.join("")}${hits}</svg><div class="tip"></div></div>`
+    + `<div class="small mut2" style="margin:4px 0 0">Days run midnight to midnight US Eastern; the last point is today so far. A day's APR is lumpy when rewards land at once.</div>` + table;
+}
+function wireAprChart(el) {
+  const box = el.querySelector("#aprviz"); if (!box || !S.aprData) return;
+  const tip = box.querySelector(".tip"), xh = box.querySelector(".cxh"), { days, lines } = S.aprData;
+  const show = r => {
+    const j = +r.dataset.j, d = days[j];
+    tip.innerHTML = "";
+    const hd = document.createElement("div");
+    hd.textContent = new Date(d.wk * 1000).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", timeZone: ET }) + (d.final ? "" : " (so far)");
+    tip.appendChild(hd);
+    lines.filter(l => l.v[j] != null).sort((a, b) => b.v[j] - a.v[j]).forEach(l => {
+      const e = document.createElement("div"), sw = document.createElement("i"), b = document.createElement("b");
+      sw.style.background = l.col; b.textContent = (l.v[j] * 100).toFixed(1) + "%";
+      e.appendChild(sw); e.appendChild(b); e.appendChild(document.createTextNode(" " + l.name)); tip.appendChild(e);
+    });
+    xh.setAttribute("x1", r.dataset.x); xh.setAttribute("x2", r.dataset.x); xh.style.display = "";
+    tip.style.display = "block";
+    const bb = box.getBoundingClientRect(), rr = r.getBoundingClientRect();
+    tip.style.left = Math.max(0, Math.min(bb.width - tip.offsetWidth, rr.left - bb.left + rr.width / 2 - tip.offsetWidth / 2)) + "px"; tip.style.top = "26px";
+  };
+  box.querySelectorAll(".ch").forEach(r => { r.addEventListener("pointerenter", () => show(r)); r.addEventListener("click", () => show(r)); });
+  box.querySelector("svg").addEventListener("pointerleave", () => { tip.style.display = "none"; xh.style.display = "none"; });
+}
 function renderRank() {
   const el = $("rank");
   if (!S.locks.length || !S.RK) { el.classList.add("hidden"); return; }
@@ -995,15 +1107,18 @@ function renderRank() {
   const label = { all: "All", "10k": "10k+", "50k": "50k+", "100k": "100k+", "250k": "250k+", "500k": "500k+", "1m": "1M+" };
   const you = idxs.length ? `<div class="rcard glow"><div class="rch"><b>Your locks</b><span class="num">${S.locks.length} lock${S.locks.length === 1 ? "" : "s"} · ${fmtA(aero)} AERO</span></div>${rankRows(idxs, thr)}${histRows(S.locks.map(L => L.id), thr)}</div>`
     : `<div class="rcard glow"><div class="rch"><b>Your locks</b></div><p class="small mut2">Not in the rank data yet: new locks show up after the next every-lock read (about every 3 hours).</p></div>`;
-  const cmp = Object.entries(Rk.groups).map(([name, g]) => `<div class="rcard cmp"><div class="rch"><b>${esc(name)}</b><span class="num">${g.length} lock${g.length === 1 ? "" : "s"}</span></div>${rankRows(g, thr, true)}</div>`).join("");
+  const ents = cmpEntities(idxs);
+  const cmp = Object.keys(Rk.groups).length ? `<div class="rcard"><div class="rch"><b>Rank among ${S.mode === "wallet" ? "wallets" : "locks"}</b><span>${label[S.bracket] || S.bracket} · green = above the average</span></div>${cmpTable(ents, thr)}${aprChart(ents, thr)}</div>` : "";
   el.innerHTML = `<h2>vs every ${S.mode === "wallet" ? "wallet" : "lock"} <span>APR on the whole lock</span></h2><div class="body">
     <div class="seg" id="mode"><button type="button" data-m="lock" class="${S.mode === "lock" ? "on" : ""}">Every lock</button><button type="button" data-m="wallet" class="${S.mode === "wallet" ? "on" : ""}">Every wallet</button></div>
     <div class="seg" id="brk">${br.map(([k]) => `<button type="button" data-b="${k}" class="${S.bracket === k ? "on" : ""}">${label[k] || k}</button>`).join("")}</div>
-    ${you}${cmp ? `<div class="seglabel" style="margin-top:4px">Compare with</div>${cmp}` : ""}
-    <p class="small mut2" style="margin:8px 0 0">All your locks counted as one. The average is weighted by AERO and leaves out the Aero team's 4 locks (about half of all sAERO; they sit out of the rank too); vs avg is your APR against it; the median is the typical lock. "Now" looks back over about the last 12 hours, between two every-lock reads (the times are under it); $/wk/1k is dollars a week per 1,000 AERO; the # under the rank is your place. "Est. next 47h" looks ahead: what each lock's current allocation would pay at today's pool rates if nothing moved (4-day fees with spikes capped, plus live incentives, your own size counted in the pool). Lifetime is everything a lock has earned since it first allocated: every claim on every network plus what is waiting, at today's prices; "Today so far" in the history below starts at midnight, so the two cover different hours and can differ a lot when rewards land in a lump. Autopilot and 40acres are products that allocate for many lockers; each is shown as one combined entry. <a href="docs.html#rank">How it's measured</a></p></div>`;
+    ${you}${cmp}
+    <p class="small mut2" style="margin:8px 0 0">All your locks counted as one. The average is weighted by AERO and leaves out the Aero team's 4 locks (about half of all sAERO; they sit out of the rank too); vs avg is your APR against it; the median is the typical lock. "Now" looks back over about the last 12 hours, between two every-lock reads (the times are under it); $/wk/1k is dollars a week per 1,000 AERO; the # under the rank is your place. "Est. next 47h" looks ahead: what each lock's current allocation would pay at today's pool rates if nothing moved (4-day fees with spikes capped, plus live incentives, your own size counted in the pool). Lifetime is everything a lock has earned since it first allocated: every claim on every network plus what is waiting, at today's prices; "Today so far" in the history below starts at midnight, so the two cover different hours and can differ a lot when rewards land in a lump. Autopilot and 40acres are products that allocate for many lockers; in "Rank among locks" each is one combined entry, ranked the same way you are (the # is its place out of every ${S.mode === "wallet" ? "wallet" : "lock"} in the size filter), with the daily APR of each row below. <a href="docs.html#rank">How it's measured</a></p></div>`;
   el.querySelectorAll("#mode button").forEach(b => b.addEventListener("click", () => { S.mode = b.dataset.m; store.set("mode", S.mode); renderRank(); }));
   el.querySelectorAll("#brk button").forEach(b => b.addEventListener("click", () => { S.bracket = b.dataset.b; store.set("bracket", S.bracket); renderRank(); }));
   el.querySelectorAll("[data-logv]").forEach(b => b.addEventListener("click", () => { S.logv = b.dataset.logv; store.set("logv", S.logv); renderRank(); }));
+  el.querySelectorAll("[data-aprv]").forEach(b => b.addEventListener("click", () => { S.aprv = b.dataset.aprv; store.set("aprv", S.aprv); renderRank(); }));
+  wireAprChart(el);
 }
 function renderEarn() {
   const el = $("earn");
