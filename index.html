@@ -275,7 +275,7 @@ const ago = ts => { const m = Math.max(0, Math.round((Date.now() / 1000 - ts) / 
 const ET = "America/New_York";
 const clock = ts => new Date(ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone: ET }).replace(" ", "").toLowerCase() + " ET";
 const store = { get(k, d) { try { const v = localStorage.getItem("fp:" + k); return v == null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem("fp:" + k, v); } catch (e) {} } };
-const NET = { 10: "OP", 1: "Ethereum", 42161: "Arbitrum", 4663: "Robinhood", 57073: "Ink", 5042: "Arc" };
+const NET = { 10: "OP", 1: "Ethereum", 42161: "Arbitrum", 4663: "Robinhood", 57073: "Ink", 5042: "Arc", 99901: "Elysium" };
 const TYPE_NAME = { "deep fee": "Deep fee", "stream-led": "Stream", "tokenized-stock": "Stock", "thin-token": "Thin token" };
 const TYPEC = { "deep fee": "var(--t-fee)", "stream-led": "var(--t-stream)", "tokenized-stock": "var(--t-stock)", "thin-token": "var(--t-thin)" };
 const typeColor = t => TYPEC[t] || "var(--mut2)";
@@ -473,8 +473,8 @@ function calib(pl) {
    allocations, cooldown. His answer comes back as plain data and is checked before use. Until it's back (or if it
    fails) the split is his advice for the nearest lock size, from the scanner's hourly run. ---------- */
 const CY = { ready: null, data: null, seq: 0, wait: {}, res: null, key: "", busy: false, err: null };
-const CY_NET = { 8453: "base", 10: "optimism", 1: "ethereum", 42161: "arbitrum", 57073: "ink", 4663: "robinhood", 5042: "arc" };
-const CY_POOL = /^(base|optimism|ethereum|arbitrum|ink|robinhood|arc):0x[0-9a-f]{40}$/;
+const CY_NET = { 8453: "base", 10: "optimism", 1: "ethereum", 42161: "arbitrum", 57073: "ink", 4663: "robinhood", 5042: "arc", 99901: "elysium" };
+const CY_POOL = /^(base|optimism|ethereum|arbitrum|ink|robinhood|arc|elysium):0x[0-9a-f]{40}$/;
 const CY_FRAME_V = "2";                         // bump whenever cypher-frame.html changes
 const CY_MAX_POOLS = 8, CY_MIN_SIZE = 100000;   // his Plan tab's defaults ("Most pools" 8, "Smallest pool" 100k sAERO)
 // sha256 of his page's Plan-tab function the frame's planTab() was matched against (saero_track.py writes the live one
@@ -1180,7 +1180,7 @@ function renderWins() {
 // ---------- "How each strategy did": every preset replayed on past scans, no look-ahead (data/backtest.json) ----------
 const BT_SIZES = [["1000", "1k"], ["30000", "30k"], ["100000", "100k"], ["1000000", "1M"]];
 const BT_ORDER = ["balanced", "steady", "aggressive", "jpn", "cypher", "aggressive_base", "n10", "n6", "n3", "n1", "spike12"];
-const BT_NET = { optimism: "OP", arbitrum: "Arbitrum", ethereum: "Ethereum", ink: "Ink", robinhood: "Robinhood", arc: "Arc" };
+const BT_NET = { optimism: "OP", arbitrum: "Arbitrum", ethereum: "Ethereum", ink: "Ink", robinhood: "Robinhood", arc: "Arc", elysium: "Elysium" };
 function renderTested() {
   const el = $("tested"), B = S.BT;
   if (!B || !B.rows) { el.classList.add("hidden"); return; }

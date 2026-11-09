@@ -262,7 +262,7 @@
                Auto = ext.jpn.n). Same rule as the scanner's screener.jpn_split, which the backtest grades.
        cypher  saero.org's own advice for a typed lock, run by the scanner at a ladder of sizes: the rung nearest
                this lock's size (log scale), its percentages rounded to whole numbers that sum to 100. */
-  const NET_NAME = { base: "Base", optimism: "OP", arbitrum: "Arbitrum", ethereum: "Ethereum", ink: "Ink", robinhood: "Robinhood", arc: "Arc" };
+  const NET_NAME = { base: "Base", optimism: "OP", arbitrum: "Arbitrum", ethereum: "Ethereum", ink: "Ink", robinhood: "Robinhood", arc: "Arc", elysium: "Elysium" };
   function steps(ws, step) { return fillTo(ws, Math.round(100 / step)).map(u => u * step); }
   /** weights -> whole numbers summing to exactly `units` (largest remainder) */
   function fillTo(ws, units) {

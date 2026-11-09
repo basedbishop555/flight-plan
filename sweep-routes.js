@@ -1,6 +1,6 @@
 window.SWEEP_ROUTES = {
  "meta": {
-  "generated": 1793916528,
+  "generated": 1794261398,
   "chainId": 8453,
   "metarouter": "0x0fEf9e88A7b76BCDBF451780C6774FE32965Ee98",
   "metaquoter": "0x1dDfeC5058180C207F55BB77D95AcDd0d8227868",
@@ -28,9 +28,10 @@ window.SWEEP_ROUTES = {
    1,
    4663,
    57073,
-   5042
+   5042,
+   99901
   ],
-  "eth_usd": 2230.1011791283217
+  "eth_usd": 2128.28924968309
  },
  "tokens": {
   "AERO": {
@@ -38,40 +39,6 @@ window.SWEEP_ROUTES = {
    "decimals": 18,
    "ref_amount": 50,
    "routes": [
-    {
-     "pools": [
-      "0x422df9aa896e883c9cdcbad309c0785b7364a1cf"
-     ],
-     "kinds": [
-      "cl"
-     ],
-     "via": "CL100",
-     "quote_ref_usdc": 30.166001
-    },
-    {
-     "pools": [
-      "0xc85d5cb72d1aad6f152a8decad228ae4a59ac9b3",
-      "0x4a7af46bc8abc00048c6c7920a1488daf568366c"
-     ],
-     "kinds": [
-      "cl",
-      "cl"
-     ],
-     "via": "CL200\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 30.117333
-    },
-    {
-     "pools": [
-      "0xc85d5cb72d1aad6f152a8decad228ae4a59ac9b3",
-      "0x2a430bebd2082d8e05d56d64dede8944279bbc24"
-     ],
-     "kinds": [
-      "cl",
-      "cl"
-     ],
-     "via": "CL200\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 30.113222
-    },
     {
      "pools": [
       "0xe6a7317df4a9a7540663b99a07d1e019caa8afa4",
@@ -82,7 +49,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192cbBTC\u2192CL50",
-     "quote_ref_usdc": 30.08776
+     "quote_ref_usdc": 28.509674
     },
     {
      "pools": [
@@ -94,7 +61,41 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192cbBTC\u2192CL100",
-     "quote_ref_usdc": 30.070831
+     "quote_ref_usdc": 28.501254
+    },
+    {
+     "pools": [
+      "0x422df9aa896e883c9cdcbad309c0785b7364a1cf"
+     ],
+     "kinds": [
+      "cl"
+     ],
+     "via": "CL100",
+     "quote_ref_usdc": 28.499535
+    },
+    {
+     "pools": [
+      "0xc85d5cb72d1aad6f152a8decad228ae4a59ac9b3",
+      "0x4a7af46bc8abc00048c6c7920a1488daf568366c"
+     ],
+     "kinds": [
+      "cl",
+      "cl"
+     ],
+     "via": "CL200\u2192WETH\u2192CL50",
+     "quote_ref_usdc": 28.492173
+    },
+    {
+     "pools": [
+      "0xc85d5cb72d1aad6f152a8decad228ae4a59ac9b3",
+      "0x2a430bebd2082d8e05d56d64dede8944279bbc24"
+     ],
+     "kinds": [
+      "cl",
+      "cl"
+     ],
+     "via": "CL200\u2192WETH\u2192CL100",
+     "quote_ref_usdc": 28.480752
     },
     {
      "pools": [
@@ -104,7 +105,7 @@ window.SWEEP_ROUTES = {
       "v2"
      ],
      "via": "vAMM",
-     "quote_ref_usdc": 30.047663
+     "quote_ref_usdc": 28.436516
     }
    ]
   },
@@ -123,39 +124,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL1\u2192cbBTC\u2192CL50",
-     "quote_ref_usdc": 8.931197
-    },
-    {
-     "pools": [
-      "0xec3c3755b9ded4a2960ef50c9b48c1694ce274c2",
-      "0x784e539f15ca2d19449a6311c5dab6cf37d8f1ba"
-     ],
-     "kinds": [
-      "cl",
-      "cl"
-     ],
-     "via": "CL1\u2192cbBTC\u2192CL100",
-     "quote_ref_usdc": 8.926634
-    },
-    {
-     "pools": [
-      "0x4a7af46bc8abc00048c6c7920a1488daf568366c"
-     ],
-     "kinds": [
-      "cl"
-     ],
-     "via": "CL50",
-     "quote_ref_usdc": 8.924419
-    },
-    {
-     "pools": [
-      "0x2a430bebd2082d8e05d56d64dede8944279bbc24"
-     ],
-     "kinds": [
-      "cl"
-     ],
-     "via": "CL100",
-     "quote_ref_usdc": 8.923585
+     "quote_ref_usdc": 8.512489
     },
     {
      "pools": [
@@ -167,7 +136,29 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL10\u2192cbBTC\u2192CL50",
-     "quote_ref_usdc": 8.919058
+     "quote_ref_usdc": 8.511739
+    },
+    {
+     "pools": [
+      "0x4a7af46bc8abc00048c6c7920a1488daf568366c"
+     ],
+     "kinds": [
+      "cl"
+     ],
+     "via": "CL50",
+     "quote_ref_usdc": 8.511416
+    },
+    {
+     "pools": [
+      "0xec3c3755b9ded4a2960ef50c9b48c1694ce274c2",
+      "0x784e539f15ca2d19449a6311c5dab6cf37d8f1ba"
+     ],
+     "kinds": [
+      "cl",
+      "cl"
+     ],
+     "via": "CL1\u2192cbBTC\u2192CL100",
+     "quote_ref_usdc": 8.509964
     },
     {
      "pools": [
@@ -179,7 +170,17 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL10\u2192cbBTC\u2192CL100",
-     "quote_ref_usdc": 8.914498
+     "quote_ref_usdc": 8.509214
+    },
+    {
+     "pools": [
+      "0x2a430bebd2082d8e05d56d64dede8944279bbc24"
+     ],
+     "kinds": [
+      "cl"
+     ],
+     "via": "CL100",
+     "quote_ref_usdc": 8.508005
     }
    ]
   },
@@ -196,7 +197,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL50",
-     "quote_ref_usdc": 7.584538
+     "quote_ref_usdc": 7.495009
     },
     {
      "pools": [
@@ -206,7 +207,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL100",
-     "quote_ref_usdc": 7.581078
+     "quote_ref_usdc": 7.493267
     },
     {
      "pools": [
@@ -218,7 +219,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL1\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 7.577262
+     "quote_ref_usdc": 7.492746
     },
     {
      "pools": [
@@ -230,7 +231,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL1\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 7.576554
+     "quote_ref_usdc": 7.489743
     },
     {
      "pools": [
@@ -242,7 +243,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL10\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 7.572769
+     "quote_ref_usdc": 7.487561
     },
     {
      "pools": [
@@ -254,7 +255,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL10\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 7.572061
+     "quote_ref_usdc": 7.48456
     }
    ]
   },
@@ -271,7 +272,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL1",
-     "quote_ref_usdc": 0.998442
+     "quote_ref_usdc": 0.998953
     },
     {
      "pools": [
@@ -283,7 +284,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL100\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 0.997275
+     "quote_ref_usdc": 0.998005
     },
     {
      "pools": [
@@ -295,7 +296,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL100\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 0.997182
+     "quote_ref_usdc": 0.997605
     },
     {
      "pools": [
@@ -307,7 +308,7 @@ window.SWEEP_ROUTES = {
       "v2"
      ],
      "via": "vAMM\u2192WETH\u2192vAMM",
-     "quote_ref_usdc": 0.501428
+     "quote_ref_usdc": 0.516037
     }
    ]
   },
@@ -318,6 +319,28 @@ window.SWEEP_ROUTES = {
    "routes": [
     {
      "pools": [
+      "0x002ae5ae3653a1e46387542c0f68c2dc2a687036",
+      "0x800eb395b577b234c5065c8e0ccb0f3a1401b2c2"
+     ],
+     "kinds": [
+      "v2",
+      "v2"
+     ],
+     "via": "vAMM\u2192WETH\u2192vAMM",
+     "quote_ref_usdc": 1.845582
+    },
+    {
+     "pools": [
+      "0xf0b593cc024bd446d11c24570b4866a704c138be"
+     ],
+     "kinds": [
+      "cl"
+     ],
+     "via": "CL200",
+     "quote_ref_usdc": 1.843497
+    },
+    {
+     "pools": [
       "0x2e8b5774887b71e4f806b6d4d9e6eb26cc4d17da",
       "0x4a7af46bc8abc00048c6c7920a1488daf568366c"
      ],
@@ -326,7 +349,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 1.890854
+     "quote_ref_usdc": 1.840928
     },
     {
      "pools": [
@@ -338,29 +361,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 1.89071
-    },
-    {
-     "pools": [
-      "0xf0b593cc024bd446d11c24570b4866a704c138be"
-     ],
-     "kinds": [
-      "cl"
-     ],
-     "via": "CL200",
-     "quote_ref_usdc": 1.890677
-    },
-    {
-     "pools": [
-      "0x002ae5ae3653a1e46387542c0f68c2dc2a687036",
-      "0x800eb395b577b234c5065c8e0ccb0f3a1401b2c2"
-     ],
-     "kinds": [
-      "v2",
-      "v2"
-     ],
-     "via": "vAMM\u2192WETH\u2192vAMM",
-     "quote_ref_usdc": 1.887016
+     "quote_ref_usdc": 1.84019
     }
    ]
   },
@@ -377,7 +378,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200",
-     "quote_ref_usdc": 0.755217
+     "quote_ref_usdc": 0.727771
     }
    ]
   },
@@ -396,7 +397,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 0.518795
+     "quote_ref_usdc": 0.513414
     },
     {
      "pools": [
@@ -408,7 +409,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 0.518771
+     "quote_ref_usdc": 0.513208
     },
     {
      "pools": [
@@ -418,7 +419,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200",
-     "quote_ref_usdc": 0.516014
+     "quote_ref_usdc": 0.510969
     }
    ]
   },
@@ -437,7 +438,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 1.716974
+     "quote_ref_usdc": 1.704721
     },
     {
      "pools": [
@@ -449,7 +450,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 1.716903
+     "quote_ref_usdc": 1.704038
     },
     {
      "pools": [
@@ -476,7 +477,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200",
-     "quote_ref_usdc": 1.219394
+     "quote_ref_usdc": 0.924106
     }
    ]
   },
@@ -495,7 +496,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL100\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 0.199406
+     "quote_ref_usdc": 0.200142
     },
     {
      "pools": [
@@ -507,7 +508,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL100\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 0.199398
+     "quote_ref_usdc": 0.200062
     },
     {
      "pools": [
@@ -519,7 +520,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192cbBTC\u2192CL50",
-     "quote_ref_usdc": 0.198784
+     "quote_ref_usdc": 0.199447
     },
     {
      "pools": [
@@ -531,7 +532,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL200\u2192cbBTC\u2192CL100",
-     "quote_ref_usdc": 0.198731
+     "quote_ref_usdc": 0.19944
     }
    ]
   },
@@ -548,31 +549,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL50",
-     "quote_ref_usdc": 1.049646
-    },
-    {
-     "pools": [
-      "0x9f11c9e86ef74dd8bc6b3eefa9ff20a96b7f3ffe",
-      "0x4a7af46bc8abc00048c6c7920a1488daf568366c"
-     ],
-     "kinds": [
-      "cl",
-      "cl"
-     ],
-     "via": "CL200\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 1.048309
-    },
-    {
-     "pools": [
-      "0x9f11c9e86ef74dd8bc6b3eefa9ff20a96b7f3ffe",
-      "0x2a430bebd2082d8e05d56d64dede8944279bbc24"
-     ],
-     "kinds": [
-      "cl",
-      "cl"
-     ],
-     "via": "CL200\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 1.048266
+     "quote_ref_usdc": 1.091828
     },
     {
      "pools": [
@@ -584,7 +561,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL100\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 1.047969
+     "quote_ref_usdc": 1.09
     },
     {
      "pools": [
@@ -596,7 +573,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL100\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 1.047926
+     "quote_ref_usdc": 1.089563
     },
     {
      "pools": [
@@ -608,7 +585,31 @@ window.SWEEP_ROUTES = {
       "v2"
      ],
      "via": "vAMM\u2192WETH\u2192vAMM",
-     "quote_ref_usdc": 1.044015
+     "quote_ref_usdc": 1.086184
+    },
+    {
+     "pools": [
+      "0x9f11c9e86ef74dd8bc6b3eefa9ff20a96b7f3ffe",
+      "0x4a7af46bc8abc00048c6c7920a1488daf568366c"
+     ],
+     "kinds": [
+      "cl",
+      "cl"
+     ],
+     "via": "CL200\u2192WETH\u2192CL50",
+     "quote_ref_usdc": 1.08022
+    },
+    {
+     "pools": [
+      "0x9f11c9e86ef74dd8bc6b3eefa9ff20a96b7f3ffe",
+      "0x2a430bebd2082d8e05d56d64dede8944279bbc24"
+     ],
+     "kinds": [
+      "cl",
+      "cl"
+     ],
+     "via": "CL200\u2192WETH\u2192CL100",
+     "quote_ref_usdc": 1.079787
     }
    ]
   },
@@ -625,7 +626,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL10",
-     "quote_ref_usdc": 0.123146
+     "quote_ref_usdc": 0.142302
     },
     {
      "pools": [
@@ -637,7 +638,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL50\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 0.122876
+     "quote_ref_usdc": 0.141967
     },
     {
      "pools": [
@@ -649,7 +650,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL50\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 0.122871
+     "quote_ref_usdc": 0.14191
     }
    ]
   },
@@ -660,23 +661,23 @@ window.SWEEP_ROUTES = {
    "routes": [
     {
      "pools": [
-      "0xbac7394c3c4b2d188d4180275ef6dd629f4c56ff"
-     ],
-     "kinds": [
-      "cl"
-     ],
-     "via": "CL50",
-     "quote_ref_usdc": 4.092394
-    },
-    {
-     "pools": [
       "0xdd2a5dac93e62c27fe0a3236d22fcea29e19c62c"
      ],
      "kinds": [
       "v2"
      ],
      "via": "sAMM",
-     "quote_ref_usdc": 4.091594
+     "quote_ref_usdc": 4.07155
+    },
+    {
+     "pools": [
+      "0xbac7394c3c4b2d188d4180275ef6dd629f4c56ff"
+     ],
+     "kinds": [
+      "cl"
+     ],
+     "via": "CL50",
+     "quote_ref_usdc": 4.070661
     }
    ]
   },
@@ -695,7 +696,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL50\u2192WETH\u2192CL50",
-     "quote_ref_usdc": 3.827542
+     "quote_ref_usdc": 3.69802
     },
     {
      "pools": [
@@ -707,7 +708,7 @@ window.SWEEP_ROUTES = {
       "cl"
      ],
      "via": "CL50\u2192WETH\u2192CL100",
-     "quote_ref_usdc": 3.827384
+     "quote_ref_usdc": 3.696538
     },
     {
      "pools": [
@@ -719,7 +720,7 @@ window.SWEEP_ROUTES = {
       "v2"
      ],
      "via": "sAMM\u2192WETH\u2192vAMM",
-     "quote_ref_usdc": 3.810759
+     "quote_ref_usdc": 3.689691
     }
    ]
   }
@@ -1612,6 +1613,10 @@ window.SWEEP_ROUTES = {
   "0xb20000000000000000000079dc24fe2fbd09110f": {
    "symbol": "VSTc",
    "decimals": 8
+  },
+  "0xb80194e3868511b8f43e1d5d6e255cd9e7c3e7dd": {
+   "symbol": "KNTQ",
+   "decimals": 18
   }
  },
  "nets": {
@@ -1621,7 +1626,7 @@ window.SWEEP_ROUTES = {
    "hex": "0x2105",
    "name": "Base",
    "gas": "ETH",
-   "native_usd": 2230.1011791283217,
+   "native_usd": 2128.28924968309,
    "explorer": "https://basescan.org",
    "rpcs": [
     "https://base-rpc.publicnode.com",
@@ -1635,6 +1640,7 @@ window.SWEEP_ROUTES = {
    "usdc": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
    "stable": "USDC",
    "weth": "0x4200000000000000000000000000000000000006",
+   "weth_sym": "WETH",
    "btc": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
    "btc_sym": "cbBTC",
    "clFactory": "0x9CB220581b91b0C83223012FE69688b92aD07a76",
@@ -1657,7 +1663,7 @@ window.SWEEP_ROUTES = {
    "hex": "0xa4b1",
    "name": "Arbitrum",
    "gas": "ETH",
-   "native_usd": 2230.1011791283217,
+   "native_usd": 2127.6915311217726,
    "explorer": "https://arbiscan.io",
    "rpcs": [
     "https://arbitrum-one-rpc.publicnode.com",
@@ -1671,6 +1677,7 @@ window.SWEEP_ROUTES = {
    "usdc": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
    "stable": "USDC",
    "weth": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+   "weth_sym": "WETH",
    "btc": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
    "btc_sym": "cbBTC",
    "clFactory": "0x88a60ee77392577c355C0acb2A8d476D5a4EC03a",
@@ -1802,7 +1809,7 @@ window.SWEEP_ROUTES = {
    "hex": "0xa",
    "name": "OP",
    "gas": "ETH",
-   "native_usd": 2231.524059034211,
+   "native_usd": 2126.520464035349,
    "explorer": "https://optimistic.etherscan.io",
    "rpcs": [
     "https://optimism-rpc.publicnode.com",
@@ -1816,6 +1823,7 @@ window.SWEEP_ROUTES = {
    "usdc": "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
    "stable": "USDC",
    "weth": "0x4200000000000000000000000000000000000006",
+   "weth_sym": "WETH",
    "btc": "0x68f180fcce6836688e9084f035309e29bf0a2095",
    "btc_sym": "WBTC",
    "clFactory": "0xfeaB42D90055db3a0616249f76B6002D72266778",
@@ -1927,7 +1935,7 @@ window.SWEEP_ROUTES = {
    "hex": "0x1",
    "name": "Ethereum",
    "gas": "ETH",
-   "native_usd": 2230.1011791283217,
+   "native_usd": 2127.6915311217726,
    "explorer": "https://etherscan.io",
    "rpcs": [
     "https://ethereum-rpc.publicnode.com",
@@ -1940,6 +1948,7 @@ window.SWEEP_ROUTES = {
    "usdc": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
    "stable": "USDC",
    "weth": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+   "weth_sym": "WETH",
    "btc": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
    "btc_sym": "cbBTC",
    "clFactory": "0xF4Fd2E6c5B60c5b365cd1B96DD6245E6D60414c2",
@@ -2159,7 +2168,7 @@ window.SWEEP_ROUTES = {
    "hex": "0x1237",
    "name": "Robinhood",
    "gas": "ETH",
-   "native_usd": 2228.27045823984,
+   "native_usd": 2125.02183607006,
    "explorer": "https://robinhoodchain.blockscout.com",
    "rpcs": [
     "https://robinhood-rpc.publicnode.com",
@@ -2173,6 +2182,7 @@ window.SWEEP_ROUTES = {
    "usdc": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
    "stable": "USDG",
    "weth": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "weth_sym": "WETH",
    "btc": "0xcec185eb182c47d1ba1efc84e6959e18cd620be4",
    "btc_sym": "cbBTC",
    "clFactory": "0xc63d7338c178e805c544B8f897066bD3BBcBE136",
@@ -2400,7 +2410,7 @@ window.SWEEP_ROUTES = {
    "hex": "0xdef1",
    "name": "Ink",
    "gas": "ETH",
-   "native_usd": 2231.524059034211,
+   "native_usd": 2126.3786255733003,
    "explorer": "https://explorer.inkonchain.com",
    "rpcs": [
     "https://rpc-gel.inkonchain.com",
@@ -2413,6 +2423,7 @@ window.SWEEP_ROUTES = {
    "usdc": "0x2d270e6886d130d724215a266106e6832161eaed",
    "stable": "USDC",
    "weth": "0x4200000000000000000000000000000000000006",
+   "weth_sym": "WETH",
    "btc": null,
    "btc_sym": null,
    "clFactory": "0x7660BF2aDefC687C22906112ca323d60A00358cF",
@@ -2486,6 +2497,7 @@ window.SWEEP_ROUTES = {
    "usdc": "0x3600000000000000000000000000000000000000",
    "stable": "USDC",
    "weth": "0x128cc466b61f542da60c70e3aa11c10e19b84edb",
+   "weth_sym": "WETH",
    "btc": "0x171a4217b86a807a64eb94757db6849fb4bdbaa0",
    "btc_sym": "cirBTC",
    "clFactory": "0x7F83235643181E440433400a027618Cd50879751",
@@ -2520,6 +2532,63 @@ window.SWEEP_ROUTES = {
     "0xf197ffc28c23e0309b5559e7a166f2c6164c80aa": {
      "symbol": "MXNB",
      "decimals": 6
+    }
+   }
+  },
+  "99901": {
+   "key": "elysium",
+   "chainId": 99901,
+   "hex": "0x1863d",
+   "name": "Elysium",
+   "gas": "HYPE",
+   "native_usd": 75.22726831773284,
+   "explorer": "https://elysium.kinetiq.xyz/explorer",
+   "rpcs": [
+    "https://rpc.elysium.kinetiq.xyz",
+    "https://elysium.drpc.org"
+   ],
+   "relay": "elysium",
+   "metarouter": "0x0fEf9e88A7b76BCDBF451780C6774FE32965Ee98",
+   "metaquoter": "0x1dDfeC5058180C207F55BB77D95AcDd0d8227868",
+   "mc3": "0xcA11bde05977b3631167028862bE2a173976CA11",
+   "usdc": "0xb47c4c8f73f009cc0c0d3f92b388d13e293f0b65",
+   "stable": "USDC",
+   "weth": "0xba876237b0f021a6c6d852d6c26e107997cc5e81",
+   "weth_sym": "WHYPE",
+   "btc": "0xe9c29585eae4b9a55b02a9605aea892b40d972e8",
+   "btc_sym": "UBTC",
+   "clFactory": "0xEfd7A089D3057F05189B05f74Ffcf30610c42891",
+   "volatileFactory": "0x8E6a9FCd1d638CC760Ffba397605Fe3355dE76D2",
+   "stableFactory": "0x78589E876edcEbdce72ee3436ab3c9AD3a7cEF2D",
+   "spacings": [
+    1,
+    10,
+    50,
+    100,
+    150,
+    200,
+    250
+   ],
+   "universe": {
+    "0x248888d396a546a69a188f3deb476964e581e9d0": {
+     "symbol": "kHYPE",
+     "decimals": 18
+    },
+    "0x9e148c5716b5aadcfd3b71ceae9ee7a9e22c29e2": {
+     "symbol": "xAERO",
+     "decimals": 18
+    },
+    "0xba876237b0f021a6c6d852d6c26e107997cc5e81": {
+     "symbol": "WHYPE",
+     "decimals": 18
+    },
+    "0xe45a355d9e9cad2ad85f2d03e3ee3102a036acf0": {
+     "symbol": "KNTQ",
+     "decimals": 18
+    },
+    "0xe9c29585eae4b9a55b02a9605aea892b40d972e8": {
+     "symbol": "UBTC",
+     "decimals": 8
     }
    }
   }

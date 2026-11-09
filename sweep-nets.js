@@ -38,7 +38,7 @@
     n.tokens = Object.entries(uni).map(([a, m]) => ({ sym: m.symbol || a.slice(0, 8), address: E.getAddress(a), decimals: m.decimals ?? 18 }));
     n.known = {};
     if (n.isBase) for (const [sym, t] of Object.entries(R.tokens || {})) { n.known[t.address.toLowerCase()] = Object.assign({ sym }, t); n.tokens.unshift({ sym, address: E.getAddress(t.address), decimals: t.decimals }); }
-    n.mids = [[n.weth, "WETH"], [n.btc, n.btc_sym || "BTC"]].filter(([a]) => a).map(([a, s]) => [E.getAddress(a), s]);
+    n.mids = [[n.weth, n.weth_sym || "WETH"], [n.btc, n.btc_sym || "BTC"]].filter(([a]) => a).map(([a, s]) => [E.getAddress(a), s]);
     n.midPools = null;
   }
   const byId = id => NETS.find(n => n.chainId === Number(id)) || null;
@@ -187,7 +187,7 @@
   const gasAmt = wei => { const x = Number(E.formatUnits(wei, 18)); return x === 0 ? "0" : x < 0.000001 ? "<0.000001" : x.toLocaleString(undefined, { maximumSignificantDigits: 2 }); };
   const gasUsd = (net, wei) => net.native_usd ? Number(E.formatUnits(wei, 18)) * net.native_usd : null;
   // What to keep on each network so a sweep or two always fits (Ethereum mainnet gas runs far higher than the rest)
-  const SUGGEST = { ethereum: "about $5 of ETH", arc: "about $1 of USDC" };
+  const SUGGEST = { ethereum: "about $5 of ETH", arc: "about $1 of USDC", elysium: "about $1 of HYPE" };
   const suggest = net => SUGGEST[net.key] || "about $1 of ETH";
   const relayUrl = net => `https://relay.link/bridge/${encodeURIComponent(net.relay || net.key)}`;
 
@@ -203,7 +203,7 @@
       if (!unknown) throw e;
       await provider.request({ method: "wallet_addEthereumChain", params: [{
         chainId: net.hex, chainName: ({ OP: "OP Mainnet", Robinhood: "Robinhood Chain" })[net.name] || net.name,
-        nativeCurrency: { name: net.gas === "USDC" ? "USDC" : "Ether", symbol: net.gas, decimals: 18 },
+        nativeCurrency: { name: ({ USDC: "USDC", HYPE: "HYPE" })[net.gas] || "Ether", symbol: net.gas, decimals: 18 },
         rpcUrls: net.rpcs, blockExplorerUrls: [net.explorer] }] });
     }
     const now = await provider.request({ method: "eth_chainId" });
@@ -212,7 +212,7 @@
 
   /* ---------- gas bridge: ETH on Base -> the gas token on another network, via Relay (11/5/2026) ----------
      One transaction on Base per network: depositNative(depositor, id) on Relay's Base deposit contract, with the ETH as
-     value. Relay's solver pays the gas token (ETH; USDC on Arc) to the recipient on the other network within seconds,
+     value. Relay's solver pays the gas token (ETH; USDC on Arc, HYPE on Elysium) to the recipient on the other network within seconds,
      or refunds the depositor on Base. The page cannot read the order behind `id`, so it checks everything it can:
      the To address is the pinned deposit contract, the method is depositNative, the depositor is you, the value is
      exactly what was asked (and under a hard cap), and Relay's quote says recipient = you, output = that network's gas

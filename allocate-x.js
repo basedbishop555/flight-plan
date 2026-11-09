@@ -37,6 +37,8 @@
       5042:  { key: "arc",       name: "Arc",       rootAdapter: "0x247c86a3bbd88059aef2e9d3af0e90d2f3f5c8bf", leafAdapter: "0x56632394f866761fd86873e96a567720ce865682", leafMailbox: "0x7f50c5776722630a0024fae05fde8b47571d7b39" },
       42161: { key: "arbitrum",  name: "Arbitrum",  rootAdapter: "0xa365addaa935fd97c0815d41a6375dbb483d5c67", leafAdapter: "0xe7eb27bf93a7a3caa8b483ec5f5ee6588bfd3886", leafMailbox: "0x979ca5202784112f4738403dbec5d0f3b9daabb9" },
       57073: { key: "ink",       name: "Ink",       rootAdapter: "0x5ad9a3920a25caa5abd36cd35f1c57b48793fd03", leafAdapter: "0x4aaff8cfb43e2cefbbbf4c133c934db6ba7e4c14", leafMailbox: "0x7f50c5776722630a0024fae05fde8b47571d7b39" },
+      // Elysium (gas HYPE) joined 11/9/2026; same reads (orchestrator.adapters(99901), LeafVoter.ORCHESTRATOR().adapter(), MAILBOX())
+      99901: { key: "elysium",   name: "Elysium",   rootAdapter: "0xc93eb34f4e893cbd6dc4f6530ff06cb1162cbe74", leafAdapter: "0x4aaff8cfb43e2cefbbbf4c133c934db6ba7e4c14", leafMailbox: "0x7f50c5776722630a0024fae05fde8b47571d7b39" },
     },
     CHAIN_GAS: 350000,          // the chain-budget message (the Aero app sends 250k-350k)
     GAS_MIN: 300000, GAS_MAX: 6000000,

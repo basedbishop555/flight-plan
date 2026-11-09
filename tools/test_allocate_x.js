@@ -7,7 +7,8 @@
  * 2. Planner: the step rules on made-up locks (Base -> OP, OP -> Base, unchanged networks left alone, growth).
  * 3. Guard: every tampered call refused.
  * 4. Live: full dry runs (Base eth_simulateV1 + the Hyperlane messages replayed on the other network) for public
- *    locks: a Base-only lock moving 30% to OP, and #41 (Ethereum + Arbitrum) moving to Base + Arbitrum. */
+ *    locks: a Base-only lock moving 30% to OP, and #41 (Ethereum + Arbitrum) moving to Base + Arbitrum, and the
+ *    Base-only lock moving 20% to Elysium. */
 const path = require("path");
 const ROOT = path.resolve(__dirname, "..");
 const e = require(path.join(ROOT, "vendor", "ethers-6.13.4.umd.min.js")); const ethers = e.ethers || e;
@@ -155,6 +156,8 @@ function rebuild(tx) {
     for (const [id, split] of [
       [697, (st) => { const b = Object.keys(st.cur[8453] || {})[0] || pick("base").gauge; return [{ chain: "base", gauge: b, pct: 70 }, { chain: "optimism", gauge: pick("optimism").gauge, pct: 30 }]; }],
       [41, () => [{ chain: "base", gauge: pick("base").gauge, pct: 50 }, { chain: "arbitrum", gauge: pick("arbitrum").gauge, pct: 50 }]],
+      // Elysium (11/9/2026): a Base-only lock sending 20% to the USDC/WHYPE pool (plan.json may not list Elysium yet)
+      [697, (st) => { const b = Object.keys(st.cur[8453] || {})[0] || pick("base").gauge; return [{ chain: "base", gauge: b, pct: 80 }, { chain: "elysium", gauge: (pick("elysium") || { gauge: "0x05782ca239d44f57779a1fd8a369d97f9d74e527" }).gauge, pct: 20 }]; }],
     ]) {
       const st = await readLock(id);
       const sp = split(st);
