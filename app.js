@@ -1422,6 +1422,7 @@ async function swScan() {
     const val = n => (SW.byNet[n.chainId] || []).filter(r => r.sell).reduce((t, r) => t + r.usd, 0);
     const keep = SW.cid && SW.byNet[SW.cid] ? SN.byId(SW.cid) : has.slice().sort((x, y) => val(y) - val(x))[0];
     if (!keep) { SW.rows = []; SW.plan = null; SW.cid = null; renderSweep(`Nothing to sweep on any of the ${SN.NETS.length} Aero networks. Claim in the Aero app first, then re-scan.`); log("No sellable tokens found on any network.", "warn"); return; }
+    if ($("keepAero").checked && K) for (const rows of Object.values(SW.byNet)) for (const r of rows) if (r.address.toLowerCase() === K.C.AERO && r.sell) { r.sell = false; r.note = "kept to compound"; }
     if (has.length > 1) log(`Rewards found on ${has.length} networks: ${has.map(n => `${n.name} $${fmt(val(n), 2)}`).join(" · ")}. Each sweeps on its own.`);
     swPick(keep.chainId);
   } finally { SW.busy = false; if ($("swk").textContent === "scanning…") $("swk").textContent = ""; }
@@ -1697,9 +1698,237 @@ async function swSend() {
 }
 $("floorSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { $("floorSeg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); SW.floor = Number(b.dataset.f); if (SW.rows.length) swScan().catch(e => log(e.message, "bad")); }));
 $("btnScan").addEventListener("click", () => { try { localStorage.setItem(EXTRA_KEY, $("extra").value); } catch (e) {} swScan().catch(e => log("Scan failed: " + e.message, "bad")); });
+try { $("keepAero").checked = store.get("keepAero") === "1"; } catch (e) {}
+$("keepAero").addEventListener("change", () => { store.set("keepAero", $("keepAero").checked ? "1" : "0"); if (viewer()) swScan().catch(e => log("Scan failed: " + e.message, "bad")); });
 $("btnDry").addEventListener("click", () => swDry().catch(e => log("Dry run failed: " + e.message, "bad")));
 $("btnSend").addEventListener("click", () => swSend().catch(e => log("Sweep failed: " + e.message, "bad")));
 $("sweep").addEventListener("toggle", () => { if ($("sweep").open && viewer() && !SW.rows.length && !SW.busy) swScan().catch(e => log("Scan failed: " + e.message, "bad")); });
+
+/* ======================================================================================
+   CLAIM + COMPOUND (11/11/2026): claim.js builds and guards the calls; this section finds
+   what's waiting, rehearses it from your address, and signs only after a passing dry run.
+   Claim = one Voter.claimRewards per lock on Base, 0 ETH, rewards paid to you.
+   Compound = approve exactly N AERO to the sAERO escrow + increaseStakeAmount(lock, N).
+   ====================================================================================== */
+const K = window.AeroClaim;
+const CL = { sc: null, calls: [], dry: null, busy: false, owner: null }, TOKM = {};
+const CL_MAX_LOCKS = 20;
+// bigger batches, four at a time: the claim scan asks every Base rewards contract about every lock
+async function mcPar(calls) {
+  const parts = []; for (let i = 0; i < calls.length; i += 120) parts.push(calls.slice(i, i + 120));
+  const out = [];
+  for (let i = 0; i < parts.length; i += 4) {
+    const rs = await Promise.all(parts.slice(i, i + 4).map(async part => I.mc3.decodeFunctionResult("tryAggregate", await ethCall(C.MC3, I.mc3.encodeFunctionData("tryAggregate", [false, part])))[0].map(r => ({ success: r[0], returnData: r[1] }))));
+    for (const r of rs) out.push(...r);
+  }
+  return out;
+}
+async function tokMeta(addrs) {
+  const need = addrs.filter(a => !TOKM[a]); if (!need.length) return;
+  const T = new ethers.Interface(K.ABI.erc20), r = await mcPar(need.flatMap(a => [{ target: a, callData: T.encodeFunctionData("symbol", []) }, { target: a, callData: T.encodeFunctionData("decimals", []) }]));
+  need.forEach((a, k) => {
+    let sym = a.slice(0, 8), dec = 18;
+    try { sym = String(T.decodeFunctionResult("symbol", r[2 * k].returnData)[0]).slice(0, 16); } catch (e) {}
+    try { dec = Number(T.decodeFunctionResult("decimals", r[2 * k + 1].returnData)[0]); } catch (e) {}
+    TOKM[a] = { sym, dec: dec >= 0 && dec <= 36 ? dec : 18 };
+  });
+}
+const tokAmt = (a, v) => { const m = TOKM[a] || { sym: short(a), dec: 18 }, x = Number(ethers.formatUnits(v, m.dec)); return `${x >= 100 ? fmt(x, 0) : x >= 1 ? fmt(x, 2) : x.toPrecision(3)} ${m.sym}`; };
+function clTotals(L) {     // {token: wei} one lock is owed, from the scan
+  const t = {}, add = (a, v) => { if (a && v > 0n) t[a] = (t[a] || 0n) + v; };
+  for (const f of L.fees) { add(f.t0, f.a0); add(f.t1, f.a1); } for (const e of L.incs) add(e.tok, e.amt);
+  return t;
+}
+async function clScan() {
+  const owner = viewer();
+  if (!K || !owner || !S.D || !S.locks.length) { clRender(); return; }
+  if (CL.busy) return; CL.busy = true; $("clk").textContent = "checking…";
+  try {
+    const ids = S.locks.slice(0, CL_MAX_LOCKS).map(L => L.id);
+    const sc = await K.scan(ethers, mcPar, { ids, gauges: S.D.gauges.filter(g => g.gauge && (g.chain || "base") === "base").map(g => g.gauge), registry: S.D.factory_registry });
+    await tokMeta([...sc.tokens]);
+    CL.sc = sc; CL.owner = owner; CL.dry = null; CL.calls = [];
+    for (const L of S.locks) {
+      const x = sc.byLock[L.id]; if (!x || !(x.fees.length + x.incs.length) || !L.owner) continue;
+      const call = K.buildClaim(ethers, { tokenId: L.id, owner: L.owner, fees: x.fees, incs: x.incs });
+      const g = K.checkClaim(ethers, call, { tokenId: L.id, owner: L.owner, account: L.owner, vrms: sc.vrms });
+      if (!g.ok) throw new Error("safety check: " + g.why);
+      CL.calls.push({ L, call, totals: clTotals(x) });
+    }
+    log(`Claim scan: ${sc.vrms.size} Base rewards contracts asked for ${ids.length} lock${ids.length === 1 ? "" : "s"}; ${CL.calls.length} with rewards waiting.`);
+  } catch (e) { CL.sc = null; CL.calls = []; log("Claim scan failed: " + (e.message || e), "bad"); $("clOut").innerHTML = `<div class="banner bad small">Couldn't check rewards: ${esc(e.message || e)}</div>`; CL.busy = false; $("clk").textContent = "check failed"; return; }
+  CL.busy = false; clRender();
+}
+function clRender() {
+  const out = $("clOut"), sign = $("clSign");
+  cpRender();
+  if (!viewer() || !S.locks.length) { out.innerHTML = ""; sign.style.display = "none"; $("clk").textContent = viewer() ? "no locks" : "paste or connect to check"; return; }
+  if (!CL.sc) { out.innerHTML = ""; sign.style.display = "none"; $("clk").textContent = "open to check"; return; }
+  if (!CL.calls.length) { out.innerHTML = `<div class="banner small">Nothing to claim on Base right now.</div>`; sign.style.display = "none"; $("clk").textContent = "nothing to claim"; return; }
+  out.innerHTML = (S.locks.length > CL_MAX_LOCKS ? `<div class="banner warn small">Only the first ${CL_MAX_LOCKS} locks are checked.</div>` : "") + CL.calls.map(c =>
+    `<div class="tok"><div class="sym">#${c.L.id}<small>${c.call.n} reward${c.call.n === 1 ? "" : "s"}</small></div><div class="bal">${esc(Object.entries(c.totals).map(([a, v]) => tokAmt(a, v)).join(" · ") || "amounts unread")}</div></div>`).join("");
+  const mine = CL.calls.every(c => owns(c.L));
+  sign.style.display = ""; $("clSend").textContent = `Claim · ${CL.calls.length} signature${CL.calls.length === 1 ? "" : "s"}`;
+  $("clSend").disabled = !(CL.dry && CL.dry.ok && mine);
+  $("clk").textContent = `${CL.calls.length} lock${CL.calls.length === 1 ? "" : "s"} to claim`;
+}
+// rehearse every claim, one after another, from the owner's address: each must succeed and token balances must rise
+async function clSim(calls, owner) {
+  const B = new ethers.Interface(K.ABI.erc20), toks = [...new Set(calls.flatMap(c => Object.keys(c.totals)))];
+  // fees in wrapped ETH are paid out as plain ETH, so the wallet's ETH is read before and after too (Multicall3)
+  const bal = toks.map(a => ({ from: owner, to: a, data: B.encodeFunctionData("balanceOf", [owner]) })).concat([{ from: owner, to: C.MC3, data: "0x4d2301cc" + owner.slice(2).toLowerCase().padStart(64, "0") }]);
+  toks.push("ETH"); TOKM.ETH = { sym: "ETH", dec: 18 };
+  const res = (await rpc("eth_simulateV1", [{ blockStateCalls: [{ calls: [...bal, ...calls.map(c => ({ from: owner, to: c.call.to, data: c.call.data, value: "0x0", gas: "0x" + (12_000_000).toString(16) })), ...bal] }], validation: false }, "latest"]))[0].calls;
+  const n = toks.length, mid = res.slice(n, n + calls.length), badI = mid.findIndex(r => r.status !== "0x1");
+  if (badI >= 0) return { ok: false, why: `#${calls[badI].L.id}: ${JSON.stringify(mid[badI].error || mid[badI].returnData || "").slice(0, 160)}` };
+  const got = {}; let up = 0;
+  toks.forEach((a, i) => { const d = BigInt(res[n + calls.length + i].returnData) - BigInt(res[i].returnData); if (d > 0n) { got[a] = d; up++; } });
+  if (!up) return { ok: false, why: "no token balance rose in the rehearsal" };
+  return { ok: true, got, gas: mid.reduce((t, r) => t + parseInt(r.gasUsed, 16), 0) };
+}
+async function clDry() {
+  if (!CL.calls.length) return;
+  $("clRes").innerHTML = `<div class="banner small">Rehearsing…</div>`;
+  try {
+    const r = await clSim(CL.calls, CL.owner); CL.dry = r;
+    if (!r.ok) { $("clRes").innerHTML = `<div class="banner bad"><b>Dry run failed.</b> ${esc(r.why)}. Nothing was sent.</div>`; log("Claim dry run failed: " + r.why, "bad"); }
+    else {
+      const mine = CL.calls.every(c => owns(c.L)), c0 = CL.calls[0].call;
+      $("clRes").innerHTML = `<div class="banner ok"><b>Dry run OK.</b> Paid to ${esc(short(CL.owner))}: ${esc(Object.entries(r.got).map(([a, v]) => tokAmt(a, v)).join(" · "))}<br><span class="small">gas ${r.gas.toLocaleString()}${mine ? " · ready to sign" : S.account ? " · not the connected wallet" : " · connect to sign"}</span></div>` +
+        (mine ? `<ol class="steplist"><li>Network <b>Base</b></li><li>To <code>${esc(c0.to)}</code> <span class="mut">= the Aero Voter; compare start and end</span></li><li>Method <b>claimRewards</b> <span class="mut">(selector <code>${K.C.CLAIM_SELECTOR}</code>)</span></li><li>Value <b>0 ETH</b></li><li>Your wallet's preview should show reward tokens coming <b>in</b> and nothing going out</li></ol>` : "");
+      log(`Claim dry run OK: ${Object.keys(r.got).length} tokens, gas ${r.gas.toLocaleString()}.`, "ok");
+    }
+  } catch (e) { CL.dry = null; $("clRes").innerHTML = `<div class="banner bad">Dry run failed: ${esc(e.message || e)}</div>`; }
+  clRender();
+}
+// one batch when the wallet can (EIP-5792, all or nothing), else one signature after another, each confirmed first
+async function sendGuarded(calls, label) {
+  let atomic = false;
+  if (calls.length > 1) { try { const caps = await S.provider.request({ method: "wallet_getCapabilities", params: [S.account, [C.CHAIN_HEX]] }); const st = caps && caps[C.CHAIN_HEX] && caps[C.CHAIN_HEX].atomic && caps[C.CHAIN_HEX].atomic.status; atomic = st === "supported" || st === "ready"; } catch (e) { /* one by one */ } }
+  const txs = [];
+  if (atomic) {
+    await assertBase();
+    const id = await S.provider.request({ method: "wallet_sendCalls", params: [{ version: "2.0.0", chainId: C.CHAIN_HEX, from: S.account, atomicRequired: true, calls: calls.map(c => ({ to: c.to, data: c.data, value: "0x0" })) }] });
+    txs.push(...await SN.waitCalls(S.provider, id));
+  } else for (const [i, c] of calls.entries()) {
+    label(i, calls.length);
+    await assertBase();
+    const h = needHash(await S.provider.request({ method: "eth_sendTransaction", params: [{ from: S.account, to: c.to, data: c.data, value: "0x0" }] }));
+    txs.push(h); log(`  sent ${h}`);
+    const rc = await waitReceipt(h);
+    if (rc.status !== "0x1") throw new Error(`transaction ${h.slice(0, 12)}… reverted on chain`);
+  }
+  return txs;
+}
+const txLinks = txs => txs.map(txh).filter(Boolean).map(h => `<a href="https://basescan.org/tx/${h}" target="_blank" rel="noopener noreferrer">${h.slice(0, 10)}…</a>`).join(" · ");
+async function clSend() {
+  const out = $("clRes");
+  try {
+    if (!S.account || !S.provider) throw new Error("connect the wallet first");
+    if (!CL.dry || !CL.dry.ok || !CL.calls.length) throw new Error("dry run first");
+    if (!CL.calls.every(c => owns(c.L))) throw new Error("these locks are not owned by the connected wallet");
+    $("clSend").disabled = true;
+    await ensureChain();
+    // live re-check: owner of every lock, the guard on every call, and the whole rehearsal again
+    const fresh = await readLocks(CL.calls.map(c => c.L.id));
+    for (const c of CL.calls) {
+      const f = fresh.find(x => x.id === c.L.id);
+      if (!f || !f.owner || f.owner.toLowerCase() !== S.account.toLowerCase()) throw new Error(`#${c.L.id} is not owned by the connected account`);
+      const g = K.checkClaim(ethers, c.call, { tokenId: c.L.id, owner: f.owner, account: S.account, vrms: CL.sc.vrms });
+      if (!g.ok) throw new Error("guard tripped: " + g.why);
+    }
+    const again = await clSim(CL.calls, S.account);
+    if (!again.ok) throw new Error("the fresh dry run failed: " + again.why);
+    out.innerHTML = `<div class="banner">Waiting for your signature… check: To the Aero Voter, 0 ETH, tokens coming in.</div>`;
+    const txs = await sendGuarded(CL.calls.map(c => c.call), (i, n) => { out.innerHTML = `<div class="banner">Signature ${i + 1} of ${n}: claim for #${CL.calls[i].L.id}. To the Aero Voter, 0 ETH.</div>`; });
+    log(`Claimed for ${CL.calls.length} lock${CL.calls.length === 1 ? "" : "s"}.`, "ok");
+    out.innerHTML = `<div class="banner ok"><div class="big">Claimed ✓</div><span class="small">${txLinks(txs)} · the rewards are in your wallet: sweep them to USDC below, or keep the AERO and compound it</span>${tipLine()}</div>`;
+    CL.sc = null; CL.calls = []; CL.dry = null; clRender(); cpRead().catch(() => {});
+    if ($("sweep").open) swScan().catch(() => {});
+  } catch (e) { log("Claim stopped: " + (e.message || e), "bad"); out.innerHTML = `<div class="banner bad">Stopped: ${esc(e.message || e)}. Check the claim list again before retrying.</div>`; clRender(); }
+}
+// ---------- compound ----------
+const CP = { bal: null, dry: null, owner: null };
+const cpErc = new ethers.Interface(K ? K.ABI.erc20 : []), cpEsc = new ethers.Interface(K ? K.ABI.escrow : []);
+async function cpRead() {
+  const owner = viewer(); if (!K || !owner) { CP.bal = null; cpRender(); return; }
+  CP.bal = BigInt(await ethCall(K.C.AERO, cpErc.encodeFunctionData("balanceOf", [owner]))); CP.owner = owner; CP.dry = null; cpRender();
+}
+function cpRender() {
+  const sel = $("cpLock"), keep = sel.value;
+  sel.innerHTML = S.locks.slice().sort((a, b) => lockAero(b) - lockAero(a)).map(L => `<option value="${L.id}">#${L.id} · ${fmtA(lockAero(L))} AERO</option>`).join("");
+  if (keep && S.locks.some(L => String(L.id) === keep)) sel.value = keep;
+  $("cpBal").textContent = CP.bal == null ? "" : `AERO in this wallet: ${fmt(ethers.formatUnits(CP.bal, 18), 4)}`;
+  const L = cpLock();
+  $("cpSend").disabled = !(CP.dry && CP.dry.ok && L && owns(L) && CP.dry.key === cpKey());
+  $("cpDry").disabled = !S.locks.length;
+}
+const cpLock = () => S.locks.find(L => String(L.id) === $("cpLock").value) || null;
+function cpAmount() { try { const s = $("cpAmt").value.trim().replace(/,/g, ""); if (!/^\d+(\.\d{1,18})?$/.test(s)) return 0n; return ethers.parseUnits(s, 18); } catch (e) { return 0n; } }
+const cpKey = () => $("cpLock").value + ":" + cpAmount();
+async function cpCheck(account) {      // live reads + the guard on both calls; returns {L, amount, calls, ctx}
+  const L = cpLock(), amount = cpAmount();
+  if (!L) throw new Error("pick a lock");
+  if (!(amount > 0n)) throw new Error("enter an amount of AERO");
+  const [fresh] = await readLocks([L.id]);
+  const [balance, token] = await Promise.all([ethCall(K.C.AERO, cpErc.encodeFunctionData("balanceOf", [account])).then(BigInt), ethCall(K.C.SAERO, cpEsc.encodeFunctionData("TOKEN", [])).then(r => cpEsc.decodeFunctionResult("TOKEN", r)[0])]);
+  CP.bal = balance;
+  const ctx = { tokenId: L.id, owner: fresh.owner, account, amount, balance, token }, calls = K.buildCompound(ethers, { tokenId: L.id, amount });
+  for (const c of calls) { const g = K.checkCompound(ethers, c, ctx); if (!g.ok) throw new Error("safety check: " + g.why); }
+  return { L, amount, calls, staked: fresh.staked };
+}
+async function cpSim(p, owner) {
+  const st = { from: owner, to: C.SAERO, data: I.saero.encodeFunctionData("staked", [p.L.id]) };
+  const res = (await rpc("eth_simulateV1", [{ blockStateCalls: [{ calls: [st, ...p.calls.map(c => ({ from: owner, to: c.to, data: c.data, gas: "0x" + (2_000_000).toString(16) })), st] }], validation: false }, "latest"]))[0].calls;
+  const badI = res.findIndex(r => r.status !== "0x1");
+  if (badI >= 0) return { ok: false, why: (badI === 1 ? "the approval" : badI === 2 ? "the top-up" : "a read") + " failed: " + JSON.stringify(res[badI].error || res[badI].returnData || "").slice(0, 160) };
+  const s0 = I.saero.decodeFunctionResult("staked", res[0].returnData)[0], s1 = I.saero.decodeFunctionResult("staked", res[3].returnData)[0];
+  if (s1 - s0 !== p.amount) return { ok: false, why: "the lock did not grow by exactly the amount" };
+  return { ok: true, s0, s1, gas: parseInt(res[1].gasUsed, 16) + parseInt(res[2].gasUsed, 16) };
+}
+async function cpDry() {
+  const out = $("cpRes"); out.innerHTML = `<div class="banner small">Rehearsing…</div>`;
+  try {
+    const owner = viewer(); if (!owner) throw new Error("paste an address or connect first");
+    const p = await cpCheck(owner), r = await cpSim(p, owner);
+    CP.dry = { ...r, key: cpKey() };
+    if (!r.ok) { out.innerHTML = `<div class="banner bad"><b>Dry run failed.</b> ${esc(r.why)}. Nothing was sent.</div>`; }
+    else {
+      const mine = owns(p.L), amt = fmt(ethers.formatUnits(p.amount, 18), 6);
+      out.innerHTML = `<div class="banner ok"><b>Dry run OK.</b> #${p.L.id}: ${fmt(ethers.formatUnits(r.s0, 18), 2)} → <b>${fmt(ethers.formatUnits(r.s1, 18), 2)} AERO</b><br><span class="small">gas ${r.gas.toLocaleString()}${mine ? " · ready to sign" : S.account ? " · not the connected wallet" : " · connect to sign"}</span></div>` +
+        (mine ? `<ol class="steplist"><li><b>Approve AERO</b> · To <code>${esc(p.calls[0].to)}</code> (the AERO token) · spender <code>${esc(p.calls[1].to)}</code> (the sAERO contract) · amount <b>${esc(amt)}</b> exactly · 0 ETH</li><li><b>Add to lock #${p.L.id}</b> · To <code>${esc(p.calls[1].to)}</code> (the sAERO contract) · method <b>increaseStakeAmount</b> · ${esc(amt)} AERO · 0 ETH</li></ol><div class="small mut2">Reject it if any screen says "setApprovalForAll", an unlimited amount, a transfer of the lock, or a different amount. AERO added to a lock stays locked on the lock's own terms.</div>` : "");
+    }
+  } catch (e) { CP.dry = null; out.innerHTML = `<div class="banner bad">Dry run failed: ${esc(e.message || e)}</div>`; }
+  cpRender();
+}
+async function cpSend() {
+  const out = $("cpRes");
+  try {
+    if (!S.account || !S.provider) throw new Error("connect the wallet first");
+    if (!CP.dry || !CP.dry.ok || CP.dry.key !== cpKey()) throw new Error("dry run first");
+    $("cpSend").disabled = true;
+    await ensureChain();
+    const p = await cpCheck(S.account);                                // live: owner, balance, the escrow's token, both guards
+    if (!owns(p.L)) throw new Error("this lock is not owned by the connected wallet");
+    const again = await cpSim(p, S.account);
+    if (!again.ok) throw new Error("the fresh dry run failed: " + again.why);
+    out.innerHTML = `<div class="banner">Waiting for your signature…</div>`;
+    const txs = await sendGuarded(p.calls, (i) => { out.innerHTML = `<div class="banner">Signature ${i + 1} of 2: ${i === 0 ? "approve exactly " + esc(fmt(ethers.formatUnits(p.amount, 18), 6)) + " AERO to the sAERO contract" : "add it to lock #" + p.L.id}. 0 ETH.</div>`; });
+    log(`Compounded ${ethers.formatUnits(p.amount, 18)} AERO into #${p.L.id}.`, "ok");
+    out.innerHTML = `<div class="banner ok"><div class="big">Added to #${p.L.id} ✓</div><span class="small">${txLinks(txs)} · the new AERO starts earning at this lock's next allocation</span></div>`;
+    CP.dry = null; $("cpAmt").value = "";
+    await lookup(S.account);
+  } catch (e) { log("Compound stopped: " + (e.message || e), "bad"); out.innerHTML = `<div class="banner bad">Stopped: ${esc(e.message || e)}.</div>`; cpRender(); }
+}
+if (K) {
+  $("clDry").addEventListener("click", () => clDry());
+  $("clSend").addEventListener("click", () => clSend());
+  $("cpDry").addEventListener("click", () => cpDry());
+  $("cpSend").addEventListener("click", () => cpSend());
+  $("cpMax").addEventListener("click", () => { if (CP.bal != null) { $("cpAmt").value = ethers.formatUnits(CP.bal, 18); CP.dry = null; cpRender(); } });
+  for (const id of ["cpAmt", "cpLock"]) $(id).addEventListener("input", () => { CP.dry = null; cpRender(); });
+  $("cycle").addEventListener("toggle", () => { if ($("cycle").open && viewer() && S.locks.length) { if (!CL.sc && !CL.busy) clScan(); cpRead().catch(e => log("AERO balance unavailable: " + e.message, "warn")); } });
+}
 
 // ---------- look up ----------
 async function lookup(raw) {
@@ -1723,6 +1952,8 @@ async function lookup(raw) {
     if (S.locks.length) loadHist();
   } catch (e) { S.err = e.message || String(e); log("Lookup failed: " + S.err, "bad"); toast("lookup failed"); }
   S.busy = false; render();
+  CL.sc = null; CL.calls = []; CL.dry = null; CP.dry = null; $("clRes").innerHTML = ""; clRender();
+  if ($("cycle").open && S.locks.length) { clScan(); cpRead().catch(() => {}); }
   if ($("sweep").open && S.addr) swScan().catch(e => log("Scan failed: " + e.message, "bad"));
 }
 $("find").addEventListener("submit", e => { e.preventDefault(); lookup($("addr").value); });

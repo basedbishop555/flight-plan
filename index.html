@@ -50,7 +50,7 @@ code{font:12px var(--mono);background:var(--card2);border:1px solid var(--line2)
 .wpill.btn{border:0;color:#fff;background:linear-gradient(180deg,#3f78ff,#154afa);box-shadow:0 3px 10px rgba(21,74,250,.35)}
 .find{display:flex;gap:8px;margin:0 0 6px}
 .find input{flex:1;min-width:0;font:15px var(--mono);padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--fg)}
-input[type=number],input[type=text].plain{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--fg)}
+input[type=number],input[type=text].plain,select.plain{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--fg)}
 button{font:inherit;font-weight:600;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;-webkit-tap-highlight-color:transparent}
 button:disabled{opacity:.45;cursor:not-allowed} button.sm{padding:6px 10px;font-size:13px;border-radius:9px}
 #swNets button.on{border-color:var(--c3);background:var(--c3s);color:var(--c3)}
@@ -195,12 +195,31 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
   <input id="addr" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Paste a wallet address (0x…)" aria-label="Wallet address">
   <button type="submit" class="gbtn gblue" id="go">Look up</button>
 </form>
-<p class="hint">Paste any address to look (read-only). Connect a wallet to sign allocations and sweeps for what it owns: one signature per lock, dry-run first, never an approval on sAERO. <a href="#" id="safelink">What it signs</a></p>
+<p class="hint">Paste any address to look (read-only). Connect a wallet to sign allocations, claims and sweeps for what it owns: dry-run first, never an approval on your sAERO lock. <a href="#" id="safelink">What it signs</a></p>
 
 <div class="banner warn hidden" id="crowdwarn" style="margin:0 0 12px"></div>
 <section class="card glow hero" id="hero"></section>
 <section class="card" id="plan"></section>
 <section class="card" id="locks"></section>
+
+<details class="card" id="cycle">
+  <summary><b>Claim rewards and compound</b><span id="clk">paste or connect to check</span></summary>
+  <div class="body">
+    <div id="clOut"></div>
+    <div class="sign" id="clSign" style="display:none"><button type="button" id="clDry">Dry run</button><button type="button" id="clSend" class="gbtn ggreen" disabled>Claim</button></div>
+    <div id="clRes"></div>
+    <h3 class="sub" style="margin-top:14px">Compound AERO into a lock</h3>
+    <div class="row" id="cpRow" style="margin-top:6px">
+      <span class="ctl">Add <input id="cpAmt" type="text" class="plain" inputmode="decimal" style="width:7.5em" placeholder="0" aria-label="AERO to add"> AERO</span>
+      <span class="ctl">to <select id="cpLock" class="plain" aria-label="Lock"></select></span>
+      <button type="button" class="sm" id="cpMax">Max</button>
+    </div>
+    <div class="small mut2" id="cpBal" style="margin-top:4px"></div>
+    <div class="sign" id="cpSign"><button type="button" id="cpDry">Dry run</button><button type="button" id="cpSend" class="gbtn ggreen" disabled>Compound · 2 signatures</button></div>
+    <div id="cpRes"></div>
+    <p class="small mut2" style="margin:10px 0 0">Claiming pays each lock's Base rewards to your own wallet: one signature per lock (one for all of them when your wallet batches). Rewards waiting on another network are claimed in the Aero app. Then sweep them to USDC below, or keep the AERO and add it to a lock here. Added AERO starts earning at that lock's next allocation. <a href="docs.html#claim">How it works</a></p>
+  </div>
+</details>
 
 <details class="card" id="sweep">
   <summary><b>Sweep rewards to USDC</b><span id="swk">paste or connect to scan</span></summary>
@@ -208,6 +227,7 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
     <div class="row" style="justify-content:space-between">
       <span class="ctl">Dust <span class="seg tight" id="floorSeg"><button type="button" data-f="1">skip &lt;$1</button><button type="button" data-f="0.5" class="on">skip &lt;$0.50</button><button type="button" data-f="0">sell all</button></span></span>
       <span class="ctl">Slippage <input id="slip" type="number" value="1" step="0.25" min="0.1" max="5" style="width:4.6em">%</span>
+      <label class="sw"><input type="checkbox" id="keepAero"> Keep AERO</label>
       <button type="button" class="sm" id="btnScan">Re-scan</button>
     </div>
     <details style="margin-top:8px"><summary class="small mut" style="cursor:pointer">Extra token addresses</summary>
@@ -231,7 +251,7 @@ h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(-
 <section class="card" id="crowd"></section>
 <details class="card" id="logw"><summary class="body small mut" style="cursor:pointer">Log</summary><div class="body" style="padding-top:0"><div id="log"></div></div></details>
 
-<p class="foot">Unofficial. Not affiliated with Aerodrome. Signs only: allocations for locks you own (on any Aero network, always sent from Base), exact-amount sweep approvals, one sweep swap, and a small gas bridge when you ask for one. Never an approval on sAERO.<br>
+<p class="foot">Unofficial. Not affiliated with Aerodrome. Signs only: allocations and reward claims for locks you own, exact-amount sweep approvals, one sweep swap, an exact-amount AERO top-up of your own lock, and a small gas bridge when you ask for one. Never an approval on the sAERO lock itself.<br>
 <b>Check the address bar says flight-plan.app.</b><br>
 <span id="fresh">Loading pool data…</span> · <a href="#" id="safelink2">Safety</a> · <a href="docs.html">Docs</a> · <a href="https://github.com/basedbishop555/flight-plan">Source</a><br>
 Free and open source. Tips welcome: <code data-copy="0xbe46e9dD6f22b5578529385F2e0Ee25840110196" id="tip" title="Tap to copy">0xbe46…0196</code> <a href="docs.html#tip">more</a></p>
@@ -239,14 +259,16 @@ Free and open source. Tips welcome: <code data-copy="0xbe46e9dD6f22b5578529385F2
 
 <div class="modal hidden" id="safety" role="dialog" aria-modal="true" aria-labelledby="safetyh"><div class="sheet">
   <h3 id="safetyh">Before you sign anything</h3>
-  <p>Flight Plan can sign for the locks and reward tokens your connected wallet owns. Exactly four kinds of signature, nothing else:</p>
+  <p>Flight Plan can sign for the locks and reward tokens your connected wallet owns. Exactly six kinds of signature, nothing else:</p>
   <ol>
     <li><b>An allocation.</b> One <code>allocate</code> call to the Aero Voter on Base for a lock you own. It moves your allocation, never tokens. On Base it carries 0 ETH; when the split uses another network it carries that network's message fee (Aero's own quote + 10%, never over 0.03 ETH; the bridge refunds the unused part to you), and moving AERO between networks takes two of these.</li>
     <li><b>A sweep approval.</b> An exact-amount <code>approve</code> to Aero's Metarouter on a reward token the scan found in your wallet.</li>
     <li><b>A sweep swap.</b> One Metarouter <code>execute</code> that sells those rewards for USDC, paid to your own wallet.</li>
+    <li><b>A claim.</b> One <code>claimRewards</code> call to the Aero Voter on Base for a lock you own, 0 ETH, paying that lock's rewards to your own wallet.</li>
+    <li><b>A compound, only when you ask for one.</b> An exact-amount <code>approve</code> on the AERO token to the sAERO contract, then <code>increaseStakeAmount</code> adding exactly that AERO to a lock you own. This is an approval of AERO you are adding, never of the lock.</li>
     <li><b>A gas bridge, only when you tap Get gas.</b> A deposit of about $1 of ETH (Ethereum: $5, never over 0.006 ETH) to Relay's Base contract, delivered as gas to your own address on another network.</li>
   </ol>
-  <p><b>Never:</b> an approval on sAERO, <code>setApprovalForAll</code>, a transfer, a claim, an unlimited approval, or any ETH value except an allocation's quoted network fee and that capped gas bridge. Every signature is rehearsed on the chain first (a dry run) and checked by the open-source guard before it reaches your wallet. Reject anything that looks different.</p>
+  <p><b>Never:</b> an approval on your sAERO lock, <code>setApprovalForAll</code>, a transfer, a withdrawal, an unlimited approval, a claim paid to anyone but you, or any ETH value except an allocation's quoted network fee and that capped gas bridge. Every signature is rehearsed on the chain first (a dry run) and checked by the open-source guard before it reaches your wallet. Reject anything that looks different.</p>
   <p><b>Check the address bar says flight-plan.app.</b> A copy on another address can be anything.</p>
   <button type="button" class="cta gbtn gblue" id="safeok" style="margin-top:10px">Got it</button>
   <p class="small mut2" style="text-align:center;margin:8px 0 0"><a href="docs.html#safe">Read the full safety page</a></p>
@@ -256,6 +278,7 @@ Free and open source. Tips welcome: <code data-copy="0xbe46e9dD6f22b5578529385F2
 <script src="allocate-lib.js"></script>
 <script src="allocate-x.js"></script>
 <script src="planner.js"></script>
+<script src="claim.js"></script>
 <script src="sweep-routes.js"></script>
 <script src="sweep-nets.js"></script>
 <script src="crowd.js"></script>

@@ -182,6 +182,14 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
   </ul>
 </div></section>
 
+<section class="grp" id="claim"><h2>Claim and compound</h2><div class="body">
+  <p><b>Claim.</b> Open "Claim rewards and compound" and the page asks every Base rewards contract on the scanner's list what each of your locks is owed (fees and incentives, including pools a lock has since left). The dry run rehearses every claim from your address and shows what actually lands in the wallet. Then it is one <code>claimRewards</code> signature per lock, or one for all of them in a wallet that batches. Fees earned in wrapped ETH arrive as plain ETH. Rewards waiting on another network are not claimed here yet: use the Aero app for those.</p>
+  <p><b>Sweep or keep.</b> After a claim, the sweep below sells the reward tokens for USDC. Tick <b>Keep AERO</b> there and it leaves your AERO alone so you can compound it.</p>
+  <p><b>Compound.</b> Type an amount of AERO and pick a lock. The dry run proves the lock grows by exactly that amount. Then two signatures: an exact-amount approval of AERO to the sAERO contract, and the top-up. AERO added to a lock is locked on that lock's terms, and it starts earning at the lock's next allocation (the page books it then).</p>
+  <p><b>The fewest signatures.</b> A full round for one lock is claim, sweep (one approval per token plus one swap), and allocate. A wallet that supports batched calls (EIP-5792) signs each group once. Without batching, each call is its own signature; the page walks you through them in order and stops at the first that fails.</p>
+  <div class="note">Nothing here runs by itself. Aero's contracts today only let the owner (or an address approved for the lock, which could also move it) allocate, so there is no safe way to hand allocation to a bot key. Flight Plan will not ask for that approval.</div>
+</div></section>
+
 <section class="grp" id="sweep"><h2>The sweep: rewards to USDC</h2><div class="body">
   <ol>
     <li><b>Claim</b> your rewards in the Aero app first (Flight Plan never claims).</li>
@@ -253,17 +261,19 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 </div></section>
 
 <section class="grp safe" id="safe"><h2>What it signs, and never signs</h2><div class="body">
-  <p>Connecting shares only your address. With the owning wallet connected, Flight Plan can ask for exactly four kinds of signature:</p>
+  <p>Connecting shares only your address. With the owning wallet connected, Flight Plan can ask for exactly six kinds of signature:</p>
   <ol>
     <li><b>An allocation.</b> One <code>allocate</code> call to the Aero <b>Voter</b> on Base for a lock your wallet owns. On Base it carries <b>0 ETH</b>. The guard checks, before every send: the To address is the Voter; the call is <code>allocate</code>; the lock id is the one shown and your account owns it; the refund address is you; every dispatch is Base-only with zero value and zero gas limit; the gauges are exactly the plan's; the amounts add up to the whole stake. It is rebuilt from the plan and checked again against a fresh chain read (owner, window, booked amount) right before your wallet opens.<br><b>When the split uses another network</b> the same call carries that network's message fee as ETH (<a href="#networks">how</a>). Its own guard checks everything above, plus: only Aero's networks; exactly the AERO the plan moves to each network, the plan's pools and amounts on each, every network's vote adding up to its budget; the "free this AERO" marker only where the plan frees AERO, for exactly that amount; Base entries with no fee; each other network with a sane gas limit and a fee no higher than Aero's own quote + 20% (plus that network's fixed return cost when AERO comes back); the ETH sent equal to the fees and never over <b>0.03 ETH</b>. The whole rehearsal runs again with fresh fees right before your wallet opens.</li>
     <li><b>A sweep approval.</b> <code>approve</code> on a reward token the scan found in your wallet, spender = Aero's <b>Metarouter</b>, amount = <b>exactly your balance</b>. Never unlimited.</li>
     <li><b>A sweep swap.</b> One Metarouter <code>execute</code> that sells those tokens for USDC (USDG on Robinhood) with the minimum you set, <b>paid to your own address</b>, on the network the tokens are on.</li>
+    <li><b>A claim.</b> One <code>claimRewards</code> call to the Aero <b>Voter</b> on Base for a lock your wallet owns, <b>0 ETH</b>. The guard checks: the To address is the Voter; the call is <code>claimRewards</code>; the lock id is the one shown and your account owns it; there is exactly one entry, for Base, with no gas limit and no fee; the rewards are <b>paid to your own address</b> and so is any refund; every rewards contract named is one Aero's own registry returned for a pool on the scanner's list. <a href="#claim">More</a></li>
+    <li><b>A compound, only when you ask for one.</b> Two calls: <code>approve</code> on the <b>AERO token</b>, spender = the sAERO contract, amount = <b>exactly</b> what you typed; then <code>increaseStakeAmount</code> on the sAERO contract for a lock you own, for that same amount. The guard refuses any other method on the sAERO contract, any other spender, any other amount, more AERO than the wallet holds, and a lock you don't own. This approval lets the sAERO contract pull in the AERO you are adding; it is not an approval of the lock and cannot move it.</li>
     <li><b>A gas bridge, only when you tap Get gas.</b> <code>depositNative</code> on Relay's Base deposit contract <code>0x4cd00e387622c35bddb9b4c962c136462338bc31</code>, with about $1 of ETH ($5 for Ethereum, hard cap 0.006 ETH) as value. The guard checks the To address, the method, that the depositor is you, the exact amount, and that Relay's quote delivers that network's gas token to <b>your own address</b>; then it dry-runs the deposit on Base. <a href="#gas">More</a></li>
   </ol>
   <h3>Never</h3>
   <ul>
-    <li>An approval on <b>sAERO</b>, or <code>setApprovalForAll</code> on anything. Your locks cannot be moved by this page: <code>allocate</code> moves your allocation, not tokens, and there is no code path that approves the escrow.</li>
-    <li>A transfer, a claim, a withdrawal, a merge, an unlimited approval, a message signature (<code>personal_sign</code> / typed data), or any ETH value except an allocation's quoted network fee and that capped gas bridge.</li>
+    <li>An approval of your <b>sAERO lock</b>, or <code>setApprovalForAll</code> on anything. Your locks cannot be moved by this page: <code>allocate</code> moves your allocation, not tokens; a claim pays you; a compound only adds AERO. There is no code path that approves, transfers or withdraws a lock.</li>
+    <li>A transfer, a withdrawal, a merge, a claim paid to anyone but you, an unlimited approval, a message signature (<code>personal_sign</code> / typed data), or any ETH value except an allocation's quoted network fee and that capped gas bridge.</li>
     <li>Anything without a passing dry run first, and nothing in paste-only mode (no wallet connected).</li>
   </ul>
   <h3>How the page protects itself</h3>
@@ -276,7 +286,7 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
     <li><b>The wallet's network is re-read before every signature</b>, not just once at the start.</li>
   </ul>
   <p>Worst case, if you ignore every check: a swap that fills at your slippage limit, or a poor pool pick for one 47-hour window. No lock can be lost.</p>
-  <div class="note bad">Check the address bar says <b>flight-plan.app</b>. A copy on another address can be anything. If any page claiming to be Flight Plan asks for a signature that doesn't match the three above, close it.</div>
+  <div class="note bad">Check the address bar says <b>flight-plan.app</b>. A copy on another address can be anything. If any page claiming to be Flight Plan asks for a signature that doesn't match the six above, close it.</div>
 </div></section>
 
 <section class="grp safe" id="blind"><h2>Never sign blind</h2><div class="body">

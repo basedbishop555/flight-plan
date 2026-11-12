@@ -49,6 +49,29 @@ const server = http.createServer((q, s) => {
   }).then(async () => {
     if (problems.some(p => p.startsWith("dry run answers"))) console.log("      status: " + (await page.$$eval("#locks .lock > .small", els => els.map(e => e.textContent.slice(0, 160)).join(" | "))) + "\n      log: " + (await page.$eval("#log", e => e.textContent.slice(-600))));
   });
+  const text = sel => page.$eval(sel, e => e.textContent);
+  await step("claim card: finds rewards and rehearses the claim", async () => {
+    await page.click("#cycle > summary");
+    await until(async () => /to claim|nothing to claim|check failed/.test(await text("#clk")), 120000, "claim scan");
+    console.log("      " + (await text("#clk")) + " | " + (await text("#clOut")).replace(/\s+/g, " ").slice(0, 200));
+    if (/check failed/.test(await text("#clk"))) throw new Error("claim scan failed");
+    if (!/to claim/.test(await text("#clk")) || /nothing/.test(await text("#clk"))) return;
+    await page.click("#clDry"); await until(async () => /Dry run OK|Dry run failed/.test(await text("#clRes")), 90000, "claim dry run");
+    const r = await text("#clRes"); console.log("      " + r.replace(/\s+/g, " ").slice(0, 220)); if (!/Dry run OK/.test(r)) throw new Error("claim dry run failed");
+    const n0 = asked.length; await page.click("#clSend"); await until(async () => asked.length > n0 || /Stopped/.test(await text("#clRes")), 90000, "claim signature request");
+    const a = asked[n0] && asked[n0].params[0];
+    if (!a || a.to.toLowerCase() !== "0x49d7d4f17ec56ef8fa04e464af5d1a4942cc31e6" || !a.data.startsWith("0x28b54326") || a.value !== "0x0") throw new Error("unexpected claim request: " + JSON.stringify(a || (await text("#clRes"))).slice(0, 200));
+  });
+  await step("compound: rehearses 1 AERO into the biggest lock, asks for the exact approval first", async () => {
+    await until(async () => /AERO in this wallet/.test(await text("#cpBal")), 60000, "AERO balance");
+    console.log("      " + (await text("#cpBal")));
+    if (!(parseFloat((await text("#cpBal")).split(":")[1].replace(/,/g, "")) >= 1)) return;
+    await page.fill("#cpAmt", "1"); await page.click("#cpDry"); await until(async () => /Dry run OK|Dry run failed/.test(await text("#cpRes")), 90000, "compound dry run");
+    const r = await text("#cpRes"); console.log("      " + r.replace(/\s+/g, " ").slice(0, 160)); if (!/Dry run OK/.test(r)) throw new Error("compound dry run failed");
+    const n0 = asked.length; await page.click("#cpSend"); await until(async () => asked.length > n0 || /Stopped/.test(await text("#cpRes")), 90000, "compound signature request");
+    const a = asked[n0] && asked[n0].params[0], want = "0x095ea7b3" + "bf7977e1521e9a3032bf7243ee4712f311f13915".padStart(64, "0") + (10n ** 18n).toString(16).padStart(64, "0");
+    if (!a || a.to.toLowerCase() !== "0x3f5bf3edac59d650d8fdf9657a71f2f904a3a4ee" || a.data.toLowerCase() !== want) throw new Error("unexpected approval request: " + JSON.stringify(a || (await text("#cpRes"))).slice(0, 220));
+  });
   for (const extra of process.env.SMOKE_EXTRA ? [require(path.resolve(process.env.SMOKE_EXTRA))] : []) await extra({ page, step, until, asked, owner, base, ethers });
   await step("docs page loads under its policy", async () => { const p2 = await ctx.newPage(); p2.on("console", m => { if (m.type() === "error") problems.push("docs console: " + m.text().slice(0, 160)); }); await p2.goto(base + "/docs.html"); await p2.waitForSelector("#safe"); await p2.close(); });
   await step("refuses to run inside a frame", async () => {
