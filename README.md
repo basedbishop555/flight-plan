@@ -15,7 +15,7 @@ sweep your claimed rewards into USDC through Aero's Metarouter. Or copy the spli
 
 ## How it works
 
-- `index.html` is a static page. Everything runs in your browser against a public Base RPC.
+- `index.html` is a static page. Everything runs in your browser against public RPCs (several per network, in turn).
 - `planner.js` is the planning model: each pool's expected fees and incentives over a 47-hour window, your own
   dilution, a pile-on factor for crowded pools, and the caps (per pool, per pool type, at most 10% of any pool).
   `tools/check.js` checks it against reference plans.
@@ -26,7 +26,11 @@ sweep your claimed rewards into USDC through Aero's Metarouter. Or copy the spli
 - `data/plan.json` (pool estimates, hourly), `data/rank.json` (every lock's earnings over 12 hours, 1 day, 2 days
   and 7 days plus earned / unclaimed, every 3 hours), `data/history.json` (every lock's APR per week and per day)
   and `data/crowd.json` are published by a scanner. Wallet groups are anonymous indices; no addresses.
-- `vendor/` pins ethers 6.13.4.
+- `app.js` is the page's code, `boot.js` the frame guard and error banner. No script is inline, so the pages run under a
+  strict Content-Security-Policy (`script-src 'self'`).
+- `vendor/` pins ethers 6.13.4 (byte-identical to the npm release); `fonts/` holds Inter (OFL). Nothing loads from a third party.
+- `tools/test_allocate_x.js` tests the cross-network guard and live dry runs; `tools/smoke.js` loads the real page in
+  headless Chrome with a fake wallet (needs playwright-core on NODE_PATH) and fails on any policy violation.
 
 ## Safety
 

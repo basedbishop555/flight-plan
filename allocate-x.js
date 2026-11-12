@@ -390,7 +390,9 @@
       await Promise.all([...new Set(want.map((w) => w[0]))].map(async (cid) => {   // each network's replay at once
         const msgs = want.map((w, k) => (w[0] === cid ? sm.msgs[k] : null)).filter(Boolean);
         const gs = (s.gaugeDispatches.find((g) => g.chainId === cid) || { gauges: [] }).gauges.map((g) => g.gauge);
-        const at = Math.max(openAt(s), now) + arrive;
+        // never earlier than the rehearsed Base call itself: when Base's own window opens later, the Base blocks are
+        // simulated at that time, and a message can't land before it was sent (the network refuses: ClockBehindDispatch)
+        const at = Math.max(openAt(s), now, (live.length ? openAt(live[0]) : now) + 60 * (i + 1)) + arrive;
         try { leaf[cid] = await simLeaf(ethers, rpc, cid, p.tokenId, msgs, gs, Math.max(at, (opens[cid] || 0) + 60)); }
         catch (e) { leaf[cid] = { error: e.message || String(e) }; }
       }));

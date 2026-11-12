@@ -1,4 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<script src="boot.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Flight Plan Docs</title>
 <meta name="description" content="How Flight Plan works: windows, how the split is made, why yours differs, the rank and history, earnings, the sweep, the crowd chart, what it signs and never signs, hardware wallets, and the contract addresses.">
@@ -20,9 +23,8 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="Flight Plan">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+@font-face{font-family:Inter;font-style:normal;font-weight:400 800;font-display:swap;src:url(fonts/inter-latin.woff2) format("woff2")}
 :root{--bg:#f7f8fb;--fg:#090e1f;--mut:#505675;--mut2:#80859f;--line:#dbdde4;--line2:#eaeaec;--card:#fff;--card2:#f4f5f8;--acc:#154afa;--accsoft:#e7eeff;
   --ok:#008d67;--oksoft:#e6f6ef;--warn:#ae5a0e;--warnsoft:#fff6e0;--bad:#c1261b;--badsoft:#fff1f0;--c3:#6b4cf6;
   --t-fee:#2f6bff;--t-stream:#e8890c;--t-stock:#e2548f;--t-thin:#0f9f92;--shadow:0 1px 3px rgba(9,14,31,.08);--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
@@ -264,6 +266,15 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
     <li>A transfer, a claim, a withdrawal, a merge, an unlimited approval, a message signature (<code>personal_sign</code> / typed data), or any ETH value except an allocation's quoted network fee and that capped gas bridge.</li>
     <li>Anything without a passing dry run first, and nothing in paste-only mode (no wallet connected).</li>
   </ul>
+  <h3>How the page protects itself</h3>
+  <ul>
+    <li><b>No injected code can run.</b> The page ships a strict content policy: only its own script files run, nothing inline, nothing from another site. The one outside script (saero.org's planner, for Cypher's picks) runs in a sealed frame with no access to the page, your wallet or the network.</li>
+    <li><b>It refuses to load inside another site's frame</b>, so nobody can put their own buttons over it.</li>
+    <li><b>Nothing loads from a third party</b>: the font and the ethers library are served from flight-plan.app itself, and the ethers file is byte-identical to the official 6.13.4 release.</li>
+    <li><b>The hourly pool data is checked before use</b> and is only ever data: names reach the page as text, every address must look like one, and a pool that Cypher's planner asks to keep must be one your lock really holds on chain.</li>
+    <li><b>A second RPC double-checks a sweep's prices</b> right before you sign. If it says the swap should pay clearly more than the minimums allow, nothing is signed.</li>
+    <li><b>The wallet's network is re-read before every signature</b>, not just once at the start.</li>
+  </ul>
   <p>Worst case, if you ignore every check: a swap that fills at your slippage limit, or a poor pool pick for one 47-hour window. No lock can be lost.</p>
   <div class="note bad">Check the address bar says <b>flight-plan.app</b>. A copy on another address can be anything. If any page claiming to be Flight Plan asks for a signature that doesn't match the three above, close it.</div>
 </div></section>
@@ -339,13 +350,5 @@ h3{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);m
 
 <p class="foot">Unofficial. Not affiliated with Aerodrome. <a href="./">← Back to the app</a></p>
 <div class="toast" id="toast">copied</div>
-<script>
-document.querySelectorAll("[data-copy]").forEach(function (el) {
-  el.addEventListener("click", function () {
-    var t = document.getElementById("toast");
-    (navigator.clipboard ? navigator.clipboard.writeText(el.getAttribute("data-copy")) : Promise.reject()).then(function () { t.textContent = "copied"; }, function () { t.textContent = "copy failed"; })
-      .then(function () { t.style.opacity = 1; setTimeout(function () { t.style.opacity = 0; }, 900); });
-  });
-});
-</script>
+<script src="docs.js"></script>
 </body></html>

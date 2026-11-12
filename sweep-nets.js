@@ -44,19 +44,31 @@
   const byId = id => NETS.find(n => n.chainId === Number(id)) || null;
 
   // ---------- reads (public RPCs, falls through to the next one on a network error) ----------
+  async function post(url, method, params) {
+    const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: AbortSignal.timeout(15000) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }
   async function rpc(net, method, params) {
     let last = null;
     for (const url of net.rpcs) {
       let j;
-      try {
-        const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: AbortSignal.timeout(15000) });
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        j = await r.json();
-      } catch (e) { last = e; continue; }
+      try { j = await post(url, method, params); } catch (e) { last = e; continue; }
       if (j.error) throw new Error(`${net.name} ${method}: ${JSON.stringify(j.error).slice(0, 240)}`);
+      net.lastRpc = url;
       return j.result;
     }
     throw new Error(`${net.name}: every RPC failed (${last && last.message})`);
+  }
+  /* A second opinion (11/11/2026): the same request on a DIFFERENT public RPC than the one that answered last, so one
+     RPC that lies about prices can't set a swap's minimum on its own. Returns {result, url}, or null when no other RPC
+     on this network could answer (some networks list a single RPC, and not every RPC runs eth_simulateV1). */
+  async function rpcOther(net, method, params) {
+    for (const url of net.rpcs) {
+      if (url === (net.lastRpc || net.rpcs[0])) continue;
+      try { const j = await post(url, method, params); if (!j.error && j.result != null) return { result: j.result, url }; } catch (e) { /* next */ }
+    }
+    return null;
   }
   const call = (net, to, data) => rpc(net, "eth_call", [{ to, data }, "latest"]);
   // Batches of 60; a batch an RPC refuses for gas (Ethereum's public RPCs cap eth_call gas, and quotes are heavy) is split in half and retried
@@ -206,9 +218,15 @@
         nativeCurrency: { name: ({ USDC: "USDC", HYPE: "HYPE" })[net.gas] || "Ether", symbol: net.gas, decimals: 18 },
         rpcUrls: net.rpcs, blockExplorerUrls: [net.explorer] }] });
     }
-    const now = await provider.request({ method: "eth_chainId" });
-    if (String(now).toLowerCase() !== net.hex.toLowerCase()) throw new Error(`wallet is still on chain ${parseInt(now, 16)}, not ${net.name}`);
+    await assertNet(provider, net);
   }
+  // Read the wallet's network again and refuse unless it is `net`: run right before every signature request, because
+  // the wallet can change networks during the seconds between the checks and the prompt.
+  async function assertNet(provider, net) {
+    const now = await provider.request({ method: "eth_chainId" });
+    if (parseInt(now, 16) !== net.chainId) throw new Error(`the wallet is on chain ${parseInt(now, 16)}, not ${net.name}; switch it and try again`);
+  }
+  const isHash = h => /^0x[0-9a-fA-F]{64}$/.test(String(h));
 
   /* ---------- gas bridge: ETH on Base -> the gas token on another network, via Relay (11/5/2026) ----------
      One transaction on Base per network: depositNative(depositor, id) on Relay's Base deposit contract, with the ETH as
@@ -283,7 +301,7 @@
       if (s.status === 200 || s.status === "CONFIRMED") {
         const rs = s.receipts || [];
         if (rs.some(r => r.status === "0x0" || r.status === 0)) throw new Error("the batch reverted on chain: " + JSON.stringify(s).slice(0, 200));
-        return rs.map(r => r.transactionHash).filter(Boolean);
+        return rs.map(r => r.transactionHash).filter(isHash);
       }
       if (s.status >= 400) throw new Error("batch failed: " + JSON.stringify(s).slice(0, 200));
       await new Promise(r => setTimeout(r, 2000));
@@ -309,12 +327,15 @@
     const txs = [];
     if (atomic) {
       prog(`Waiting for your signature (${calls.length} bridges, one batch)…`);
+      await assertNet(provider, base);
       const id = await provider.request({ method: "wallet_sendCalls", params: [{ version: "2.0.0", chainId: "0x2105", from: account, atomicRequired: true, calls }] });
       txs.push(...await waitCalls(provider, id));
     } else {
       for (const [i, c] of calls.entries()) {
         prog(`Signature ${i + 1} of ${calls.length}: bridge ${gasAmt(items[i].value)} ETH to ${items[i].net.name}`);
+        await assertNet(provider, base);                               // this one carries ETH: never on the wrong network
         const h = await provider.request({ method: "eth_sendTransaction", params: [{ from: account, to: c.to, data: c.data, value: c.value }] });
+        if (!isHash(h)) throw new Error("the wallet did not return a transaction hash; check its activity before trying again");
         txs.push(h); log(`  bridge to ${items[i].net.name} sent ${h}`);
         const rc = await waitReceipt(base, h);
         if (rc.status !== "0x1") throw new Error(`deposit ${h} reverted on Base`);
@@ -333,6 +354,6 @@
     return { txs, done };
   }
 
-  window.SweepNets = { NETS, byId, rpc, call, multicall, simSwapGas, stableBalance, bridgeQuote, bridgeCheck, bridgeDry, bridgeSend, bridgeUsd, waitCalls, QUOTE_MS, RELAY_DEPOSITORY, waitReceipt, scan, gasGuess, gasCheck, gasAmt, gasUsd, suggest, relayUrl, ensureNet,
+  window.SweepNets = { NETS, byId, rpc, rpcOther, assertNet, isHash, call, multicall, simSwapGas, stableBalance, bridgeQuote, bridgeCheck, bridgeDry, bridgeSend, bridgeUsd, waitCalls, QUOTE_MS, RELAY_DEPOSITORY, waitReceipt, scan, gasGuess, gasCheck, gasAmt, gasUsd, suggest, relayUrl, ensureNet,
     txUrl: (net, h) => `${net.explorer}/tx/${h}` };
 })();
