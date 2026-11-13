@@ -18,7 +18,7 @@ sweep your claimed rewards into USDC through Aero's Metarouter. Or copy the spli
 - `index.html` is a static page. Everything runs in your browser against public RPCs (several per network, in turn).
 - `planner.js` is the planning model: each pool's expected fees and incentives over a 47-hour window, your own
   dilution, a pile-on factor for crowded pools, and the caps (per pool, per pool type, at most 10% of any pool).
-  `tools/check.js` checks it against reference plans.
+  `tools/check.js` checks it against reference plans from the same hour's data (it says so when they are from different hours).
 - `allocate-lib.js` builds and checks the Base-only allocate call (the guard); `allocate-x.js` plans, rehearses and
   checks allocate calls that reach other networks.
 - `claim.js` builds and checks the claim call and the two compound calls; `tools/test_claim.js` tests them.
