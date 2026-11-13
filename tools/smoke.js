@@ -72,6 +72,18 @@ const server = http.createServer((q, s) => {
     const a = asked[n0] && asked[n0].params[0], want = "0x095ea7b3" + "bf7977e1521e9a3032bf7243ee4712f311f13915".padStart(64, "0") + (10n ** 18n).toString(16).padStart(64, "0");
     if (!a || a.to.toLowerCase() !== "0x3f5bf3edac59d650d8fdf9657a71f2f904a3a4ee" || a.data.toLowerCase() !== want) throw new Error("unexpected approval request: " + JSON.stringify(a || (await text("#cpRes"))).slice(0, 220));
   });
+  // Cypher's picks (11/13/2026): his planner arrives with the hourly data (data/saero/code.json) and must run in the
+  // sealed frame on these locks, not fall back to the nearest lock size
+  await step("Cypher's picks: his planner runs on these locks in the sealed frame", async () => {
+    await page.click('button[data-preset="cypher"]');
+    await until(async () => /shows on its Plan tab|couldn't run on your locks/.test(await text("body")), 90000, "Cypher's planner");
+    const b = (await text("body")).match(/Cypher's picks: .{0,260}/)[0];
+    console.log("      " + b.replace(/\s+/g, " "));
+    if (!/shows on its Plan tab/.test(b)) throw new Error("fell back to the nearest lock size");
+    if (/Plan tab changed/.test(b)) throw new Error("his Plan tab changed since CY_PLAN_SHA was set (run aeroscan/test_cypher_plantab.py)");
+    const src = await page.$eval("iframe", f => f.getAttribute("sandbox") + " " + f.getAttribute("src"));
+    if (!/^allow-scripts cypher-frame\.html/.test(src)) throw new Error("unexpected frame: " + src);
+  });
   for (const extra of process.env.SMOKE_EXTRA ? [require(path.resolve(process.env.SMOKE_EXTRA))] : []) await extra({ page, step, until, asked, owner, base, ethers });
   await step("docs page loads under its policy", async () => { const p2 = await ctx.newPage(); p2.on("console", m => { if (m.type() === "error") problems.push("docs console: " + m.text().slice(0, 160)); }); await p2.goto(base + "/docs.html"); await p2.waitForSelector("#safe"); await p2.close(); });
   await step("refuses to run inside a frame", async () => {

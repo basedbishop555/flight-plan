@@ -262,19 +262,21 @@ function calib(pl) {
   return pl;
 }
 /* ---------- Cypher's picks, exactly (11/6/2026 pm: "exactly what his app would pick across all networks and the
-   exact number of pools"). saero.org's own planner, loaded from his site into a sandboxed frame (cypher-frame.html:
-   scripts only, no access to this page, your wallet, storage or the network), runs on THESE locks with his own data
-   (data/saero/, copied from saero.org every hour) and the same lock details his site reads: amount, every network's
+   exact number of pools"). saero.org's own planner runs in a sandboxed frame (cypher-frame.html: scripts only, no
+   access to this page, your wallet, storage or the network) on THESE locks with his own data (data/saero/, copied
+   from saero.org every hour; since 11/13/2026 that copy carries his planner too, code.json, because his site went
+   private and a visitor's browser can't load it from there) and the same lock details his site reads: amount, every network's
    allocations, cooldown. His answer comes back as plain data and is checked before use. Until it's back (or if it
    fails) the split is his advice for the nearest lock size, from the scanner's hourly run. ---------- */
 const CY = { ready: null, data: null, seq: 0, wait: {}, res: null, key: "", busy: false, err: null };
 const CY_NET = { 8453: "base", 10: "optimism", 1: "ethereum", 42161: "arbitrum", 57073: "ink", 4663: "robinhood", 5042: "arc", 99901: "elysium" };
 const CY_POOL = /^(base|optimism|ethereum|arbitrum|ink|robinhood|arc|elysium):0x[0-9a-f]{40}$/;
-const CY_FRAME_V = "2";                         // bump whenever cypher-frame.html changes
+const CY_FRAME_V = "3";                         // bump whenever cypher-frame.html changes
 const CY_MAX_POOLS = 8, CY_MIN_SIZE = 100000;   // his Plan tab's defaults ("Most pools" 8, "Smallest pool" 100k sAERO)
 // sha256 of his page's Plan-tab function the frame's planTab() was matched against (saero_track.py writes the live one
 // to data/saero/meta.json plan_sha); a mismatch means his site changed and the note says picks may differ slightly
-const CY_PLAN_SHA = "33aecb9692633b75";   // app.js?v=20261104cr1
+const CY_PLAN_SHA = "40b7db8a336afd66";   // app.js?v=20261113lbl1
+const CY_CODE_MAX = 400000;                // his plan.js is ~47k characters; anything far past that isn't it
 function cyFrame() {
   if (CY.ready) return CY.ready;
   CY.ready = new Promise((ok, no) => {
@@ -297,8 +299,10 @@ function cyFrame() {
 async function cyData() {
   if (CY.data && Date.now() / 1000 - CY.data.got < 300) return CY.data;
   const v = Math.floor(Date.now() / 600000);
-  const [sum, cal, meta] = await Promise.all(["pools", "calendar", "meta"].map(n => dataJson(`saero/${n}.json`, v)));
-  CY.data = { sum, cal, meta, got: Date.now() / 1000 };
+  const [sum, cal, meta, code] = await Promise.all(["pools", "calendar", "meta", "code"].map(n => dataJson(`saero/${n}.json`, v)));
+  // his planner travels as text and only ever runs inside the sealed frame; it must be the version his data came with
+  if (!code || typeof code.js !== "string" || !code.js || code.js.length > CY_CODE_MAX || code.code_v !== meta.code_v) throw new Error("saero.org's planner wasn't in this hour's data");
+  CY.data = { sum, cal, meta, code: code.js, got: Date.now() / 1000 };
   return CY.data;
 }
 // a lock in saero.org's own shape (his wallet.js): amount, allocs [{pool "network:gauge", weight}] on every network read
@@ -349,7 +353,7 @@ async function cyAdvise() {
     const id = ++CY.seq;
     const m = await new Promise((ok, no) => {
       CY.wait[id] = ok; setTimeout(() => { delete CY.wait[id]; no(new Error("saero.org's planner took too long")); }, 30000);
-      f.contentWindow.postMessage({ type: "advise", id, v: D.meta.code_v, sum: D.sum, cal: D.cal, locks: S.locks.map(cyLock), now: Math.floor(Date.now() / 1000), nets: S.dial.baseOnly ? ["base"] : null,
+      f.contentWindow.postMessage({ type: "advise", id, code: D.code, sum: D.sum, cal: D.cal, locks: S.locks.map(cyLock), now: Math.floor(Date.now() / 1000), nets: S.dial.baseOnly ? ["base"] : null,
                                     maxPools: CY_MAX_POOLS, minSize: CY_MIN_SIZE }, "*");
     });
     if (m.error) throw new Error(m.error);
@@ -591,7 +595,7 @@ function extNote() {
   }
   const exact = CY.res && CY.key === cyKey() ? S.locks.filter(L => CY.res.byName["#" + L.id]) : [];
   const head = exact.length
-    ? `the split NYCypher's <a href="https://www.saero.org/" target="_blank" rel="noopener noreferrer">saero.org</a> shows on its <b>Plan</b> tab for ${exact.length === S.locks.length ? (S.locks.length === 1 ? "this lock" : "these locks") : `${exact.length} of these ${S.locks.length} locks`} (his defaults: up to ${CY_MAX_POOLS} pools per big lock, pools of ${fmtA(CY_MIN_SIZE)}+ sAERO): his own planner, run in a sealed-off frame on your locks' real state (amount, every network's allocations, cooldown) with his data from ${esc(ago(CY.res.dataAt))}, so the pools and the number of pools are his.${CY.res.planMatch === false ? " <span class=\"warn\">His site's Plan tab changed since Flight Plan last matched it, so a pick may differ slightly until it's updated.</span>" : ""}`
+    ? `the split NYCypher's <a href="https://www.saero.org/" target="_blank" rel="noopener noreferrer">saero.org</a> shows on its <b>Plan</b> tab for ${exact.length === S.locks.length ? (S.locks.length === 1 ? "this lock" : "these locks") : `${exact.length} of these ${S.locks.length} locks`} (his defaults: the fewest pools that earn within his margin of the most, pools of ${fmtA(CY_MIN_SIZE)}+ sAERO): his own planner, run in a sealed-off frame on your locks' real state (amount, every network's allocations, cooldown) with his data from ${esc(ago(CY.res.dataAt))}, so the pools and the number of pools are his.${CY.res.planMatch === false ? " <span class=\"warn\">His site's Plan tab changed since Flight Plan last matched it, so a pick may differ slightly until it's updated.</span>" : ""}`
     : CY.busy ? `loading NYCypher's <a href="https://www.saero.org/" target="_blank" rel="noopener noreferrer">saero.org</a> planner to run on your locks; meanwhile, his advice for the nearest lock size.`
     : `his <a href="https://www.saero.org/" target="_blank" rel="noopener noreferrer">saero.org</a> advice for the nearest lock size (his planner couldn't run on your locks just now${CY.err ? ": " + esc(CY.err) : ""}).`;
   let verdict = "";
