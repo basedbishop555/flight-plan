@@ -1,0 +1,286 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https:; frame-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<script src="boot.js?v=c5f210a5"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flight Plan</title>
+<meta name="description" content="Plan and sign your sAERO allocation: see your locks, a split sized to them, how you rank against every lock, a free dry run, then one signature per lock. Sweep rewards to USDC. Open source.">
+<meta name="theme-color" content="#090e1f">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Flight Plan">
+<meta property="og:title" content="Flight Plan · Plan your sAERO allocation">
+<meta property="og:description" content="See your locks, get a split sized to them, rehearse it free, then sign one allocation per lock. Sweep rewards to USDC. Free, open source, unofficial.">
+<meta property="og:url" content="https://flight-plan.app/">
+<meta property="og:image" content="https://flight-plan.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Flight Plan: Plan your sAERO allocation. Sweep to USDC.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Flight Plan · Plan your sAERO allocation">
+<meta name="twitter:description" content="See your locks, get a split sized to them, rehearse it free, then sign one allocation per lock. Sweep rewards to USDC. Free, open source, unofficial.">
+<meta name="twitter:image" content="https://flight-plan.app/og.png">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="Flight Plan">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+@font-face{font-family:Inter;font-style:normal;font-weight:400 800;font-display:swap;src:url(fonts/inter-latin.woff2) format("woff2")}
+:root{--bg:#f7f8fb;--fg:#090e1f;--mut:#505675;--mut2:#80859f;--line:#dbdde4;--line2:#eaeaec;--card:#fff;--card2:#f4f5f8;--acc:#154afa;--accsoft:#e7eeff;
+  --ok:#008d67;--oksoft:#e6f6ef;--warn:#ae5a0e;--warnsoft:#fff6e0;--bad:#c1261b;--badsoft:#fff1f0;--track:#eaeaec;
+  --c1:#154afa;--c1s:#e7eeff;--c2:#0f9f6b;--c3:#6b4cf6;--c3s:#efebff;--t-fee:#2f6bff;--t-stream:#e8890c;--t-stock:#e2548f;--t-thin:#0f9f92;
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;
+  --shadow:0 1px 3px rgba(9,14,31,.08);--glowc:rgba(107,76,246,.10);--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#090e1f;--fg:#eaeaec;--mut:#b0b4ca;--mut2:#80859f;--line:#222845;--line2:#1a2040;--card:#12172c;--card2:#0d1226;
+  --acc:#8c9fff;--accsoft:#152b6e;--ok:#49ba8f;--oksoft:#0f2a24;--warn:#f9a23e;--warnsoft:#2e2210;--bad:#e66a61;--badsoft:#33171a;--track:#222845;
+  --c1:#8c9fff;--c1s:#152b6e;--c2:#2fd08f;--c3:#a996ff;--c3s:#251c55;--t-fee:#6f95ff;--t-stream:#f9b64e;--t-stock:#f07aac;--t-thin:#3fd0c0;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--shadow:0 1px 3px rgba(0,0,0,.4);--glowc:rgba(169,150,255,.12)}}
+:root[data-theme="dark"]{--bg:#090e1f;--fg:#eaeaec;--mut:#b0b4ca;--mut2:#80859f;--line:#222845;--line2:#1a2040;--card:#12172c;--card2:#0d1226;
+  --acc:#8c9fff;--accsoft:#152b6e;--ok:#49ba8f;--oksoft:#0f2a24;--warn:#f9a23e;--warnsoft:#2e2210;--bad:#e66a61;--badsoft:#33171a;--track:#222845;
+  --c1:#8c9fff;--c1s:#152b6e;--c2:#2fd08f;--c3:#a996ff;--c3s:#251c55;--t-fee:#6f95ff;--t-stream:#f9b64e;--t-stock:#f07aac;--t-thin:#3fd0c0;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--shadow:0 1px 3px rgba(0,0,0,.4);--glowc:rgba(169,150,255,.12)}
+*{box-sizing:border-box} html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--fg);font:16px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;margin:0 auto;padding:14px 16px 48px;max-width:720px;overflow-x:hidden}
+a{color:var(--acc)} b{font-weight:600} .num{font-variant-numeric:tabular-nums} .mut{color:var(--mut)} .mut2{color:var(--mut2)} .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)} .small{font-size:13px}
+code{font:12px var(--mono);background:var(--card2);border:1px solid var(--line2);padding:1px 5px;border-radius:5px;word-break:break-all}
+.hdr{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.wm{display:flex;align-items:center;gap:9px;font-weight:800;font-size:21px;letter-spacing:-.5px;color:var(--fg);text-decoration:none}
+.wm img{width:30px;height:30px;border-radius:8px} .sp{flex:1}
+.pillink{font-size:13px;text-decoration:none;color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--card);white-space:nowrap}
+.wpill{font:600 13px Inter,system-ui,sans-serif;border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--card);color:var(--fg);display:inline-flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer}
+.wpill.live{border-color:var(--ok);color:var(--ok);background:var(--oksoft);cursor:default} .wpill .dot{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
+.wpill.btn{border:0;color:#fff;background:linear-gradient(180deg,#3f78ff,#154afa);box-shadow:0 3px 10px rgba(21,74,250,.35)}
+.find{display:flex;gap:8px;margin:0 0 6px}
+.find input{flex:1;min-width:0;font:15px var(--mono);padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--fg)}
+input[type=number],input[type=text].plain,select.plain{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--fg)}
+button{font:inherit;font-weight:600;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:disabled{opacity:.45;cursor:not-allowed} button.sm{padding:6px 10px;font-size:13px;border-radius:9px}
+#swNets button.on{border-color:var(--c3);background:var(--c3s);color:var(--c3)}
+.gbtn{border:0;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 4px 14px var(--gl)}
+.gblue{background:linear-gradient(180deg,#3f78ff,#154afa);--gl:rgba(21,74,250,.4)} .gviolet{background:linear-gradient(180deg,#8b6dff,#5a3be0);--gl:rgba(107,76,246,.45)} .ggreen{background:linear-gradient(180deg,#2fd08f,#0f9f6b);--gl:rgba(15,159,107,.38)}
+.hint{font-size:12.5px;color:var(--mut2);margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;margin:0 0 12px;box-shadow:var(--shadow)}
+.card>h2,.card>summary{font-size:12px;letter-spacing:1.3px;text-transform:uppercase;color:var(--c3);padding:12px 14px;margin:0;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;gap:8px;font-weight:700;align-items:center}
+.card>h2 span,.card>summary span{color:var(--mut2);font-weight:500;letter-spacing:0;text-transform:none;text-align:right}
+.card>summary{list-style:none;cursor:pointer} .card>summary::-webkit-details-marker{display:none} .card:not([open])>summary{border-bottom:0}
+.card>summary::before{content:"▶";font-size:10px;color:var(--mut2);margin-right:4px;transition:transform .15s} .card[open]>summary::before{transform:rotate(90deg)}
+#sweep>summary{color:var(--c2)}
+.body{padding:12px 14px}
+.glow{background:linear-gradient(160deg,var(--glowc),transparent 55%),var(--card);border-color:color-mix(in srgb,var(--c3) 45%,var(--line))}
+.hero{padding:16px}
+.hrow{display:flex;align-items:center;gap:14px} .hmain{flex:1;min-width:0}
+.hk{font-size:11.5px;letter-spacing:1px;text-transform:uppercase;color:var(--mut2);font-weight:700}
+.hv{font-size:46px;font-weight:800;letter-spacing:-1.6px;line-height:1.05;margin:2px 0} .hs{font-size:14px;color:var(--mut)}
+.ring{width:48px;height:48px;flex:none;position:relative} .ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .t{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;text-align:center;line-height:1.05}
+.ring circle{fill:none;stroke-width:4} .ring .bgc{stroke:var(--track)} .ring .fgc{stroke:var(--c3);stroke-linecap:round} .ring.open .fgc{stroke:var(--ok)} .ring.open .t{color:var(--ok)}
+.ring.big{width:78px;height:78px} .ring.big .t{font-size:13px}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.pills:empty{display:none}
+.tag{font-size:12.5px;font-weight:600;border-radius:999px;padding:3px 10px;border:1px solid var(--line);background:var(--card2);color:var(--mut);white-space:nowrap}
+.tag.ok{color:var(--ok);border-color:var(--ok);background:var(--oksoft)} .tag.warn{color:var(--warn);border-color:var(--warn);background:var(--warnsoft)} .tag.acc{color:var(--c3);border-color:var(--c3);background:var(--c3s)}
+.seg{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;margin:0 0 10px} .seg::-webkit-scrollbar{display:none}
+.seg button{flex:none;padding:6px 11px;font-size:13px;border-radius:999px;color:var(--mut)} .seg button.on{border-color:var(--c3);background:var(--c3s);color:var(--c3)}
+.seg.tight{margin:0;display:inline-flex} .seg.tight button{padding:4px 9px;font-size:12px}
+.seglabel{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut2);font-weight:700;margin:0 0 6px}
+.dial{border:1px solid var(--line2);background:var(--card2);border-radius:12px;padding:10px 12px 6px;margin:0 0 12px}
+.dial .seg{margin:0 0 8px;flex-wrap:wrap;overflow:visible} .dial .seg button.on{border-color:var(--c3);background:var(--c3s);color:var(--c3)} .dial .seg button.on.agg{border-color:var(--warn);background:var(--warnsoft);color:var(--warn)}
+.knobs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:4px 0 2px}
+.knob{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.knob b{font-size:13.5px;font-weight:800;color:var(--c3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.kd{width:62px;height:62px;touch-action:none;cursor:grab;border-radius:50%;outline:none;-webkit-tap-highlight-color:transparent}
+.kd:focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--c3)}
+.kd svg{width:100%;height:100%;display:block} .kd .kt{fill:none;stroke:var(--track);stroke-width:6;stroke-linecap:round}
+.kd .kv{fill:none;stroke:var(--c3);stroke-width:6;stroke-linecap:round} .kd .kc{fill:var(--card)} .kd .kp{fill:var(--fg)}
+.knob span{font-size:11.5px;color:var(--mut);font-weight:600;text-align:center;line-height:1.2}
+.dialfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:8px 0 2px;font-size:12.5px}
+.sw{display:inline-flex;align-items:center;gap:5px;color:var(--mut);cursor:pointer;font-size:12.5px} .sw input{accent-color:var(--c3);width:15px;height:15px;margin:0}
+.lockhead{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:700;margin:10px 0 0;padding-top:8px;border-top:1px solid var(--line2)} .lockhead span{color:var(--mut2);font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--mut);margin:0 0 4px}.legend span{display:inline-flex;align-items:center;gap:5px}
+.pdot{width:10px;height:10px;border-radius:3px;background:var(--c);flex:none;display:inline-block}
+details.pool{border-bottom:1px solid var(--line2)} details.pool:last-child{border-bottom:0}
+details.pool>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 0}
+details.pool>summary::-webkit-details-marker{display:none}
+.pname{flex:1;min-width:0;font-weight:600;font-size:15.5px} .pname small{display:block;font-weight:400;color:var(--mut2);font-size:11.5px}
+.pbar{display:block;height:5px;background:var(--track);border-radius:3px;margin-top:5px;overflow:hidden}.pbar i{display:block;height:100%;background:var(--c);border-radius:3px}
+.ppct{font-size:26px;font-weight:800;letter-spacing:-.8px;text-align:right;line-height:1.05;min-width:3.2em} .ppct small{font-size:13px;color:var(--mut2)} .ppct em{display:block;font-style:normal;font-size:11.5px;font-weight:600;color:var(--mut2);white-space:nowrap}
+.chev{color:var(--mut2);font-size:12px;transition:transform .15s} details.pool[open] .chev{transform:rotate(90deg)}
+.drawer{padding:0 0 12px 20px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:6px 0 8px}
+.tile{background:var(--card2);border:1px solid var(--line2);border-radius:10px;padding:8px 10px;min-width:0}
+.tile .k{font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut2);font-weight:700} .tile .v{font-size:18px;font-weight:700;margin-top:2px} .tile .v small{font-size:12px;font-weight:500;color:var(--mut)}
+.addr{font-size:12px;color:var(--mut);margin-top:4px} .addr code{cursor:pointer}
+.cta{display:block;width:100%;padding:14px 12px;font-size:16.5px;border-radius:14px;margin-top:14px}
+.csub{font-size:12.5px;color:var(--mut2);text-align:center;margin-top:6px}
+.banner{border-radius:10px;padding:10px 12px;margin:10px 0 0;font-size:14px;border:1px solid var(--line);background:var(--card2)}
+.banner.ok{background:var(--oksoft);border-color:var(--ok)} .banner.bad{background:var(--badsoft);border-color:var(--bad)} .banner.warn{background:var(--warnsoft);border-color:var(--warn)}
+.banner .big{font-size:22px;font-weight:800;letter-spacing:-.4px}
+.lock{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;background:var(--card2)}
+.lhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap} .linfo{flex:1;min-width:0} .lid{font-weight:800;font-size:17px} .lmeta{font-size:12.5px;color:var(--mut)}
+.lbtns{display:flex;gap:6px} .lbtns button{white-space:nowrap}
+.ba .r{display:flex;align-items:center;gap:8px;font-size:13px;margin:5px 0} .ba .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ba .tr{height:6px;background:var(--track);border-radius:3px;position:relative;overflow:hidden;margin:2px 0 6px 18px}
+.ba .tr i{position:absolute;left:0;top:0;bottom:0;border-radius:3px} .ba .now{background:var(--mut2);opacity:.45} .ba .aft{background:var(--c)}
+.steplist{counter-reset:s;list-style:none;padding:0;margin:8px 0}
+.steplist li{position:relative;padding:5px 0 5px 28px;font-size:13.5px;border-bottom:1px dashed var(--line2)} .steplist li:last-child{border-bottom:0}
+.steplist li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:6px;width:20px;height:20px;border-radius:50%;background:var(--accsoft);color:var(--acc);font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center}
+h3.sub{font-size:11.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut2);margin:12px 0 4px;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px} .chip{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:3px 9px;background:var(--card);display:inline-flex;gap:6px;align-items:center}
+.rcard{border:1px solid var(--line);border-radius:14px;padding:4px 12px 2px;margin:0 0 10px;background:var(--card)}
+.rch{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;padding:8px 0 4px}.rch b{font-size:15.5px;letter-spacing:-.2px}.rch span{font-size:12px;color:var(--mut2)}
+.rt{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto auto;gap:0 9px;align-items:baseline;padding:9px 0;border-top:1px solid var(--line2)}
+.rt>div:not(:first-child){text-align:right;white-space:nowrap}
+.rt.rth{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut2);font-weight:700;padding:2px 0 3px;border-top:0;white-space:nowrap}
+.rt .p{font-size:13px;color:var(--mut);font-weight:600;min-width:0}
+.rt small{display:block;font-size:10.5px;font-weight:500;color:var(--mut2);letter-spacing:0;margin-top:3px}
+.rt .ty{font-size:21px;font-weight:800;letter-spacing:-.5px;line-height:1}
+.rt .ta{font-size:13.5px;font-weight:600;color:var(--mut)} .rt .tv{font-size:15px;font-weight:800}
+.rt .tk{font-size:13px;font-weight:700}
+/* "Rank among locks": you, each allocator product and the average holder in one table (APR + place per period) */
+.ctab{margin:2px 0 4px}
+.ct{display:grid;grid-template-columns:minmax(6.5em,1fr) repeat(4,4.3em);gap:0 10px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line2)}
+.ct>div:not(:first-child){text-align:right;white-space:nowrap}
+.ct.cth{font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut2);font-weight:700;padding:2px 0 4px;border-top:0;align-items:end}.ct.cth>div{line-height:1.25}
+.ct .cn{font-size:13.5px;color:var(--fg);font-weight:600;min-width:0}.ct.me .cn{color:var(--c3)}
+.ct .cn i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:6px;vertical-align:3px}.ct .cn i.dash{background:repeating-linear-gradient(90deg,var(--mut2) 0 4px,transparent 4px 7px)!important}
+.ct small{display:block;font-size:10.5px;font-weight:500;color:var(--mut2);margin-top:2px}
+.ct .cv b{font-size:16px;font-weight:800;letter-spacing:-.3px}.ct.avg .cv b{color:var(--mut);font-weight:600}
+@supports (grid-template-columns:subgrid){.ctab{display:grid;grid-template-columns:minmax(6.5em,1fr) repeat(4,auto);column-gap:12px}.ctab>.ct{grid-column:1/-1;grid-template-columns:subgrid}}
+.viz .ln{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round} .viz .ln.me{stroke-width:2.5} .viz .ln.avg{stroke-width:1.5;stroke-dasharray:4 3}
+.viz .dt{stroke:var(--card);stroke-width:1.5} .viz .cxh{stroke:var(--mut2);stroke-width:1}
+.tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+/* phones: each row's name sits on its own line above its four numbers, so the numbers get the full width */
+@media (max-width:520px){.ct,.ctab{grid-template-columns:repeat(4,minmax(0,1fr))!important}.ct.cth>div:first-child{display:none}
+  .ct .cn{grid-column:1/-1;margin:0 0 3px}.ct .cn small{display:inline;margin:0 0 0 6px}.ct{padding:7px 0}}
+.rwh{display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut2);font-weight:700;padding:10px 0 4px;border-top:1px solid var(--line2)}
+.rw{display:grid;grid-template-columns:minmax(0,1fr) auto auto minmax(3.2em,auto) minmax(3.6em,auto);gap:0 10px;align-items:baseline;padding:6px 0;font-size:13px;border-top:1px dashed var(--line2)}
+.rw.rwc{white-space:nowrap;font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut2);font-weight:700;padding:2px 0 3px;border-top:0}.rw.rwc>div:not(:first-child){text-align:right}
+/* one grid per table: each row is a subgrid, so the header and every row share the same column widths */
+@supports (grid-template-columns:subgrid){.rtab,.rwt{display:grid}.rtab{grid-template-columns:minmax(0,1fr) auto auto auto auto;column-gap:9px}.rwt{grid-template-columns:minmax(0,1fr) auto auto minmax(3.2em,auto) minmax(3.6em,auto);column-gap:10px}.rtab>.rt,.rwt>.rw{grid-column:1/-1;grid-template-columns:subgrid}}
+.rw .wl{color:var(--fg);font-weight:600;min-width:0}.rw .wl small{color:var(--mut2);font-weight:500}
+.rw .wy{font-weight:800;font-size:14.5px;text-align:right;white-space:nowrap}.rw .wy small{display:block;font-size:11px;font-weight:500;color:var(--mut2)}
+.rw .wa{font-size:13px;font-weight:600;color:var(--mut);text-align:right;white-space:nowrap}
+.rw .wv{font-weight:800;font-size:15.5px;text-align:right;white-space:nowrap}
+.rw .wr{font-size:12.5px;color:var(--acc);font-weight:700;text-align:right;white-space:nowrap}.rw .wr small{display:block;font-size:10.5px;font-weight:500;color:var(--mut2)}
+.tw{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:13px} th,td{border-bottom:1px solid var(--line2);padding:6px 6px;text-align:left;vertical-align:top;white-space:nowrap} th{color:var(--mut2);font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;font-weight:600} td.num,th.num{text-align:right}
+.row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:13px;color:var(--mut)} .ctl{display:inline-flex;align-items:center;gap:6px}
+.tok{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line2)} .tok:last-child{border-bottom:0}
+.tok input[type=checkbox]{width:18px;height:18px;accent-color:var(--acc);flex:none}
+.tok .sym{font-weight:700;min-width:64px} .tok .sym small{display:block;font:11px var(--mono);color:var(--mut2);font-weight:400}
+.tok .bal{flex:1;color:var(--mut);font-size:13px;min-width:0} .tok .bal small{display:block;color:var(--mut2);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tok .usd{font-weight:700;text-align:right;white-space:nowrap} .tok .usd small{display:block;font-weight:400;color:var(--mut2);font-size:11px}
+.tok.skip{opacity:.5}
+.sign{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px} .sign button{padding:12px 10px;font-size:15px;border-radius:12px}
+.viz{position:relative} .viz svg{width:100%;height:auto;display:block;touch-action:pan-y}
+.viz .c1{fill:var(--s1)} .viz .c2{fill:var(--s2)} .viz .c3{fill:none;stroke:var(--s3);stroke-width:2;stroke-linejoin:round}
+.viz .cg{stroke:var(--line2);stroke-width:1} .viz .cx{font-size:10px;fill:var(--mut2)} .viz .cxb{fill:var(--fg);font-weight:600}
+.viz .cband{fill:var(--mut2);opacity:.12} .viz .cnow{stroke:var(--mut);stroke-width:1.5} .viz .cpin{stroke:var(--fg);stroke-width:1;stroke-dasharray:3 3}
+.viz .ch{fill:transparent;cursor:crosshair} .viz .ch.on{fill:var(--mut2);opacity:.12}
+.lg{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--mut);margin:0 0 6px} .lg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px} .lg i.ln{height:2px;border-radius:1px;vertical-align:3px}
+.tip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px;box-shadow:var(--shadow);white-space:nowrap;display:none} .tip b{color:var(--fg)}
+.modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;padding:0 10px}
+.sheet{background:var(--card);color:var(--fg);border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));max-width:560px;width:100%;max-height:88vh;overflow:auto;font-size:14.5px;box-shadow:0 -8px 30px rgba(0,0,0,.3)}
+.sheet h3{margin:0 0 8px;font-size:19px;letter-spacing:-.4px} .sheet ol,.sheet ul{padding-left:1.2em;margin:.4em 0} .sheet li{margin:.3em 0} .sheet p{margin:.5em 0}
+.foot{font-size:12px;color:var(--mut2);margin-top:22px;text-align:center;line-height:1.6}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+.hidden{display:none!important}
+#log{font:11.5px/1.45 var(--mono);white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;color:var(--mut)}
+@media (max-width:420px){.ct{gap:0 7px}.ctab{column-gap:8px}.ct .cv b{font-size:14.5px}.ct .cn{font-size:12.5px}table{font-size:12px}th,td{padding:5px 3px}.hv{font-size:40px}.ring.big{width:66px;height:66px}.ppct{font-size:23px}.rt,.rw,.rtab,.rwt{gap:0 7px}.rt .ty{font-size:17px}.rt .tv{font-size:14px}.rt small{font-size:10px}.wm span{display:none}}
+</style></head><body>
+<header class="hdr">
+  <a class="wm" href="./"><img src="icons/icon-192.png" alt="">Flight Plan</a>
+  <span class="sp"></span>
+  <button class="wpill btn" id="wpill" type="button">Connect wallet</button>
+  <a class="pillink" href="docs.html">Docs</a>
+</header>
+
+<form class="find" id="find">
+  <input id="addr" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Paste a wallet address (0x…)" aria-label="Wallet address">
+  <button type="submit" class="gbtn gblue" id="go">Look up</button>
+</form>
+<p class="hint">Paste any address to look (read-only). Connect a wallet to sign allocations, claims and sweeps for what it owns: dry-run first, never an approval on your sAERO lock. <a href="#" id="safelink">What it signs</a></p>
+
+<div class="banner warn hidden" id="crowdwarn" style="margin:0 0 12px"></div>
+<section class="card glow hero" id="hero"></section>
+<section class="card" id="plan"></section>
+<section class="card" id="locks"></section>
+
+<details class="card" id="cycle">
+  <summary><b>Claim rewards and compound</b><span id="clk">paste or connect to check</span></summary>
+  <div class="body">
+    <div id="clOut"></div>
+    <div class="sign" id="clSign" style="display:none"><button type="button" id="clDry">Dry run</button><button type="button" id="clSend" class="gbtn ggreen" disabled>Claim</button></div>
+    <div id="clRes"></div>
+    <h3 class="sub" style="margin-top:14px">Compound AERO into a lock</h3>
+    <div class="row" id="cpRow" style="margin-top:6px">
+      <span class="ctl">Add <input id="cpAmt" type="text" class="plain" inputmode="decimal" style="width:7.5em" placeholder="0" aria-label="AERO to add"> AERO</span>
+      <span class="ctl">to <select id="cpLock" class="plain" aria-label="Lock"></select></span>
+      <button type="button" class="sm" id="cpMax">Max</button>
+    </div>
+    <div class="small mut2" id="cpBal" style="margin-top:4px"></div>
+    <div class="sign" id="cpSign"><button type="button" id="cpDry">Dry run</button><button type="button" id="cpSend" class="gbtn ggreen" disabled>Compound · 2 signatures</button></div>
+    <div id="cpRes"></div>
+    <p class="small mut2" style="margin:10px 0 0">Claiming pays each lock's Base rewards to your own wallet: one signature per lock (one for all of them when your wallet batches). Rewards waiting on another network are claimed in the Aero app. Then sweep them to USDC below, or keep the AERO and add it to a lock here. Added AERO starts earning at that lock's next allocation. <a href="docs.html#claim">How it works</a></p>
+  </div>
+</details>
+
+<details class="card" id="sweep">
+  <summary><b>Sweep rewards to USDC</b><span id="swk">paste or connect to scan</span></summary>
+  <div class="body">
+    <div class="row" style="justify-content:space-between">
+      <span class="ctl">Dust <span class="seg tight" id="floorSeg"><button type="button" data-f="1">skip &lt;$1</button><button type="button" data-f="0.5" class="on">skip &lt;$0.50</button><button type="button" data-f="0">sell all</button></span></span>
+      <span class="ctl">Slippage <input id="slip" type="number" value="1" step="0.25" min="0.1" max="5" style="width:4.6em">%</span>
+      <label class="sw"><input type="checkbox" id="keepAero"> Keep AERO</label>
+      <button type="button" class="sm" id="btnScan">Re-scan</button>
+    </div>
+    <details style="margin-top:8px"><summary class="small mut" style="cursor:pointer">Extra token addresses</summary>
+      <input id="extra" type="text" class="plain" style="width:100%;margin-top:6px" placeholder="0x…, 0x… (optional)"></details>
+    <div id="swNets"></div>
+    <div id="toks" style="margin-top:6px"></div>
+    <div id="swGas"></div>
+    <div id="swBridge"></div>
+    <div id="swTot" class="tiles" style="display:none"></div>
+    <details id="swPlanWrap" style="display:none;margin-top:8px"><summary class="small mut" style="cursor:pointer">What you will sign</summary><div id="swPlan" style="margin-top:6px"></div></details>
+    <div class="sign" id="swSign" style="display:none"><button type="button" id="btnDry">Dry run</button><button type="button" id="btnSend" class="gbtn ggreen" disabled>Sign and sweep</button></div>
+    <div id="swOut"></div>
+    <p class="small mut2" style="margin:10px 0 0">Claim your rewards in the Aero app first, then sweep them here into USDC in one signature (plus an exact-amount approval per new token). Allocations on other networks pay out on that network, so the scan checks all of them; each network sweeps on its own and needs a little gas there. <a href="docs.html#sweep">How the sweep works</a> · <a href="docs.html#gas">Gas on each network</a></p>
+  </div>
+</details>
+
+<section class="card" id="rank"></section>
+<section class="card" id="earn"></section>
+<section class="card" id="wins"></section>
+<section class="card hidden" id="tested"></section>
+<section class="card" id="crowd"></section>
+<details class="card" id="logw"><summary class="body small mut" style="cursor:pointer">Log</summary><div class="body" style="padding-top:0"><div id="log"></div></div></details>
+
+<p class="foot">Unofficial. Not affiliated with Aerodrome. Signs only: allocations and reward claims for locks you own, exact-amount sweep approvals, one sweep swap, an exact-amount AERO top-up of your own lock, and a small gas bridge when you ask for one. Never an approval on the sAERO lock itself.<br>
+<b>Check the address bar says flight-plan.app.</b><br>
+<span id="fresh">Loading pool data…</span> · <a href="#" id="safelink2">Safety</a> · <a href="docs.html">Docs</a> · <a href="https://github.com/basedbishop555/flight-plan">Source</a><br>
+Free and open source. Tips welcome: <code data-copy="0xbe46e9dD6f22b5578529385F2e0Ee25840110196" id="tip" title="Tap to copy">0xbe46…0196</code> <a href="docs.html#tip">more</a></p>
+<div class="toast" id="toast">copied</div>
+
+<div class="modal hidden" id="safety" role="dialog" aria-modal="true" aria-labelledby="safetyh"><div class="sheet">
+  <h3 id="safetyh">Before you sign anything</h3>
+  <p>Flight Plan can sign for the locks and reward tokens your connected wallet owns. Exactly six kinds of signature, nothing else:</p>
+  <ol>
+    <li><b>An allocation.</b> One <code>allocate</code> call to the Aero Voter on Base for a lock you own. It moves your allocation, never tokens. On Base it carries 0 ETH; when the split uses another network it carries that network's message fee (Aero's own quote + 10%, never over 0.03 ETH; the bridge refunds the unused part to you), and moving AERO between networks takes two of these.</li>
+    <li><b>A sweep approval.</b> An exact-amount <code>approve</code> to Aero's Metarouter on a reward token the scan found in your wallet.</li>
+    <li><b>A sweep swap.</b> One Metarouter <code>execute</code> that sells those rewards for USDC, paid to your own wallet.</li>
+    <li><b>A claim.</b> One <code>claimRewards</code> call to the Aero Voter on Base for a lock you own, 0 ETH, paying that lock's rewards to your own wallet.</li>
+    <li><b>A compound, only when you ask for one.</b> An exact-amount <code>approve</code> on the AERO token to the sAERO contract, then <code>increaseStakeAmount</code> adding exactly that AERO to a lock you own. This is an approval of AERO you are adding, never of the lock.</li>
+    <li><b>A gas bridge, only when you tap Get gas.</b> A deposit of about $1 of ETH (Ethereum: $5, never over 0.006 ETH) to Relay's Base contract, delivered as gas to your own address on another network.</li>
+  </ol>
+  <p><b>Never:</b> an approval on your sAERO lock, <code>setApprovalForAll</code>, a transfer, a withdrawal, an unlimited approval, a claim paid to anyone but you, or any ETH value except an allocation's quoted network fee and that capped gas bridge. Every signature is rehearsed on the chain first (a dry run) and checked by the open-source guard before it reaches your wallet. Reject anything that looks different.</p>
+  <p><b>Check the address bar says flight-plan.app.</b> A copy on another address can be anything.</p>
+  <button type="button" class="cta gbtn gblue" id="safeok" style="margin-top:10px">Got it</button>
+  <p class="small mut2" style="text-align:center;margin:8px 0 0"><a href="docs.html#safe">Read the full safety page</a></p>
+</div></div>
+
+<script src="vendor/ethers-6.13.4.umd.min.js?v=fd66c046"></script>
+<script src="allocate-lib.js?v=b47b8dd1"></script>
+<script src="allocate-x.js?v=bf8445bf"></script>
+<script src="planner.js?v=b92d89cc"></script>
+<script src="claim.js?v=0157c36c"></script>
+<script src="sweep-routes.js?v=8b41fb4f"></script>
+<script src="sweep-nets.js?v=27f090be"></script>
+<script src="crowd.js?v=2b74388e"></script>
+<script src="app.js?v=60ec38c1"></script>
+</body></html>
