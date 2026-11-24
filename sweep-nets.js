@@ -39,7 +39,20 @@
     n.known = {};
     if (n.isBase) for (const [sym, t] of Object.entries(R.tokens || {})) { n.known[t.address.toLowerCase()] = Object.assign({ sym }, t); n.tokens.unshift({ sym, address: E.getAddress(t.address), decimals: t.decimals }); }
     n.mids = [[n.weth, n.weth_sym || "WETH"], [n.btc, n.btc_sym || "BTC"]].filter(([a]) => a).map(([a, s]) => [E.getAddress(a), s]);
-    n.midPools = null;
+    n.midPools = null; n.midPoolsBy = {};
+    // Sweep targets (11/24/2026): what a sweep can pay out on this network. The stable is always there; AERO only on
+    // Base; ETH = this network's WETH (never another network's wrapped gas token, e.g. WHYPE); BTC = its wrapped BTC.
+    const aero = n.isBase && (R.tokens || {}).AERO ? (R.tokens || {}).AERO.address : (n.aero || null);
+    n.targets = { stable: { key: "stable", sym: n.stable, address: n.stableAddr, decimals: 6, ref: 0n } };
+    if (aero) n.targets.aero = { key: "aero", sym: "AERO", address: E.getAddress(aero), decimals: 18, ref: 10n * 10n ** 18n };
+    if (n.weth && (n.weth_sym || "WETH") === "WETH") n.targets.eth = { key: "eth", sym: "WETH", address: E.getAddress(n.weth), decimals: 18, ref: 10n ** 16n };
+    if (n.btc) n.targets.btc = { key: "btc", sym: n.btc_sym || "BTC", address: E.getAddress(n.btc), decimals: null, ref: null };
+  }
+  const TARGET_KEYS = ["stable", "aero", "eth", "btc"], POOR_PCT = 3;
+  /** The token a sweep "into `key`" pays out on `net`, or the network's stable (fellBack) when it has no such token. */
+  function targetFor(net, key) {
+    const t = net.targets[key];
+    return t ? Object.assign({ fellBack: false }, t) : Object.assign({ fellBack: key !== "stable" }, net.targets.stable);
   }
   const byId = id => NETS.find(n => n.chainId === Number(id)) || null;
 
@@ -116,19 +129,24 @@
     });
     return out;
   }
-  async function discoverRoutes(net, tokens) {
+  /* Routes from each token to `to` (default: the network's stable): one pool, or two through a middle token. The
+     middle tokens are WETH and the network's BTC, plus the stable when the sweep pays out something else. */
+  async function discoverRoutes(net, tokens, to) {
     if (!tokens.length) return {};
-    const U = net.stableAddr;
-    if (!net.midPools) net.midPools = await poolsBetween(net, net.mids.map(([m]) => [m, U]));
-    const pairs = tokens.flatMap(t => [[t, U], ...net.mids.map(([m]) => [t, m])].filter(([a, b]) => a.toLowerCase() !== b.toLowerCase()));
+    const U = to || net.stableAddr, uk = U.toLowerCase(), isStable = uk === net.stableAddr.toLowerCase();
+    const mids0 = isStable ? net.mids : [...net.mids, [net.stableAddr, net.stable]].filter(([m]) => m.toLowerCase() !== uk);
+    if (isStable) { if (!net.midPools) net.midPools = await poolsBetween(net, mids0.map(([m]) => [m, U])); }
+    else if (!net.midPoolsBy[uk]) net.midPoolsBy[uk] = await poolsBetween(net, mids0.map(([m]) => [m, U]));
+    const midPools = isStable ? net.midPools : net.midPoolsBy[uk];
+    const pairs = tokens.flatMap(t => [[t, U], ...mids0.map(([m]) => [t, m])].filter(([a, b]) => a.toLowerCase() !== b.toLowerCase()));
     const found = await poolsBetween(net, pairs), out = {};
     for (const t of tokens) {
       const routes = [];
       for (const p of found[`${t}|${U}`] || []) routes.push({ pools: [p.pool], kinds: [p.kind], via: p.label });
-      for (const [mid, name] of net.mids) {
+      for (const [mid, name] of mids0) {
         if (t.toLowerCase() === mid.toLowerCase()) continue;
         // the Metarouter runs one pool family per route (all CL or all v2)
-        for (const p1 of found[`${t}|${mid}`] || []) for (const p2 of net.midPools[`${mid}|${U}`] || []) if (p1.kind === p2.kind) routes.push({ pools: [p1.pool, p2.pool], kinds: [p1.kind, p2.kind], via: `${p1.label} → ${name} → ${p2.label}` });
+        for (const p1 of found[`${t}|${mid}`] || []) for (const p2 of midPools[`${mid}|${U}`] || []) if (p1.kind === p2.kind) routes.push({ pools: [p1.pool, p2.pool], kinds: [p1.kind, p2.kind], via: `${p1.label} → ${name} → ${p2.label}` });
       }
       out[t.toLowerCase()] = routes;
     }
@@ -139,10 +157,39 @@
      sell, allowRevert, needsApproval, note}] plus the tokens that had no route. The same row shape the pages used before. */
   async function scan(net, owner, o) {
     const floor = o.floor, slip = o.slip, log = o.log || (() => {});
-    const seen = new Set(), toks = [];
-    for (const t of [...net.tokens, ...(o.extra || []).map(a => ({ sym: null, address: a, decimals: null })), ...(o.discovered || [])]) {
-      const k = t.address.toLowerCase(); if (k === net.stableAddr.toLowerCase() || seen.has(k)) continue; seen.add(k); toks.push(t);
+    // o.target = "stable" (default) | "aero" | "eth" | "btc": what the sweep pays out. A network without that token
+    // pays out its stable instead (T.fellBack). Paying out anything but the stable, the wallet's own stable balance is
+    // listed too, but unticked: it may be savings, not rewards.
+    let T = targetFor(net, o.target || "stable"), tRoutes = [];
+    const sk = net.stableAddr.toLowerCase();
+    if (T.address.toLowerCase() !== sk) {
+      // the payout token's decimals and its price in the stable (a small reference amount, quoted like any other swap).
+      // No market for it here = this network pays out its stable instead, the same as a network without the token.
+      try {
+        if (T.decimals == null) T.decimals = Number(BigInt(await call(net, T.address, "0x313ce567")));
+        if (!(T.decimals >= 0 && T.decimals <= 36)) throw new Error("decimals");
+        const ref = T.ref || 5n * 10n ** BigInt(Math.max(0, T.decimals - 4));       // BTC: 0.0005
+        const kn = net.known[T.address.toLowerCase()];
+        tRoutes = kn ? kn.routes : ((await discoverRoutes(net, [T.address]))[T.address.toLowerCase()] || []);
+        const pq = tRoutes.length ? await multicall(net, tRoutes.map(rt => ({ target: net.mq, callData: I.mq.encodeFunctionData("quoteExactInput", [rt.pools, T.address, ref]) }))) : [];
+        let bestOut = 0n;
+        for (const res of pq) if (res.success && res.returnData.length >= 66) { const out = BigInt(I.mq.decodeFunctionResult("quoteExactInput", res.returnData)[0]); if (out > bestOut) bestOut = out; }
+        if (bestOut <= 0n) throw new Error("no price");
+        T.price = (Number(bestOut) / 1e6) / (Number(ref) / 10 ** T.decimals);      // stable per one whole payout token
+      } catch (e) {
+        log(`${net.name}: no usable ${T.sym} market there (${e.message}); sweeping to ${net.stable} instead.`);
+        T = Object.assign({}, net.targets.stable, { fellBack: true });
+      }
     }
+    const toStable = T.address.toLowerCase() === sk, tk = T.address.toLowerCase();
+    if (toStable) T.price = 1;
+    const seen = new Set(), toks = [];
+    const list = [...net.tokens, ...(o.extra || []).map(a => ({ sym: null, address: a, decimals: null })), ...(o.discovered || [])];
+    if (!toStable) list.unshift({ sym: net.stable, address: net.stableAddr, decimals: 6 });
+    for (const t of list) {
+      const k = t.address.toLowerCase(); if (k === tk || seen.has(k)) continue; seen.add(k); toks.push(t);
+    }
+    const outNum = x => Number(x) / 10 ** T.decimals;
     const bal = await multicall(net, toks.flatMap(t => [
       { target: t.address, callData: I.erc20.encodeFunctionData("balanceOf", [owner]) },
       { target: t.address, callData: I.erc20.encodeFunctionData("allowance", [owner, net.mr]) }]));
@@ -152,7 +199,7 @@
       const b = ok(bal[2 * k]) ? BigInt(bal[2 * k].returnData) : 0n, al = ok(bal[2 * k + 1]) ? BigInt(bal[2 * k + 1].returnData) : 0n;
       if (b > 0n) rows.push({ sym: t.sym, decimals: t.decimals, balance: b, allowance: al, address: t.address, known: net.known[t.address.toLowerCase()] || null });
     });
-    if (!rows.length) return { rows: [], noRoute: [] };
+    if (!rows.length) return { rows: [], noRoute: [], target: T };
     const need = rows.filter(r => r.sym == null || r.decimals == null);
     if (need.length) {
       const md = await multicall(net, need.flatMap(r => [{ target: r.address, callData: "0x95d89b41" }, { target: r.address, callData: "0x313ce567" }]));
@@ -162,28 +209,52 @@
       });
     }
     log(`${net.name}: ${rows.length} token${rows.length === 1 ? " holds" : "s hold"} a balance. Finding routes…`);
-    const mids = await discoverRoutes(net, rows.filter(r => !r.known).map(r => r.address));
+    // the hand-checked routes all end in the stable, so any other payout finds its routes live, for every token
+    if (!toStable) for (const r of rows) { r.listed = !!r.known; r.knownS = r.known; r.known = null; }
+    const mids = await discoverRoutes(net, rows.filter(r => !r.known).map(r => r.address), T.address);
     for (const r of rows) r.routes = r.known ? r.known.routes : (mids[r.address.toLowerCase()] || []);
     const noRoute = rows.filter(r => !r.routes.length);
     rows = rows.filter(r => r.routes.length);
-    if (!rows.length) return { rows: [], noRoute };
+    if (!rows.length) return { rows: [], noRoute, target: T };
     const qcalls = [], qidx = [];
     rows.forEach((r, ri) => r.routes.forEach((rt, qi) => { qcalls.push({ target: net.mq, callData: I.mq.encodeFunctionData("quoteExactInput", [rt.pools, r.address, r.balance]) }); qidx.push([ri, qi]); }));
     const q = await multicall(net, qcalls);
     rows.forEach(r => { r.quotes = []; });
     q.forEach((res, i) => { const [ri, qi] = qidx[i]; if (res.success && res.returnData.length >= 66) rows[ri].quotes.push({ route: rows[ri].routes[qi], out: BigInt(I.mq.decodeFunctionResult("quoteExactInput", res.returnData)[0]) }); });
+    for (const r of rows) { r.quotes.sort((a, b) => (b.out > a.out ? 1 : b.out < a.out ? -1 : 0)); r.best = r.quotes[0] || null; }
+    /* Value check (any payout but the stable): a thin pool can quote a payout token at a fraction of its worth, and a
+       minimum set from that quote would not catch it. So each token is ALSO quoted straight to the stable (worth),
+       and what it would buy is quoted back to the stable (back). A token whose `back` is more than POOR_PCT under its
+       `worth` is left unticked with the reason. Both figures come from the same Metaquoter. */
+    if (!toStable) {
+      const live = rows.filter(r => r.best);
+      const sRoutes = await discoverRoutes(net, live.filter(r => !r.knownS && r.address.toLowerCase() !== sk).map(r => r.address));
+      const vc = [], vi = [];
+      live.forEach((r, ri) => {
+        if (r.address.toLowerCase() === sk) { r.worth = r.balance; }
+        else for (const rt of (r.knownS ? r.knownS.routes : (sRoutes[r.address.toLowerCase()] || []))) { vc.push({ target: net.mq, callData: I.mq.encodeFunctionData("quoteExactInput", [rt.pools, r.address, r.balance]) }); vi.push([ri, "worth"]); }
+        for (const rt of tRoutes) { vc.push({ target: net.mq, callData: I.mq.encodeFunctionData("quoteExactInput", [rt.pools, T.address, r.best.out]) }); vi.push([ri, "back"]); }
+      });
+      const vq = vc.length ? await multicall(net, vc) : [];
+      vq.forEach((res, i) => {
+        if (!res.success || res.returnData.length < 66) return;
+        const [ri, k] = vi[i], out = BigInt(I.mq.decodeFunctionResult("quoteExactInput", res.returnData)[0]);
+        if (live[ri][k] == null || out > live[ri][k]) live[ri][k] = out;
+      });
+    }
     for (const r of rows) {
-      r.quotes.sort((a, b) => (b.out > a.out ? 1 : b.out < a.out ? -1 : 0));
-      r.best = r.quotes[0] || null;
-      r.usd = r.best ? Number(r.best.out) / 1e6 : 0;
+      r.usd = !r.best ? 0 : toStable ? outNum(r.best.out) : r.worth != null ? Number(r.worth) / 1e6 : r.back != null ? Number(r.back) / 1e6 : outNum(r.best.out) * T.price;
+      r.lossPct = !toStable && r.best && r.worth > 0n && (r.back != null || r.worth >= 250000n) ? (1 - Number(r.back || 0n) / Number(r.worth)) * 100 : null;   // dust with no back-quote: unknown, not poor
+      r.poor = r.lossPct != null && r.lossPct > POOR_PCT;
       r.minOut = r.best ? (r.best.out * BigInt(Math.round((1 - slip) * 1e6)) / 1000000n) : 0n;
-      r.sell = !!r.best && r.usd >= floor;
+      r.own = !toStable && r.address.toLowerCase() === sk;
+      r.sell = !!r.best && r.usd >= floor && !r.own && !r.poor;
       r.allowRevert = r.usd < 0.25;
       r.needsApproval = r.allowance < r.balance;
-      r.note = !r.best ? "no quote" : r.usd < floor ? `under $${floor}` : r.allowRevert ? "dust, may revert" : "";
+      r.note = !r.best ? "no quote" : r.usd < floor ? `under $${floor}` : r.poor ? `poor ${T.sym} price here: about ${r.lossPct.toFixed(r.lossPct < 10 ? 1 : 0)}% worse than selling for ${net.stable}` : r.allowRevert ? "dust, may revert" : r.own ? `your ${net.stable}: tick to include it` : "";
     }
     rows.sort((a, b) => b.usd - a.usd);
-    return { rows, noRoute };
+    return { rows, noRoute, target: T };
   }
 
   // ---------- gas ----------
@@ -354,6 +425,6 @@
     return { txs, done };
   }
 
-  window.SweepNets = { NETS, byId, rpc, rpcOther, assertNet, isHash, call, multicall, simSwapGas, stableBalance, bridgeQuote, bridgeCheck, bridgeDry, bridgeSend, bridgeUsd, waitCalls, QUOTE_MS, RELAY_DEPOSITORY, waitReceipt, scan, gasGuess, gasCheck, gasAmt, gasUsd, suggest, relayUrl, ensureNet,
+  window.SweepNets = { NETS, byId, targetFor, TARGET_KEYS, POOR_PCT, discoverRoutes, rpc, rpcOther, assertNet, isHash, call, multicall, simSwapGas, stableBalance, bridgeQuote, bridgeCheck, bridgeDry, bridgeSend, bridgeUsd, waitCalls, QUOTE_MS, RELAY_DEPOSITORY, waitReceipt, scan, gasGuess, gasCheck, gasAmt, gasUsd, suggest, relayUrl, ensureNet,
     txUrl: (net, h) => `${net.explorer}/tx/${h}` };
 })();

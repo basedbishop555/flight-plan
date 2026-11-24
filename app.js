@@ -1367,7 +1367,18 @@ if (!store.get("safety")) showSafety(false);
 const SN = window.SweepNets;
 let SWN = SN ? (SN.byId(8453) || SN.NETS[0]) : null;
 let MR = SWN ? SWN.mr : null, MQ = SWN ? SWN.mq : null, USDC = SWN ? SWN.stableAddr : null;
-function useNet(n) { SWN = n; MR = n.mr; MQ = n.mq; USDC = n.stableAddr; }
+function useNet(n) { SWN = n; MR = n.mr; MQ = n.mq; USDC = TGT().address; }
+/* Sweep into USDC, AERO, ETH or BTC (11/24/2026). "USDC" above is the address the sweep PAYS OUT on the chosen
+   network: its stable by default, or AERO (Base), WETH or the network's wrapped BTC when "Sweep into" says so. A
+   network without the chosen token pays out its stable. Amounts of it are whole-number units of TGT().decimals. */
+const INTO_KEYS = ["stable", "aero", "eth", "btc"], INTO_NAME = { stable: "USDC", aero: "AERO", eth: "ETH", btc: "BTC" };
+function TGT() { return (SW && SW.tgt && SWN && SW.tgt[SWN.chainId]) || SN.targetFor(SWN, "stable"); }
+const outNum = x => Number(x) / 10 ** TGT().decimals;
+const outUsd = x => outNum(x) * (TGT().price || 1);
+const outFmt = v => v >= 1000 ? fmt(v, 2) : v >= 1 ? fmt(v, 4) : v > 0 ? v.toFixed(8).replace(/0+$/, "").replace(/\.$/, "") : "0";
+// an amount of the payout token as text: "$12.34" for a stable, "21.6 AERO" for anything else
+const outTxt = x => TGT().key === "stable" ? "$" + fmt(outNum(x), 2) : `${outFmt(outNum(x))} ${TGT().sym}`;
+const outBoth = x => TGT().key === "stable" ? `$${fmt(outNum(x), 2)} ${TGT().sym}` : `${outFmt(outNum(x))} ${TGT().sym} (~$${fmt(outUsd(x), 2)})`;
 const CMD_CL = 0x00, CMD_V2 = 0x08, FLAG_ALLOW_REVERT = 0x80, DUST_ALLOW_REVERT_USD = 0.25;
 const coder = ethers.AbiCoder.defaultAbiCoder();
 const APPROVE_SEL = I.erc20.getFunction("approve").selector, EXEC_SEL = I.mr.getFunction("execute").selector;
@@ -1401,7 +1412,8 @@ function callIsAllowed(c, rows, owner) {
 }
 const EXTRA_KEY = "fp:sweep:extraTokens";
 function extraTokens() { try { return (localStorage.getItem(EXTRA_KEY) || "").split(/[\s,]+/).filter(x => /^0x[0-9a-fA-F]{40}$/.test(x)).map(ethers.getAddress); } catch (e) { return []; } }
-let SW = { rows: [], plan: null, dry: null, floor: 0.5, busy: false, done: null, byNet: {}, gas: {}, cid: null };
+let SW = { rows: [], plan: null, dry: null, floor: 0.5, busy: false, done: null, byNet: {}, gas: {}, cid: null, tgt: {}, into: "stable" };
+try { const k = store.get("sweepInto"); if (INTO_KEYS.includes(k)) SW.into = k; } catch (e) {}
 try { $("extra").value = localStorage.getItem(EXTRA_KEY) || ""; } catch (e) {}
 
 async function explorerTokens(owner) {
@@ -1429,13 +1441,15 @@ async function swScan() {
     const floor = SW.floor, slip = Math.min(5, Math.max(0.1, Number($("slip").value) || 1)) / 100;
     const discovered = await explorerTokens(owner);   // Base only (the other networks use the loop's token list)
     log(`Scanning ${SN.NETS.length} networks for reward tokens in ${short(owner)}…`);
-    const res = await Promise.allSettled(SN.NETS.map(n => SN.scan(n, owner, { floor, slip, extra: extraTokens(), discovered: n.isBase ? discovered : [], log })));
-    SW.byNet = {}; SW.gas = {};
+    const res = await Promise.allSettled(SN.NETS.map(n => SN.scan(n, owner, { floor, slip, extra: extraTokens(), discovered: n.isBase ? discovered : [], log, target: SW.into })));
+    SW.byNet = {}; SW.gas = {}; SW.tgt = {};
     res.forEach((r, i) => {
       const n = SN.NETS[i];
       if (r.status !== "fulfilled") { log(`${n.name}: scan failed (${(r.reason && r.reason.message) || r.reason}); skipped.`, "warn"); return; }
-      const { rows, noRoute } = r.value;
-      if (noRoute.length) log(`${n.name}: ${noRoute.length} token${noRoute.length === 1 ? "" : "s"} with no Aero route to ${n.stable}, skipped: ${noRoute.slice(0, 12).map(x => x.sym).join(", ")}${noRoute.length > 12 ? ", …" : ""}`);
+      const { rows, noRoute, target } = r.value;
+      SW.tgt[n.chainId] = target;
+      if (target.fellBack && rows.length) log(`${n.name} has no ${INTO_NAME[SW.into]} to sweep into: rewards there sweep to ${target.sym} instead.`, "warn");
+      if (noRoute.length) log(`${n.name}: ${noRoute.length} token${noRoute.length === 1 ? "" : "s"} with no Aero route to ${target.sym}, skipped: ${noRoute.slice(0, 12).map(x => x.sym).join(", ")}${noRoute.length > 12 ? ", …" : ""}`);
       if (rows.length) SW.byNet[n.chainId] = rows;
     });
     const has = SN.NETS.filter(n => SW.byNet[n.chainId]);
@@ -1533,31 +1547,33 @@ function renderSweep(emptyMsg) {
     $("swTot").style.display = "none"; $("swPlanWrap").style.display = "none"; $("swSign").style.display = "none"; $("swk").textContent = emptyMsg ? "nothing to sweep" : (viewer() ? "open to scan" : "paste or connect to scan");
     return;
   }
-  let tot = 0, n = 0;
+  let tot = 0, n = 0, totOut = 0n;
+  const T = TGT(), stableOut = T.key === "stable";
   for (const r of SW.rows) {
     const d = document.createElement("div"); d.className = "tok" + (r.sell ? "" : " skip");
     d.innerHTML = `<input type="checkbox" ${r.sell ? "checked" : ""} ${r.best ? "" : "disabled"} data-addr="${r.address}">
-      <div class="sym">${esc(r.sym)}${r.known ? "" : `<small title="${r.address}">${short(r.address)}</small>`}</div>
+      <div class="sym">${esc(r.sym)}${r.known || r.listed || r.own ? "" : `<small title="${r.address}">${short(r.address)}</small>`}</div>
       <div class="bal">${fmt(ethers.formatUnits(r.balance, r.decimals), 4)}<small>${r.best ? "via " + esc(r.best.route.via) : "no route"}${r.needsApproval ? " · approval needed" : ""}${r.note ? " · " + esc(r.note) : ""}</small></div>
-      <div class="usd num">${r.best ? "$" + fmt(r.usd, 2) : "-"}<small>${r.best ? "min $" + fmt(Number(r.minOut) / 1e6, 2) : ""}</small></div>`;
+      <div class="usd num">${r.best ? "$" + fmt(r.usd, 2) : "-"}<small>${r.best ? "min " + esc(outTxt(r.minOut)) : ""}</small></div>`;
     box.appendChild(d);
-    if (r.sell) { tot += r.usd; n++; }
+    if (r.sell) { tot += r.usd; n++; if (r.best) totOut += r.best.out; }
   }
   box.querySelectorAll("input[type=checkbox]").forEach(cb => cb.addEventListener("change", e => {
     const r = SW.rows.find(x => x.address === e.target.dataset.addr); r.sell = e.target.checked; renderSweep(); swBuildPlan(viewer());
   }));
   const appr = SW.rows.filter(r => r.sell && r.needsApproval).length;
-  $("swTot").style.display = ""; $("swTot").innerHTML = `<div class="tile"><div class="k">Expected</div><div class="v num">$${fmt(tot, 2)} <small>${SWN.stable}${SWN.isBase ? "" : " on " + esc(SWN.name)}</small></div></div>
+  $("swTot").style.display = ""; $("swTot").innerHTML = `<div class="tile"><div class="k">Expected</div><div class="v num">${stableOut ? "$" + fmt(tot, 2) : esc(outFmt(outNum(totOut)))} <small>${esc(T.sym)}${stableOut ? "" : " · ~$" + fmt(tot, 2)}${SWN.isBase ? "" : " on " + esc(SWN.name)}</small></div></div>
     <div class="tile"><div class="k">Tokens</div><div class="v num">${n} <small>of ${SW.rows.length}</small></div></div>
     <div class="tile"><div class="k">Signatures</div><div class="v num">${n ? appr + 1 : 0} <small>${appr} approval${appr === 1 ? "" : "s"} + 1 swap</small></div></div>`;
-  $("swk").textContent = `${n} to sell · $${fmt(tot, 2)}`;
+  $("swk").textContent = `${n} to sell · $${fmt(tot, 2)}${stableOut ? "" : " into " + T.sym}`;
+  const fb = $("swFell"); if (fb) fb.innerHTML = T.fellBack ? `<div class="banner warn small" style="margin-top:8px">${esc(SWN.name)} has no ${esc(INTO_NAME[SW.into])} to sweep into, so rewards here sweep to <b>${esc(T.sym)}</b>.</div>` : "";
 }
 // Rabby (and some other wallets) preview a swap as ONE token in and ONE token out. Our sweep sells several tokens in
 // one swap, so the preview compares a single token with the whole USDC total and can show a red "value" or
 // "slippage" warning. The balance change underneath is the true picture; the dry run proves it.
 function walletNote(n, usd) {
   if (n < 2) return "";
-  return `<div class="banner warn small" style="margin-top:8px"><b>Expect a red warning in your wallet on the last signature.</b> This swap sells ${n} tokens at once, and wallets like Rabby compare just one of them against the whole USDC total, so it can look like a big loss or "slippage". It isn't: check that the balance change at the bottom of the wallet screen (the ${n} tokens out, USDC in) matches the dry run${usd != null ? ` (<b>+$${fmt(usd, 2)} USDC</b>)` : ""}. <a href="docs.html#sweep">Why</a></div>`;
+  return `<div class="banner warn small" style="margin-top:8px"><b>Expect a red warning in your wallet on the last signature.</b> This swap sells ${n} tokens at once, and wallets like Rabby compare just one of them against the whole ${esc(TGT().sym)} total, so it can look like a big loss or "slippage". It isn't: check that the balance change at the bottom of the wallet screen (the ${n} tokens out, ${esc(TGT().sym)} in) matches the dry run${usd != null ? ` (<b>+${esc(usd)}</b>)` : ""}. <a href="docs.html#sweep">Why</a></div>`;
 }
 function swBuildPlan(ownerIn) {
   if (!ownerIn) return;
@@ -1572,12 +1588,12 @@ function swBuildPlan(ownerIn) {
     inputs.push(coder.encode(SWAP_T, [[r.best.route.pools, r.address, [0, r.balance], true, r.minOut, owner]]));
   }
   const deadline = Math.floor(Date.now() / 1000) + 20 * 60;
-  const exec = { to: MR, data: I.mr.encodeFunctionData("execute", [ethers.hexlify(new Uint8Array(cmds)), inputs, deadline]), desc: `ONE swap: ${sel.length} swap${sel.length === 1 ? "" : "s"} through the Metarouter, ${SWN.stable} lands in ${short(owner)} on ${SWN.name}` };
+  const exec = { to: MR, data: I.mr.encodeFunctionData("execute", [ethers.hexlify(new Uint8Array(cmds)), inputs, deadline]), desc: `ONE swap: ${sel.length} swap${sel.length === 1 ? "" : "s"} through the Metarouter, ${TGT().sym} lands in ${short(owner)} on ${SWN.name}` };
   for (const c of [...approvals, exec]) if (!callIsAllowed(c, sel, owner)) throw new Error("internal guard: unexpected call to " + c.to);
   SW.plan = { owner, approvals, exec, deadline, sel }; SW.dry = null;
   const bytes = (exec.data.length - 2) / 2;
   $("swPlan").innerHTML = `<ol class="steplist">${approvals.map(a => `<li><b>Approve ${esc(a.sym)}</b> · To <code>${a.to}</code> (the ${esc(a.sym)} token) · spender <code>${MR}</code> (Metarouter) · amount <b>${esc(a.amount)}</b> · 0 ETH</li>`).join("")}
-    <li><b>Swap</b> · To <code>${MR}</code> (Aero Metarouter) · method <b>execute</b> <code>${exec.data.slice(0, 10)}</code> · ${bytes.toLocaleString()} bytes · <b>0 ETH</b> · USDC paid to <code>${owner}</code> (you)<br><span class="mut">A hardware wallet shows this as raw data. Check the To address and 0 ETH on the device; the content is what the dry run returns and what your wallet's simulation shows (minus the reward tokens, plus ${SWN.stable}).</span>${sel.length > 1 ? `<br><span class="mut">Your wallet may flag this swap in red as a loss or "slippage": it compares one token with the whole total. The balance change is what counts.</span>` : ""}</li></ol>
+    <li><b>Swap</b> · To <code>${MR}</code> (Aero Metarouter) · method <b>execute</b> <code>${exec.data.slice(0, 10)}</code> · ${bytes.toLocaleString()} bytes · <b>0 ETH</b> · ${esc(TGT().sym)} <code>${USDC}</code> paid to <code>${owner}</code> (you)<br><span class="mut">A hardware wallet shows this as raw data. Check the To address and 0 ETH on the device; the content is what the dry run returns and what your wallet's simulation shows (minus the reward tokens, plus ${esc(TGT().sym)}).</span>${sel.length > 1 ? `<br><span class="mut">Your wallet may flag this swap in red as a loss or "slippage": it compares one token with the whole total. The balance change is what counts.</span>` : ""}</li></ol>
     <p class="small mut">Network <b>${esc(SWN.name)}</b> on every screen. Reject anything naming sAERO <code>0xbf7977e1…</code>, "setApprovalForAll", "transfer", or an amount larger than the row. Deadline ${new Date(deadline * 1000).toLocaleTimeString()}.</p>`;
   $("swPlanWrap").style.display = ""; $("swSign").style.display = ""; $("btnSend").disabled = true; $("swOut").innerHTML = "";
 }
@@ -1585,6 +1601,7 @@ function swBuildPlan(ownerIn) {
    so the second gets less than its own quote and its minimum reverts the whole sweep (seen on Ink 11/5: kBTC quoted
    $124.6, got $114.0 after the WETH leg). When routes share a pool, simulate the swaps one after another with no minimum
    to read what each really gets in this order, and lower those tokens' minimums to that x (1 - slippage). Never raises one. */
+const SEQ_MAX_DROP = 20;
 async function swSeqMins(p) {
   const seen = {}, shared = new Set();
   for (const r of p.sel) for (const pool of r.best.route.pools) { const k = pool.toLowerCase(); if (seen[k] && seen[k] !== r) shared.add(k); seen[k] = r; }
@@ -1605,7 +1622,9 @@ async function swSeqMins(p) {
     const now = rd && rd.status === "0x1" ? BigInt(rd.returnData) : null;
     if (sw && sw.status === "0x1" && prev != null && now != null && r.best.route.pools.some(x => shared.has(x.toLowerCase()))) {
       const got = now - prev, min = got * BigInt(Math.round((1 - slip) * 1e6)) / 1000000n;
-      if (min < r.minOut) { moved.push(`${r.sym} $${fmt(Number(r.minOut) / 1e6, 2)} → $${fmt(Number(min) / 1e6, 2)}`); r.minOut = min; }
+      // never by more than SEQ_MAX_DROP: a deeper cut than that is not "the pool moved a little", so stop instead
+      if (min * 100n < r.minOut * BigInt(100 - SEQ_MAX_DROP)) throw new Error(`${r.sym} would get ${outTxt(got)} after the swaps before it, more than ${SEQ_MAX_DROP}% under its own quote. Untick one of the tokens that share its pool, or sweep them separately`);
+      if (min < r.minOut) { moved.push(`${r.sym} ${outTxt(r.minOut)} → ${outTxt(min)}`); r.minOut = min; }
     }
     if (now != null) prev = now;
   });
@@ -1630,19 +1649,23 @@ const XCHECK_TOL = 0.015;
 async function swCrossCheck(p) {
   const slip = Math.min(5, Math.max(0.1, Number($("slip").value) || 1)) / 100;
   const alt = await SN.rpcOther(SWN, "eth_simulateV1", [{ blockStateCalls: [{ calls: await swSimCalls(p) }], validation: false }, "latest"]);
-  if (!alt) return { ok: true, checked: false };
+  if (!alt) return { ok: false, checked: false, why: `no second RPC on ${SWN.name} answered, so the prices this page read could not be double-checked. Nothing was sent; try again in a minute` };
   const out = alt.result[0].calls, host = new URL(alt.url).hostname;
   if (out.some(c => c.status !== "0x1")) return { ok: false, checked: true, why: `a second RPC (${host}) says this swap would fail; re-scan and dry-run again` };
   const fair = BigInt(out[out.length - 1].returnData) - BigInt(out[0].returnData), mins = p.sel.reduce((t, r) => t + r.minOut, 0n);
   const floor = fair * BigInt(Math.round((1 - slip - XCHECK_TOL) * 1e6)) / 1000000n;
-  if (mins < floor) return { ok: false, checked: true, why: `a second RPC (${host}) says this swap should pay about $${fmt(Number(fair) / 1e6, 2)}, but the minimums only guarantee $${fmt(Number(mins) / 1e6, 2)}; the prices this page read can't be trusted right now. Re-scan and dry-run again` };
-  return { ok: true, checked: true, host, fair: Number(fair) / 1e6 };
+  if (mins < floor) return { ok: false, checked: true, why: `a second RPC (${host}) says this swap should pay about ${outTxt(fair)}, but the minimums only guarantee ${outTxt(mins)}; the prices this page read can't be trusted right now. Re-scan and dry-run again` };
+  // and the other way round: the swaps that must succeed have to pay out, in the payout token, at least their minimums
+  const must = p.sel.filter(r => !r.allowRevert).reduce((t, r) => t + r.minOut, 0n);
+  if (fair < must) return { ok: false, checked: true, why: `a second RPC (${host}) says this swap would pay only ${outTxt(fair)} in ${TGT().sym}, under the ${outTxt(must)} its minimums promise; the routes this page read can't be trusted right now. Re-scan and dry-run again` };
+  return { ok: true, checked: true, host, fair };
 }
 async function swDry() {
   let p = SW.plan; if (!p) return;
   log("Sweep dry run: simulating approvals + swap from your address…");
   $("swOut").innerHTML = `<div class="banner small">Simulating…</div>`;
-  p = (await swSeqMins(p)) || p;
+  try { p = (await swSeqMins(p)) || p; }
+  catch (e) { log("Dry run stopped: " + e.message, "bad"); $("swOut").innerHTML = `<div class="banner bad"><b>Dry run stopped.</b> ${esc(e.message)}. Nothing was sent.</div>`; SW.dry = null; $("btnSend").disabled = true; return; }
   $("swOut").innerHTML = `<div class="banner small">Simulating…</div>`;
   const calls = await swSimCalls(p);
   let res;
@@ -1658,12 +1681,19 @@ async function swDry() {
     SW.dry = null; $("btnSend").disabled = true; return;
   }
   const before = BigInt(out[0].returnData), after = BigInt(out[out.length - 1].returnData);
-  const got = Number(after - before) / 1e6, gas = out.slice(1, -1).reduce((s, c) => s + parseInt(c.gasUsed, 16), 0);
+  const gotRaw = after - before, got = outBoth(gotRaw), gas = out.slice(1, -1).reduce((s, c) => s + parseInt(c.gasUsed, 16), 0);
   const expect = p.sel.reduce((s, r) => s + r.usd, 0);
-  SW.dry = { got, gas };
+  // what lands must be the payout token, and at least what the must-succeed swaps promise
+  const must = p.sel.filter(r => !r.allowRevert).reduce((t, r) => t + r.minOut, 0n);
+  if (gotRaw < must) {
+    log(`Simulation: only ${outTxt(gotRaw)} of ${TGT().sym} would arrive, under the minimums (${outTxt(must)}). Not safe to sign.`, "bad");
+    $("swOut").innerHTML = `<div class="banner bad"><b>Dry run failed.</b> Only ${esc(outTxt(gotRaw))} of ${esc(TGT().sym)} would arrive, under what the swaps promise. Nothing was sent. Re-scan and try again.</div>`;
+    SW.dry = null; $("btnSend").disabled = true; return;
+  }
+  SW.dry = { got, gas, raw: gotRaw };
   const mine = S.account && ethers.getAddress(S.account) === p.owner;
-  log(`Sweep simulation OK on ${SWN.name}: +${fmt(got, 4)} ${SWN.stable} (quotes ${fmt(expect, 4)}), gas ${gas.toLocaleString()}`, "ok");
-  $("swOut").innerHTML = `<div class="banner ok"><div class="big num">+$${fmt(got, 2)} ${SWN.stable}</div><span class="small">Dry run OK · quotes said $${fmt(expect, 2)} · gas ${gas.toLocaleString()} ${gasCostTxt(gas)} · ${p.approvals.length + 1} signature${p.approvals.length ? "s" : ""}${mine ? "" : S.account ? " · connect the wallet that holds these tokens to sign" : " · connect to sign"}</span></div>${walletNote(p.sel.length, got)}`;
+  log(`Sweep simulation OK on ${SWN.name}: +${got} (quotes $${fmt(expect, 4)}), gas ${gas.toLocaleString()}`, "ok");
+  $("swOut").innerHTML = `<div class="banner ok"><div class="big num">+${esc(got)}</div><span class="small">Dry run OK · quotes said $${fmt(expect, 2)} · gas ${gas.toLocaleString()} ${gasCostTxt(gas)} · ${p.approvals.length + 1} signature${p.approvals.length ? "s" : ""}${mine ? "" : S.account ? " · connect the wallet that holds these tokens to sign" : " · connect to sign"}</span></div>${walletNote(p.sel.length, got)}`;
   try { await swGasRead(SWN, p.owner, gas); } catch (e) { /* keep the guess */ }
   renderNets(); renderGas();
   $("btnSend").disabled = !mine || !gasOk();
@@ -1672,9 +1702,9 @@ async function swSend() {
   const p = SW.plan; if (!p || !S.account || !SW.dry) return;
   if (ethers.getAddress(S.account) !== p.owner) { log("Connected account differs from the scanned one. Re-scan.", "bad"); return; }
   try { const g = await swGasRead(SWN, p.owner, SW.dry.gas); if (!g.ok) { renderNets(); renderGas(); log(`Not enough ${SWN.gas} for gas on ${SWN.name}; nothing sent.`, "bad"); return; } } catch (e) { /* the wallet will refuse if gas is short */ }
-  const xc = await swCrossCheck(p).catch(e => ({ ok: true, checked: false, err: e.message }));
+  const xc = await swCrossCheck(p).catch(e => ({ ok: false, checked: false, why: `the second-RPC price check could not run (${e.message}). Nothing was sent; try again in a minute` }));
   if (!xc.ok) { log("Stopped before signing: " + xc.why, "bad"); $("swOut").innerHTML = `<div class="banner bad"><b>Stopped before signing.</b> ${esc(xc.why)}.</div>`; return; }
-  log(xc.checked ? `Second RPC (${xc.host}) agrees: about $${fmt(xc.fair, 2)}.` : `No second RPC on ${SWN.name} could double-check the prices${xc.err ? " (" + xc.err + ")" : ""}; going by the dry run alone.`, xc.checked ? "ok" : "warn");
+  log(`Second RPC (${xc.host}) agrees: about ${outTxt(xc.fair)}.`, "ok");
   await SN.ensureNet(S.provider, SWN, log);
   const all = [...p.approvals, p.exec];
   for (const c of all) if (!callIsAllowed(c, p.sel, S.account)) { log("Guard tripped: refusing to send to " + c.to + " (it isn't exactly the swap shown, or its deadline passed; dry-run again)", "bad"); return; }
@@ -1709,9 +1739,10 @@ async function swSend() {
       }
     }
     const b = BigInt(await SN.call(SWN, USDC, I.erc20.encodeFunctionData("balanceOf", [S.account])));
-    SW.done = { usdc: Number(b) / 1e6, txs };
-    log(`Sweep done on ${SWN.name}. ${SWN.stable} balance there now ${fmt(Number(b) / 1e6, 2)}.`, "ok");
-    $("swOut").innerHTML = `<div class="banner ok"><div class="big num">Swept ✓ · ${fmt(Number(b) / 1e6, 2)} ${SWN.stable} in the wallet on ${esc(SWN.name)}</div><span class="small">${txs.map(txh).filter(Boolean).map(h => `<a href="${esc(SN.txUrl(SWN, h))}" target="_blank" rel="noopener noreferrer">${h.slice(0, 10)}…</a>`).join(" · ")} · <a href="#" id="swAgain">re-scan</a> to confirm the reward tokens are gone</span>${tipLine()}</div>`;
+    const T = TGT(), bal = `${T.key === "stable" ? fmt(outNum(b), 2) : outFmt(outNum(b))} ${T.sym}`;
+    SW.done = { usdc: outNum(b), txs };
+    log(`Sweep done on ${SWN.name}. ${T.sym} balance there now ${bal}.`, "ok");
+    $("swOut").innerHTML = `<div class="banner ok"><div class="big num">Swept ✓ · ${esc(bal)} in the wallet on ${esc(SWN.name)}</div><span class="small">${T.key === "aero" ? `To add it to a lock, open <a href="#cycle">Claim rewards</a> above and use Compound. · ` : ""}${txs.map(txh).filter(Boolean).map(h => `<a href="${esc(SN.txUrl(SWN, h))}" target="_blank" rel="noopener noreferrer">${h.slice(0, 10)}…</a>`).join(" · ")} · <a href="#" id="swAgain">re-scan</a> to confirm the reward tokens are gone</span>${tipLine()}</div>`;
     const ag = $("swAgain"); if (ag) ag.addEventListener("click", e => { e.preventDefault(); swScan().catch(er => log(er.message, "bad")); });
     $("swk").textContent = "done";
   } catch (e) { log("Stopped: " + (e.message || e), "bad"); $("swOut").innerHTML = `<div class="banner bad">Stopped: ${esc(e.message || e)}. ${txs.length ? "Sent so far: " + esc(txs.map(h => String(h).slice(0, 10) + "…").join(", ")) + ". " : ""}Re-scan before trying again.</div>`; }
@@ -1719,6 +1750,18 @@ async function swSend() {
 }
 $("floorSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { $("floorSeg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); SW.floor = Number(b.dataset.f); if (SW.rows.length) swScan().catch(e => log(e.message, "bad")); }));
 $("btnScan").addEventListener("click", () => { try { localStorage.setItem(EXTRA_KEY, $("extra").value); } catch (e) {} swScan().catch(e => log("Scan failed: " + e.message, "bad")); });
+function intoUi() {
+  $("intoSeg").querySelectorAll("button").forEach(b => { const on = b.dataset.t === SW.into; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
+  const aero = SW.into === "aero"; $("keepAero").disabled = aero; $("keepAero").parentElement.style.opacity = aero ? 0.45 : 1;   // AERO is never sold when it is what the sweep buys
+  $("swTitle").textContent = "Sweep rewards to " + INTO_NAME[SW.into];
+}
+$("intoSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+  if (!INTO_KEYS.includes(b.dataset.t) || b.dataset.t === SW.into) return;
+  SW.into = b.dataset.t; store.set("sweepInto", SW.into); intoUi();
+  SW.plan = null; SW.dry = null; $("btnSend").disabled = true; $("swOut").innerHTML = "";
+  if (viewer()) swScan().catch(e => log("Scan failed: " + e.message, "bad"));
+}));
+intoUi();
 try { $("keepAero").checked = store.get("keepAero") === "1"; } catch (e) {}
 $("keepAero").addEventListener("change", () => { store.set("keepAero", $("keepAero").checked ? "1" : "0"); if (viewer()) swScan().catch(e => log("Scan failed: " + e.message, "bad")); });
 $("btnDry").addEventListener("click", () => swDry().catch(e => log("Dry run failed: " + e.message, "bad")));

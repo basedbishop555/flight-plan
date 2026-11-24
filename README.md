@@ -11,7 +11,7 @@ Paste a wallet address and Flight Plan:
 - shows your week-by-week and day-by-day APR against the average, your earnings, and when the crowd moves.
 
 Connect the wallet that owns the locks and it signs one `allocate` per lock (dry run first, window open), and can
-sweep your claimed rewards into USDC through Aero's Metarouter. Or copy the split and allocate in the Aero app.
+sweep your claimed rewards into USDC, AERO, ETH or BTC through Aero's Metarouter. Or copy the split and allocate in the Aero app.
 
 ## How it works
 
@@ -22,7 +22,9 @@ sweep your claimed rewards into USDC through Aero's Metarouter. Or copy the spli
 - `allocate-lib.js` builds and checks the Base-only allocate call (the guard); `allocate-x.js` plans, rehearses and
   checks allocate calls that reach other networks.
 - `claim.js` builds and checks the claim call and the two compound calls; `tools/test_claim.js` tests them.
-- `sweep-routes.js` lists candidate USDC routes through Aero's new pools; the page re-quotes them live.
+- `sweep-routes.js` lists candidate USDC routes through Aero's new pools; the page re-quotes them live. `sweep-nets.js`
+  reads every network and finds routes to the other payout tokens (AERO on Base, WETH, wrapped BTC), with a value check
+  against USDC; `tools/test_sweep_into.js` tests every payout on every network, and `tools/smoke_sweep.js` the picker.
 - `crowd.js` draws the crowd chart from `data/crowd.json`.
 - `data/plan.json` (pool estimates, hourly), `data/rank.json` (every lock's earnings over 12 hours, 1 day, 2 days
   and 7 days plus earned / unclaimed, every 3 hours), `data/history.json` (every lock's APR per week and per day)
@@ -41,7 +43,8 @@ Six kinds of signature, only with the owning wallet connected and only after a p
   stays on Base. A split that uses another network carries that network's Hyperlane message fee as ETH on the same
   Base call: the amount shown under its dry run, never more than 0.03 ETH.
 - An exact-amount `approve` to the Metarouter on a reward token the scan found (0 ETH).
-- One Metarouter `execute` that sells those rewards for USDC to your own wallet (0 ETH).
+- One Metarouter `execute` that sells those rewards to your own wallet (0 ETH) for USDC, or for the AERO, WETH or
+  wrapped BTC you picked. A second RPC must agree on the prices first.
 - `claimRewards` to the Aero Voter on Base for a lock you own (0 ETH), rewards paid to your own wallet.
 - Only when you ask to compound: an exact-amount `approve` of the AERO token to the sAERO contract, then
   `increaseStakeAmount` adding exactly that AERO to a lock you own.
