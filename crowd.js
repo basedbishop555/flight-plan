@@ -11,10 +11,14 @@
   function render(el, Cd, pins) {
     var now = Math.floor(Date.now() / 1000), h0 = now - now % 3600, BIN = 7200;
     var tLo = h0 - 72 * 3600, tHi = h0 + 72 * 3600, nb = (tHi - tLo) / BIN;
-    var moved = [], frees = [], likely = [], k;
-    for (k = 0; k < nb; k++) { moved.push(0); frees.push(0); likely.push(0); }
-    (Cd.back || []).forEach(function (x) { var i = Math.floor((x[0] - tLo) / BIN); if (i >= 0 && i < nb && x[0] < h0) moved[i] += x[1] / 1e6; });
-    (Cd.fwd || []).forEach(function (x) { var i = Math.floor((x[0] - tLo) / BIN); if (i >= 0 && i < nb) { frees[i] += x[1] / 1e6; likely[i] += x[2] / 1e6; } });
+    var moved = [], frees = [], likely = [], movedA = [], freesA = [], k;
+    for (k = 0; k < nb; k++) { moved.push(0); frees.push(0); likely.push(0); movedA.push(0); freesA.push(0); }
+    // a 3rd (back) / 4th (fwd) column, when present, is the part that belongs to automated movers (vaults, clockwork
+    // locks, fleets): drawn as a darker base inside the same bar
+    var num = function (v) { v = Number(v); return v > 0 && isFinite(v) ? v : 0; };
+    (Cd.back || []).forEach(function (x) { var i = Math.floor((x[0] - tLo) / BIN); if (i >= 0 && i < nb && x[0] < h0) { moved[i] += x[1] / 1e6; movedA[i] += Math.min(num(x[2]), x[1]) / 1e6; } });
+    (Cd.fwd || []).forEach(function (x) { var i = Math.floor((x[0] - tLo) / BIN); if (i >= 0 && i < nb) { frees[i] += x[1] / 1e6; likely[i] += x[2] / 1e6; freesA[i] += Math.min(num(x[3]), x[1]) / 1e6; } });
+    var au = Cd.auto && num(Cd.auto.locks) ? Cd.auto : null;
     var fut = []; for (k = 0; k < nb; k++) if (tLo + k * BIN >= h0) fut.push(k);
     var vals = moved.concat(frees, likely, [1]).sort(function (a, b) { return a - b; });
     var top = Math.min(vals[vals.length - 1], vals[vals.length - 2] * 1.6);     // one outlier is clipped and labelled
@@ -35,13 +39,14 @@
     }
     for (k = 0; k < nb; k++) {
       var x = L + k * bw + 1;
-      [[moved[k], "c1"], [frees[k], "c2"]].forEach(function (p) {
-        var val = p[0];
+      [[moved[k], "c1", movedA[k]], [frees[k], "c2", freesA[k]]].forEach(function (p) {
+        var val = p[0], av = au ? Math.min(p[2], ymax * 0.97) : 0;
         if (val > 0.005) {
           if (val > ymax) { g.push("<text x='" + (x + (bw - 2) / 2).toFixed(1) + "' y='" + (T + 10) + "' class='cx cxb' text-anchor='" + (k < 4 ? "start" : "middle") + "'>" + val.toFixed(0) + "M</text>"); val = ymax * 0.97; }
           var hgt = Math.max(1, Y(0) - Y(val));
           g.push(bw - 2 >= 6 ? "<path class='" + p[1] + "' d='M" + x.toFixed(1) + "," + Y(0).toFixed(1) + "v" + (-Math.max(0, hgt - 2)).toFixed(1) + "q0,-2 2,-2h" + (bw - 6).toFixed(1) + "q2,0 2,2v" + Math.max(0, hgt - 2).toFixed(1) + "z'/>"
             : "<rect class='" + p[1] + "' x='" + x.toFixed(1) + "' y='" + Y(val).toFixed(1) + "' width='" + (bw - 2).toFixed(1) + "' height='" + hgt.toFixed(1) + "' rx='1'/>");
+          if (av > 0.005 && Y(0) - Y(av) >= 1) g.push("<rect class='ca' x='" + x.toFixed(1) + "' y='" + Y(av).toFixed(1) + "' width='" + Math.max(1, bw - 2).toFixed(1) + "' height='" + (Y(0) - Y(av)).toFixed(1) + "'/>");
         }
       });
     }
@@ -65,7 +70,8 @@
     var hits = "", data = [];
     for (k = 0; k < nb; k++) {
       hits += "<rect class='ch' x='" + (L + k * bw).toFixed(1) + "' y='" + T + "' width='" + bw.toFixed(1) + "' height='" + ph + "' data-k='" + k + "'/>";
-      data.push({ t: tLo + k * BIN, m: Math.round(moved[k] * 100) / 100, f: Math.round(frees[k] * 100) / 100, l: Math.round(likely[k] * 100) / 100, fut: tLo + k * BIN >= h0 });
+      data.push({ t: tLo + k * BIN, m: Math.round(moved[k] * 100) / 100, f: Math.round(frees[k] * 100) / 100, l: Math.round(likely[k] * 100) / 100, fut: tLo + k * BIN >= h0,
+        a: au ? Math.round((tLo + k * BIN >= h0 ? freesA[k] : movedA[k]) * 100) / 100 : 0 });
     }
     var bits = [], pk = Cd.peak;
     if (pk && pk.h) {
@@ -78,11 +84,12 @@
     var rows = data.filter(function (d2) { return Math.max(d2.m, d2.f, d2.l) >= 0.5; }).map(function (d2) {
       return "<tr><td>" + esc(dayHr(d2.t)) + "</td><td class='num'>" + esc(d2.m || "") + "</td><td class='num'>" + esc(d2.f || "") + "</td><td class='num'>" + esc(d2.l || "") + "</td></tr>"; }).join("");
     el.innerHTML = "<h2>When the crowd moves <span>" + esc(bits.join(" · ")) + "</span></h2><div class='body'>" +
-      "<div class='viz'><div class='lg'><span><i style='background:var(--s1)'></i>moved (last 72h)</span><span><i style='background:var(--s2)'></i>comes off cooldown</span><span><i class='ln' style='background:var(--s3)'></i>likely to move</span><span class='mut2'>per 2h · shaded = team batch window" + (pins && pins.length ? " · dashed = your windows" : "") + "</span></div>" +
+      "<div class='viz'><div class='lg'><span><i style='background:var(--s1)'></i>moved (last 72h)</span><span><i style='background:var(--s2)'></i>comes off cooldown</span><span><i class='ln' style='background:var(--s3)'></i>likely to move</span>" + (au ? "<span><i class='cai'></i>automated part</span>" : "") + "<span class='mut2'>per 2h · shaded = team batch window" + (pins && pins.length ? " · dashed = your windows" : "") + "</span></div>" +
       "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='sAERO moved over the last 72 hours and coming off cooldown over the next 72 hours, per 2 hours'>" + g.join("") + hits + "</svg><div class='tip'></div></div>" +
       "<p class='small mut' style='margin:8px 0 0'>Allocating right after a big wave has moved (its dilution is known) and after the team's batch has landed is the edge: a vote keeps earning past its window until you change it, so waiting is free.</p>" +
       "<p class='small mut2' style='margin:6px 0 0'>How long after a window opens locks move (share of sAERO, since launch): " + esc(curve) + ". Free and not moving now: " + ((Cd.free_now || 0) / 1e6).toFixed(0) + "M" +
-      (team.aero ? " (the team's " + Number(team.locks) + " locks, " + (team.aero / 1e6).toFixed(0) + "M, left out)" : "") + ". Team Safe: " + (bt.executed != null ? Number(bt.executed) : "?") + " batches, last " + (bt.last ? esc(dayHr(bt.last)) : "?") + (bt.fresh ? "; a NEW proposal is queued" : "") + ". Data from " + esc(ago(Cd.ts)) + ".</p>" +
+      (team.aero ? " (the team's " + Number(team.locks) + " locks, " + (team.aero / 1e6).toFixed(0) + "M, left out)" : "") + ". Team Safe: " + (bt.executed != null ? Number(bt.executed) : "?") + " batches, last " + (bt.last ? esc(dayHr(bt.last)) : "?") + (bt.fresh ? "; a NEW proposal is queued" : "") + ". Data from " + esc(ago(Cd.ts)) + "." +
+      (au ? " Automated movers (darker base of each bar): " + Number(au.locks).toLocaleString() + " locks that a machine moves (" + Number(au.vaults) + " Autopilot vaults, " + Number(au.clockwork) + " that move within an hour or two of every window, " + Number(au.fleet_locks) + " in " + Number(au.fleets) + " fleets that always move together), " + (num(au.aero) / 1e6).toFixed(0) + "M sAERO. They moved " + movedA.reduce(function (a, b) { return a + b; }, 0).toFixed(0) + "M of the last 72 hours' " + moved.reduce(function (a, b) { return a + b; }, 0).toFixed(0) + "M: the part of the crowd that moves on schedule whatever the pools pay." : "") + "</p>" +
       "<details style='margin-top:8px'><summary class='small mut' style='cursor:pointer'>Table view (M sAERO per 2h)</summary><div class='tw' style='margin-top:6px'><table><tr><th>From</th><th class='num'>Moved</th><th class='num'>Frees</th><th class='num'>Likely</th></tr>" + rows + "</table></div></details></div>";
     var tip = el.querySelector(".tip"), box = tip.parentNode, last = null;
     function f(v) { return v ? v.toFixed(1) + "M" : "-"; }
@@ -92,7 +99,7 @@
       var h = function (xx) { return xx.toLocaleTimeString([], { hour: "numeric" }).replace(" ", "").toLowerCase(); };
       tip.innerHTML = "";
       var hd = document.createElement("div"); hd.textContent = t1.toLocaleDateString([], { weekday: "short" }) + " " + h(t1) + " to " + h(t2); tip.appendChild(hd);
-      (d2.fut ? [["comes off cooldown", d2.f], ["likely to move", d2.l]] : [["moved", d2.m]]).forEach(function (xx) { var e = document.createElement("div"), bb = document.createElement("b"); bb.textContent = f(xx[1]); e.appendChild(bb); e.appendChild(document.createTextNode(" " + xx[0])); tip.appendChild(e); });
+      (d2.fut ? [["comes off cooldown", d2.f], ["likely to move", d2.l]] : [["moved", d2.m]]).concat(d2.a ? [["of it automated", d2.a]] : []).forEach(function (xx) { var e = document.createElement("div"), bb = document.createElement("b"); bb.textContent = f(xx[1]); e.appendChild(bb); e.appendChild(document.createTextNode(" " + xx[0])); tip.appendChild(e); });
       tip.style.display = "block";
       var bbx = box.getBoundingClientRect(), rr = r.getBoundingClientRect();
       var xx2 = rr.left - bbx.left + rr.width / 2 - tip.offsetWidth / 2;

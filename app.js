@@ -603,12 +603,13 @@ const jpnRank = g => { const X = S.D && S.D.ext && S.D.ext.jpn; if (!X || !g) re
 function extNote() {
   const src = S.dial && S.dial.src, X = src && S.D && S.D.ext && S.D.ext[src];
   if (!src) return "";
+  const track = trackNote(src);
   const nets = S.dial.baseOnly
     ? (src === "cypher" ? "Base only (your switch) = his own Base setting: new picks go to Base pools, but AERO a lock already has on another network may stay there, as his site advises; Flight Plan signs that too." : "Base only (your switch): every pick is a Base pool, 0 ETH to sign.")
     : "Every network. Flight Plan signs any of them from Base: another network adds a small ETH fee for Aero's bridge, and moving AERO between networks takes two signatures (free it, then send it).";
   if (src === "jpn") {
     if (!X) return `<div class="banner warn small" style="margin:0 0 10px">JPN's picks aren't in this hour's data. Try Balanced, or check back after the next hourly update.</div>`;
-    return `<div class="banner small" style="margin:0 0 10px"><b>JPN's picks</b>: the top ${S.dial.n || X.n} pools from JPN's <a href="${esc(httpsUrl(X.url))}" target="_blank" rel="noopener noreferrer">Aero v3 Allocation Screener</a> on Dune, weighted by his score (mid and low cases after dilution, steadier fees, x0.85 for pools the allocator apps already rank top 5). His read: ${esc(ago(X.fetched))}. ${nets} <b>Pure:</b> none of our rules apply; our model only prices the split so every preset's dollars compare. The Pools knob changes how many of his picks you take; turning any other knob switches to Custom (our model). <a href="docs.html#friends">More</a></div>`;
+    return `<div class="banner small" style="margin:0 0 10px"><b>JPN's picks</b>: the top ${S.dial.n || X.n} pools from JPN's <a href="${esc(httpsUrl(X.url))}" target="_blank" rel="noopener noreferrer">Aero v3 Allocation Screener</a> on Dune, weighted by his score (mid and low cases after dilution, steadier fees, x0.85 for pools the allocator apps already rank top 5). His read: ${esc(ago(X.fetched))}. ${nets} <b>Pure:</b> none of our rules apply; our model only prices the split so every preset's dollars compare. The Pools knob changes how many of his picks you take; turning any other knob switches to Custom (our model).${track} <a href="docs.html#friends">More</a></div>`;
   }
   const exact = CY.res && CY.key === cyKey() ? S.locks.filter(L => CY.res.byName["#" + L.id]) : [];
   const head = exact.length
@@ -621,7 +622,19 @@ function extNote() {
     const mv = R.filter(r => r.move);
     verdict = ` His Plan tab: about <b>${esc(money(plan))}/day</b> vs ${esc(money(stay))}/day if ${exact.length === 1 ? "it stays" : "they stay"} (his 47h estimate). His Advice tab says ${mv.length ? `move ${mv.length === exact.length ? (exact.length === 1 ? "now" : "all " + exact.length) : mv.length + " of " + exact.length}` : "stay for now (the gain doesn't clear his bar)"}.`;
   }
-  return `<div class="banner small" style="margin:0 0 10px"><b>Cypher's picks</b>: ${head}${verdict} ${nets} <b>Pure:</b> none of our rules apply; our model only prices it. Turning any knob switches to Custom (our model). <a href="docs.html#friends">More</a></div>`;
+  return `<div class="banner small" style="margin:0 0 10px"><b>Cypher's picks</b>: ${head}${verdict} ${nets} <b>Pure:</b> none of our rules apply; our model only prices it. Turning any knob switches to Custom (our model).${track} <a href="docs.html#friends">More</a></div>`;
+}
+/* A pure preset's track record against Balanced (11/24/2026), from the replay in data/backtest.json: both paid from
+   what the pools really paid over the same past starts, for the tested lock size nearest yours. Says nothing when
+   there are too few starts to mean anything. */
+function trackNote(src) {
+  const B = S.BT; if (!B || !B.rows) return "";
+  const a = S.locks.length ? totalAero() : 30000;
+  const size = BT_SIZES.map(x => x[0]).filter(k => B.rows[k] && B.rows[k][src]).reduce((b, k) => b == null || Math.abs(Math.log(+k / a)) < Math.abs(Math.log(+b / a)) ? k : b, null);
+  const v = size && B.rows[size][src]; if (!v || !(v.vsb > 0) || !(v.nc >= 16)) return "";
+  const say = r => { const d = Math.round((r - 1) * 100); return d === 0 ? "the same as" : `${Math.abs(d)}% ${d < 0 ? "less" : "more"} than`; };
+  const lately = v.vsb7 > 0 && v.n7 >= 16 ? `over the last 7 days it earned <b>${say(v.vsb7)}</b> Balanced, and ` : "";
+  return ` <b>Track record:</b> replayed on past scans for a ${esc((BT_SIZES.find(x => x[0] === size) || [0, size])[1])} lock, ${lately}${say(v.vsb)} Balanced over all ${Number(v.nc)} recorded starts. <a href="#tested">The table</a>`;
 }
 function poolRow(l) {
   const r = l.row, col = typeColor(r.type);
@@ -993,8 +1006,22 @@ function renderWins() {
     ${tbl("Pools allocated", T.pools, ["1", "2-3", "4-6", "7+"], you.pools)}
     ${tbl("Moves in 7 days", T.moves, ["0", "1", "2+"], null)}
     ${tbl("Fees vs streams", T.mix, ["fee-led", "mixed", "stream-led"], you.mix)}
+    ${topTable(T.top, label[S.winsBr] || S.winsBr)}
     <p class="small mut2" style="margin:8px 0 0">The average is weighted by AERO (what the group's average AERO earned); the median is the typical lock. Read on chain every 3 hours from the last ${Math.round((ST.to - ST.from) / 86400)} days; ${weeks ? `${weeks} weekly snapshot${weeks === 1 ? "" : "s"} kept so far` : "weekly snapshots start accumulating from this week"}. This is how the presets get tuned. <a href="docs.html#wins">How it's measured</a></p></div>`;
   el.querySelectorAll("#winsbr button").forEach(b => b.addEventListener("click", () => { S.winsBr = b.dataset.b; renderWins(); }));
+}
+/* Where the best-earning tenth is allocated right now (11/24/2026; strategy.json brackets[b].top). Each lock's own
+   split, averaged lock by lock, beside the same figure for every lock in the bracket. A look at the crowd's winners,
+   not a recommendation: a one-week winner is often one hot pool. */
+const NET_LABEL = { optimism: "OP", arbitrum: "Arbitrum", ethereum: "Ethereum", ink: "Ink", robinhood: "Robinhood", arc: "Arc", elysium: "Elysium" };
+function topTable(t, brLabel) {
+  if (!t || !Array.isArray(t.pools) || !t.pools.length) return "";
+  const mine = new Set(); for (const l of (S.plan && S.plan.legs) || []) if (l.row) mine.add(String(l.row.gid).split(":").pop());
+  const p1 = x => (Number(x) * 100).toFixed(1) + "%";
+  const rows = t.pools.filter(r => Number(r[1]) >= 0.01).slice(0, 10).map(([gid, a, b, name, chain]) => `<tr><td>${esc(name || "Pool #" + gid)}${chain && chain !== "base" ? ` <small class="mut">${esc(NET_LABEL[chain] || chain)}</small>` : ""}${mine.has(String(gid)) ? ' <span class="tag ok" style="font-size:11px;padding:1px 7px">in your split</span>' : ""}</td><td class="num">${p1(a)}</td><td class="num mut">${p1(b)}</td></tr>`).join("");
+  if (!rows) return "";
+  return `<div class="tw" style="margin-top:10px"><table><tr><th>Where the top 10% are now</th><th class="num">Top 10%</th><th class="num">Everyone</th></tr>${rows}</table></div>
+    <p class="small mut2" style="margin:6px 0 0">The ${Number(t.n).toLocaleString()} best-earning of ${Number(t.of).toLocaleString()} ${brLabel === "All" ? "" : esc(brLabel) + " "}locks over the last 7 days (${Number(t.cut).toFixed(1)}% APR and up, typical ${Number(t.median).toFixed(1)}%), and the share of a lock each pool holds on average. Their typical lock uses ${Number(t.pools_med)} pool${Number(t.pools_med) === 1 ? "" : "s"} and moved ${Number(t.moves_med)} time${Number(t.moves_med) === 1 ? "" : "s"} this week (everyone: ${Number(t.pools_med_all)} and ${Number(t.moves_med_all)}). One good week in one hot pool is often luck, so read this as where the crowd's winners sit, not as advice.</p>`;
 }
 // ---------- "How each strategy did": every preset replayed on past scans, no look-ahead (data/backtest.json) ----------
 const BT_SIZES = [["1000", "1k"], ["30000", "30k"], ["100000", "100k"], ["1000000", "1M"]];
