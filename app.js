@@ -1751,11 +1751,13 @@ async function swSend() {
 $("floorSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { $("floorSeg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); SW.floor = Number(b.dataset.f); if (SW.rows.length) swScan().catch(e => log(e.message, "bad")); }));
 $("btnScan").addEventListener("click", () => { try { localStorage.setItem(EXTRA_KEY, $("extra").value); } catch (e) {} swScan().catch(e => log("Scan failed: " + e.message, "bad")); });
 function intoUi() {
+  if (!$("intoSeg")) return;                    // a cached page from before the picker: sweeps to USDC as it always did
   $("intoSeg").querySelectorAll("button").forEach(b => { const on = b.dataset.t === SW.into; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
   const aero = SW.into === "aero"; $("keepAero").disabled = aero; $("keepAero").parentElement.style.opacity = aero ? 0.45 : 1;   // AERO is never sold when it is what the sweep buys
   $("swTitle").textContent = "Sweep rewards to " + INTO_NAME[SW.into];
 }
-$("intoSeg").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+if (!$("intoSeg")) SW.into = "stable";
+($("intoSeg") ? $("intoSeg").querySelectorAll("button") : []).forEach(b => b.addEventListener("click", () => {
   if (!INTO_KEYS.includes(b.dataset.t) || b.dataset.t === SW.into) return;
   SW.into = b.dataset.t; store.set("sweepInto", SW.into); intoUi();
   SW.plan = null; SW.dry = null; $("btnSend").disabled = true; $("swOut").innerHTML = "";
