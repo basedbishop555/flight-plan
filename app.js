@@ -90,7 +90,24 @@ async function dataJson(name, v) {
   const base = await dataBase();
   const r = await fetch(base + name + "?v=" + (v || Math.floor(Date.now() / 600000)), { signal: AbortSignal.timeout(30000) });
   if (!r.ok) throw new Error(`${name}: HTTP ${r.status}`);
-  return r.json();
+  const d = await r.json();
+  return MARKUP_OK.has(name) ? d : plainData(d, name);
+}
+// Every data file is drawn into the page somewhere, so none may carry markup: a string or a key holding < > " or a
+// backtick fails the whole file (11/24/2026). Pool names, labels and numbers never contain them.
+// Two files are exempt: plan.json (checkPlanData; its JPN notes say things like "<$500/d" and are escaped where shown)
+// and saero/code.json (program text that only ever runs inside the sandboxed frame).
+const MARKUP_RE = /[<>"`]/, MARKUP_OK = new Set(["plan.json", "saero/code.json"]);
+function plainData(d, name) {
+  const walk = (x, depth) => {
+    if (typeof x === "string") { if (MARKUP_RE.test(x)) throw new Error(`${name} failed its checks (markup in the data)`); return; }
+    if (x === null || typeof x !== "object") return;
+    if (depth > 12) throw new Error(`${name} failed its checks (nested too deep)`);
+    if (Array.isArray(x)) { for (let i = 0; i < x.length; i++) walk(x[i], depth + 1); return; }
+    for (const k in x) { if (MARKUP_RE.test(k)) throw new Error(`${name} failed its checks (markup in the data)`); walk(x[k], depth + 1); }
+  };
+  walk(d, 0);
+  return d;
 }
 // plan.json names the pools a split may use, so its shape is checked before anything is planned from it
 const ADDR_RE = /^0x[0-9a-fA-F]{40}$/, CHAINS_OK = new Set(["base", "optimism", "ethereum", "arbitrum", "ink", "robinhood", "arc", "elysium"]);
@@ -967,11 +984,11 @@ function renderWins() {
   const tbl = (title, o, order, mine) => {
     const bk = best(o);
     return `<div class="tw"><table><tr><th>${title}</th><th class="num">Locks</th><th class="num">Avg APR 7d</th><th class="num">Median</th></tr>` +
-      order.filter(k => o[k]).map(k => `<tr${mine === k ? ' style="font-weight:700"' : ""}><td>${esc(k)}${mine === k ? ' <span class="tag ok" style="font-size:11px;padding:1px 7px">you</span>' : ""}</td><td class="num">${o[k].n.toLocaleString()}</td><td class="num ${k === bk ? "ok" : ""}">${pct(o[k].avg)}</td><td class="num">${pct(o[k].median)}</td></tr>`).join("") + `</table></div>`;
+      order.filter(k => o[k]).map(k => `<tr${mine === k ? ' style="font-weight:700"' : ""}><td>${esc(k)}${mine === k ? ' <span class="tag ok" style="font-size:11px;padding:1px 7px">you</span>' : ""}</td><td class="num">${Number(o[k].n).toLocaleString()}</td><td class="num ${k === bk ? "ok" : ""}">${pct(o[k].avg)}</td><td class="num">${pct(o[k].median)}</td></tr>`).join("") + `</table></div>`;
   };
   const weeks = (ST.history || []).length;
-  el.innerHTML = `<h2>What actually wins <span>last 7 days · ${ST.locks.toLocaleString()} locks</span></h2><div class="body">
-    <div class="seg" id="winsbr">${brs.map(k => `<button type="button" data-b="${k}" class="${S.winsBr === k ? "on" : ""}">${label[k] || k}</button>`).join("")}</div>
+  el.innerHTML = `<h2>What actually wins <span>last 7 days · ${Number(ST.locks).toLocaleString()} locks</span></h2><div class="body">
+    <div class="seg" id="winsbr">${brs.map(k => `<button type="button" data-b="${esc(k)}" class="${S.winsBr === k ? "on" : ""}">${esc(label[k] || k)}</button>`).join("")}</div>
     <p class="small mut" style="margin:0 0 8px">Every ranked lock${S.winsBr === "all" ? "" : " of " + (label[S.winsBr] || S.winsBr)}, grouped by what it did, with each group's whole-lock APR over the last 7 days (average weighted by AERO). Group average ${pct(T.all && T.all.avg)} · median ${pct(T.all && T.all.median)}.</p>
     ${tbl("Pools allocated", T.pools, ["1", "2-3", "4-6", "7+"], you.pools)}
     ${tbl("Moves in 7 days", T.moves, ["0", "1", "2+"], null)}
@@ -996,12 +1013,12 @@ function renderTested() {
   const rows = BT_ORDER.filter(k => R[k]).map(k => { const v = R[k];
     return `<tr${mine === k ? ' style="font-weight:700"' : ""}><td>${esc(B.labels[k] || k)}${mine === k ? ' <span class="tag ok" style="font-size:11px;padding:1px 7px">you</span>' : ""}</td>` +
       `<td class="num">${d2(v.median)}<br><small class="mut">${v.p25 != null ? v.p25.toFixed(2) + " to " + v.p75.toFixed(2) : ""}</small></td>` +
-      `<td class="num mut">${v.worst.toFixed(2)} to ${v.best.toFixed(2)}</td><td class="num">${k === "balanced" ? "" : (v.bw != null ? v.bw + " of " + v.b : "-")}</td></tr>`; }).join("");
+      `<td class="num mut">${v.worst.toFixed(2)} to ${v.best.toFixed(2)}</td><td class="num">${k === "balanced" ? "" : (v.bw != null ? Number(v.bw) + " of " + Number(v.b) : "-")}</td></tr>`; }).join("");
   const N = (B.networks || {})[S.btSize] || {};
   const nets = Object.entries(N).filter(([, v]) => v && v.n).map(([c, v]) => `${BT_NET[c] || c} ${Math.round(v.share * 100)}%`).join(" · ");
   const thin = Object.entries(B.cadence || {}).filter(([, h]) => h && h > 6).map(([c]) => BT_NET[c] || c);
   const M = B.calmodel || {}, P0 = M.presets || {}, typ = m => m ? "$" + m[1].toFixed(2) : "-", cm = calModel();
-  el.innerHTML = `<h2>How each strategy did <span>${B.n_starts} past starts · about ${B.independent_windows.toFixed(1)} separate windows</span></h2><div class="body">
+  el.innerHTML = `<h2>How each strategy did <span>${Number(B.n_starts)} past starts · about ${B.independent_windows.toFixed(1)} separate windows</span></h2><div class="body">
     <div class="seg" id="btsize">${BT_SIZES.filter(x => B.rows[x[0]]).map(([k, t]) => `<button type="button" data-s="${k}" class="${S.btSize === k ? "on" : ""}">${t} AERO</button>`).join("")}</div>
     <p class="small mut" style="margin:0 0 8px">Each strategy planned with only what was known at the time, every 3 hours from ${esc(new Date(B.first * 1000).toLocaleDateString([], { month: "short", day: "numeric" }))} to ${esc(new Date(B.last * 1000).toLocaleDateString([], { month: "short", day: "numeric" }))}, then paid from what the pools really paid over the next 47 hours (real pile-ons in). Dollars per 1,000 AERO per window.</p>
     <div class="tw"><table><tr><th>Strategy</th><th class="num">Median<br><small>middle half</small></th><th class="num">Worst to best</th><th class="num">Beat Balanced</th></tr>${rows}</table></div>

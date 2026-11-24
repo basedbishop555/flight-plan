@@ -76,13 +76,13 @@
     var curve = (Cd.curve || []).filter(function (c) { return c[1] != null; }).map(function (c) { return c[0] + " " + c[1] + "%"; }).join(" · ");
     var team = Cd.team || {}, bt = Cd.batch || {};
     var rows = data.filter(function (d2) { return Math.max(d2.m, d2.f, d2.l) >= 0.5; }).map(function (d2) {
-      return "<tr><td>" + esc(dayHr(d2.t)) + "</td><td class='num'>" + (d2.m || "") + "</td><td class='num'>" + (d2.f || "") + "</td><td class='num'>" + (d2.l || "") + "</td></tr>"; }).join("");
+      return "<tr><td>" + esc(dayHr(d2.t)) + "</td><td class='num'>" + esc(d2.m || "") + "</td><td class='num'>" + esc(d2.f || "") + "</td><td class='num'>" + esc(d2.l || "") + "</td></tr>"; }).join("");
     el.innerHTML = "<h2>When the crowd moves <span>" + esc(bits.join(" · ")) + "</span></h2><div class='body'>" +
       "<div class='viz'><div class='lg'><span><i style='background:var(--s1)'></i>moved (last 72h)</span><span><i style='background:var(--s2)'></i>comes off cooldown</span><span><i class='ln' style='background:var(--s3)'></i>likely to move</span><span class='mut2'>per 2h · shaded = team batch window" + (pins && pins.length ? " · dashed = your windows" : "") + "</span></div>" +
       "<svg viewBox='0 0 " + W + " " + H + "' role='img' aria-label='sAERO moved over the last 72 hours and coming off cooldown over the next 72 hours, per 2 hours'>" + g.join("") + hits + "</svg><div class='tip'></div></div>" +
       "<p class='small mut' style='margin:8px 0 0'>Allocating right after a big wave has moved (its dilution is known) and after the team's batch has landed is the edge: a vote keeps earning past its window until you change it, so waiting is free.</p>" +
       "<p class='small mut2' style='margin:6px 0 0'>How long after a window opens locks move (share of sAERO, since launch): " + esc(curve) + ". Free and not moving now: " + ((Cd.free_now || 0) / 1e6).toFixed(0) + "M" +
-      (team.aero ? " (the team's " + team.locks + " locks, " + (team.aero / 1e6).toFixed(0) + "M, left out)" : "") + ". Team Safe: " + (bt.executed != null ? bt.executed : "?") + " batches, last " + (bt.last ? esc(dayHr(bt.last)) : "?") + (bt.fresh ? "; a NEW proposal is queued" : "") + ". Data from " + esc(ago(Cd.ts)) + ".</p>" +
+      (team.aero ? " (the team's " + Number(team.locks) + " locks, " + (team.aero / 1e6).toFixed(0) + "M, left out)" : "") + ". Team Safe: " + (bt.executed != null ? Number(bt.executed) : "?") + " batches, last " + (bt.last ? esc(dayHr(bt.last)) : "?") + (bt.fresh ? "; a NEW proposal is queued" : "") + ". Data from " + esc(ago(Cd.ts)) + ".</p>" +
       "<details style='margin-top:8px'><summary class='small mut' style='cursor:pointer'>Table view (M sAERO per 2h)</summary><div class='tw' style='margin-top:6px'><table><tr><th>From</th><th class='num'>Moved</th><th class='num'>Frees</th><th class='num'>Likely</th></tr>" + rows + "</table></div></details></div>";
     var tip = el.querySelector(".tip"), box = tip.parentNode, last = null;
     function f(v) { return v ? v.toFixed(1) + "M" : "-"; }
