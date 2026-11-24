@@ -271,7 +271,7 @@ function calib(pl) {
 const CY = { ready: null, data: null, seq: 0, wait: {}, res: null, key: "", busy: false, err: null };
 const CY_NET = { 8453: "base", 10: "optimism", 1: "ethereum", 42161: "arbitrum", 57073: "ink", 4663: "robinhood", 5042: "arc", 99901: "elysium" };
 const CY_POOL = /^(base|optimism|ethereum|arbitrum|ink|robinhood|arc|elysium):0x[0-9a-f]{40}$/;
-const CY_FRAME_V = "3";                         // bump whenever cypher-frame.html changes
+const CY_FRAME_V = "4";                         // bump whenever cypher-frame.html changes
 const CY_MAX_POOLS = 8, CY_MIN_SIZE = 100000;   // his Plan tab's defaults ("Most pools" 8, "Smallest pool" 100k sAERO)
 // sha256 of his page's Plan-tab function the frame's planTab() was matched against (saero_track.py writes the live one
 // to data/saero/meta.json plan_sha); a mismatch means his site changed and the note says picks may differ slightly

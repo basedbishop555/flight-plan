@@ -15,6 +15,10 @@
    follows the same steps with his plan.js maths; Flight Plan shows the Plan tab's split. */
 (function () {
   "use strict";
+  // Runs ONLY inside the sandbox (11/24/2026). Opened directly, or framed by another site without the sandbox, this
+  // page would have flight-plan.app's own origin, and code posted in would run with it. A sandboxed frame's origin
+  // is the opaque "null"; anything else stops here, before a single message is read.
+  if (self.origin !== "null") return;
   var loaded = null;
   // his planner arrives as text and runs here as an inline script: inside this sandbox, with the network shut
   function load(code) {

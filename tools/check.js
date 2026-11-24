@@ -7,7 +7,7 @@ const ref = JSON.parse(fs.readFileSync(path.join(__dirname, "reference.json")));
 // reference.json can never match (11/13/2026: six "FAIL"s that were only a week-old reference). Say so instead.
 if (!ref.every(r => D.starts.includes(r.start))) {
   console.log("reference.json is from an older hour than data/plan.json, so there is nothing to compare.\n" +
-    "Make both from the same hour first:  python3 <DeFiTracker>/aeroscan/public_export.py --check   then run this again.");
+    "Make both from the same hour first:  the scanner's export with --check   then run this again.");
   process.exit(2);
 }
 let bad = 0;
