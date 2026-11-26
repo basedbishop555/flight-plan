@@ -5,7 +5,7 @@ An unofficial, open-source allocation planner for sAERO lockers on Aero (Base). 
 Paste a wallet address and Flight Plan:
 
 - finds its sAERO locks on chain,
-- suggests a split of the allocation across pools, sized to those locks (Auto, or exactly 1 to 10 pools),
+- suggests a split of the allocation across pools, sized to those locks (Auto, or exactly 1 to 14 pools),
 - ranks the locks against every sAERO lock or every wallet, on a whole-lock APR,
 - rehearses the allocation for free with `eth_simulateV1` (nothing is signed or sent),
 - shows your week-by-week and day-by-day APR against the average, your earnings, and when the crowd moves.

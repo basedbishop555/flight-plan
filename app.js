@@ -239,7 +239,7 @@ const PRESET_BTN = { steady: "Steady", balanced: "Balanced", aggressive: "Aggres
 function loadDial() {
   let d = null; try { d = JSON.parse(store.get("dial", "null")); } catch (e) {}
   if (!d || typeof d !== "object") { d = { ...PRESETS.balanced, baseOnly: true }; const old = Number(store.get("pools", 0)) || 0; if (old) d.n = old; }   // first visit: Base only (11/6/2026)
-  const v = { n: Math.max(0, Math.min(10, Math.round(Number(d.n) || 0))), memory: clamp(d.memory, 0, 1, 0.5), trust: !!d.trust, caution: clamp(d.caution, 0, 2, 1), streams: clamp(d.streams, 0, 1, 1), baseOnly: !!d.baseOnly,
+  const v = { n: Math.max(0, Math.min(14, Math.round(Number(d.n) || 0))), memory: clamp(d.memory, 0, 1, 0.5), trust: !!d.trust, caution: clamp(d.caution, 0, 2, 1), streams: clamp(d.streams, 0, 1, 1), baseOnly: !!d.baseOnly,
               src: d.src === "jpn" || d.src === "cypher" ? d.src : null };
   v.preset = matchPreset(v); return v;
 }
@@ -655,7 +655,7 @@ function poolRow(l) {
     <div class="addr">gauge <code data-copy="${esc(r.gauge)}">${esc(r.gauge)}</code></div></div></details>`;
 }
 // The four knobs drive hidden range inputs (same ranges / steps / wiring as the old sliders), so nothing downstream changes.
-const KNOBS = [["n", "Pools", 0, 10, 1], ["memory", "Fee lookback", 0, 100, 5], ["caution", "Avoid crowds", 0, 200, 10], ["streams", "Count incentives", 0, 100, 25]];
+const KNOBS = [["n", "Pools", 0, 14, 1], ["memory", "Fee lookback", 0, 100, 5], ["caution", "Avoid crowds", 0, 200, 10], ["streams", "Count incentives", 0, 100, 25]];
 function knobVal(k) {
   const d = S.dial;
   // words, not raw numbers (11/6/2026): Fee lookback 4 days ... 12 hours; Avoid crowds Low / Normal / High (+ the
